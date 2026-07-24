@@ -1,34 +1,37 @@
 # Orkestra Build Status
 
 **Status:** IN_PROGRESS
-**Phase:** 0 — Bootstrap and environment inventory
+**Phase:** 9 — Live validation and dogfooding (fake-agent E2E complete)
 **Last updated:** 2026-07-24
 
 ## Phase checklist
 
-- [x] Phase 0 started: git initialized (`main`), environment inventoried
-- [ ] Phase 1 — Research and architecture decision
-- [ ] Phase 2 — Repository and quality foundation
-- [ ] Phase 3 — Core kernel and persistence
-- [ ] Phase 4 — Process and agent adapter layer
-- [ ] Phase 5 — Git workspace and integration engine
-- [ ] Phase 6 — Director and capability system
-- [ ] Phase 7 — CLI and operator experience
-- [ ] Phase 8 — Policy, sandboxing, and human gates
-- [ ] Phase 9 — End-to-end validation and dogfooding
-- [ ] Phase 10 — Documentation, packaging, and release
+- [x] Phase 0 — Bootstrap and environment inventory
+- [x] Phase 1 — Research and architecture decision (docs/research/*, ADRs)
+- [x] Phase 2 — Repository and quality foundation
+- [x] Phase 3 — Core kernel and persistence
+- [x] Phase 4 — Adapter layer (claude-code, codex-cli, antigravity-cli,
+      gemini-cli, fake, external + contract kit)
+- [x] Phase 5 — Git workspace and integration engine
+- [x] Phase 6 — Director and capability system
+- [x] Phase 7 — CLI and operator experience
+- [x] Phase 8 — Policy, human gates, redaction (docker sandbox deferred
+      honestly to v0.2 — refused with explanation, see ROADMAP)
+- [ ] Phase 9 — E2E validation and dogfooding
+  - [x] 15-scenario fake-agent E2E suite (2/3/5-agent runs, fallback,
+        review rejection/repair, gate veto, decisions, interruption/
+        resume, cancellation, merge-conflict recovery)
+  - [x] Live smoke iterations 1–3 with real claude/codex/agy: director
+        analysis, live probes, plan challenges verified; three kernel
+        defects found and fixed (dirty-repo fail-fast, orphaned
+        PLANNING runs, prose acceptance commands crashing the pipeline)
+  - [ ] Full live run to COMPLETE (in progress)
+  - [ ] Controlled self-review dogfood
+- [ ] Phase 10 — Documentation ✔ (README + docs set written), packaging,
+      GitHub publication, release
 
-## Current state
+## Quality gates (current)
 
-- Repository initialized at `~/Downloads/Orkestra` with branch `main`.
-- Environment inventory recorded in `docs/research/ENVIRONMENT_INVENTORY.md`.
-- Gemini CLI 0.52.0 installed globally via npm (recorded in
-  `docs/development/ENVIRONMENT_CHANGES.md`).
-- Docker daemon was not running at session start; Docker Desktop launch was
-  attempted. Docker-based sandboxing is an optional feature and not a build
-  blocker.
-
-## Known risks / open questions
-
-- Gemini CLI authentication state not yet verified non-interactively.
-- Docker daemon availability pending.
+- 249 tests passing (unit, integration, E2E, CLI)
+- Coverage 82% (floor 80)
+- ruff clean, mypy --strict clean, bandit 0 findings, pip-audit clean
