@@ -40,9 +40,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Direct pinned gitleaks over full history (the wrapper action fails on
+      # push ranges that include the root commit).
+      - name: Run gitleaks (full history)
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tgz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --redact -v
 
   test:
     name: Tests (py${{ matrix.python }} / ${{ matrix.os }})
