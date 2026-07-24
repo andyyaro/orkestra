@@ -50,6 +50,14 @@ def find_project_root(start: Path | None = None) -> Path:
 def build_app(root: Path | None = None, *, offline: bool = False) -> App:
     project_root = find_project_root(root)
     config = load_config(project_root / CONFIG_RELPATH)
+    if config.policy.sandbox == "docker":
+        msg = (
+            "policy.sandbox = 'docker' is not yet supported in v0.1: vendor "
+            "CLIs cannot authenticate inside containers without exposing host "
+            "credentials, which Orkestra refuses to do. Agent-native OS "
+            "sandboxes remain active. Track progress in ROADMAP.md (v0.2)."
+        )
+        raise ConfigError(msg)
     store = Store(Database(project_root / DB_RELPATH))
     adapters = {
         name: build_adapter(name, agent_config)
