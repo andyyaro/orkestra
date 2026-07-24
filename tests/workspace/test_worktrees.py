@@ -43,10 +43,16 @@ class TestValidation:
         with pytest.raises(WorkspaceError, match="no commits"):
             await WorkspaceManager(root, make_policy()).validate_repository()
 
-    async def test_dirty_repo_blocked(self, project: WorkspaceManager) -> None:
-        (project.root / "dirty.txt").write_text("uncommitted")
+    async def test_tracked_changes_blocked(self, project: WorkspaceManager) -> None:
+        (project.root / "README.md").write_text("modified tracked file")
         with pytest.raises(WorkspaceError, match="uncommitted changes"):
             await project.validate_repository()
+
+    async def test_untracked_files_allowed(self, project: WorkspaceManager) -> None:
+        # Agent CLIs drop state dirs (.claude/, logs); untracked files never
+        # enter worktrees or merges, so they must not block runs.
+        (project.root / "untracked.log").write_text("agent CLI state")
+        await project.validate_repository()  # no raise
 
 
 class TestRunAndWorkspaces:
