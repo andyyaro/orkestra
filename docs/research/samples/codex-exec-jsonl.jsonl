@@ -1,0 +1,5 @@
+{"_note": "Captured 2026-07-24 from `codex exec --json --skip-git-repo-check -s read-only 'Reply with exactly: OK'` (codex-cli 0.144.4). Events below are verbatim; thread_id is a local session identifier."}
+{"type":"thread.started","thread_id":"019f957d-4f33-7e21-b4b6-38e78b78a0ee"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"OK"}}
+{"type":"turn.completed","usage":{"input_tokens":17144,"cached_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0}}

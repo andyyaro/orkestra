@@ -1,0 +1,22 @@
+{
+  "_note": "Captured 2026-07-24 from `claude -p 'Reply with exactly: OK' --output-format json --model haiku` (claude 2.1.219). Identifiers are local session UUIDs, not secrets. Some volatile fields trimmed.",
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "result": "OK",
+  "session_id": "0c4a565f-6f9f-4d62-b2a2-871773cc365e",
+  "num_turns": 1,
+  "stop_reason": "end_turn",
+  "terminal_reason": "completed",
+  "duration_ms": 3648,
+  "duration_api_ms": 4640,
+  "total_cost_usd": 0.0171116,
+  "permission_denials": [],
+  "api_error_status": null,
+  "usage": {
+    "input_tokens": 10,
+    "output_tokens": 42,
+    "cache_read_input_tokens": 17536,
+    "cache_creation_input_tokens": 7281
+  }
+}
