@@ -57,9 +57,7 @@ def build_app(root: Path | None = None, *, offline: bool = False) -> App:
     }
     policy = PolicyEngine(config.policy, list(config.enabled_agents.keys()))
     workspaces = WorkspaceManager(project_root, policy)
-    orchestrator = Orchestrator(
-        project_root, config, store, adapters, policy, workspaces
-    )
+    orchestrator = Orchestrator(project_root, config, store, adapters, policy, workspaces)
     director = DirectorService(
         config.director.agent,
         adapters[config.director.agent],

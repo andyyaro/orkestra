@@ -25,13 +25,18 @@ def feed(parser, lines: list[str], stderr: list[str] | None = None):  # type: ig
 
 
 class TestClaudeParser:
-    RESULT = json.dumps({
-        "type": "result", "subtype": "success", "is_error": False, "result": "OK",
-        "session_id": "0c4a565f-6f9f-4d62-b2a2-871773cc365e", "num_turns": 1,
-        "total_cost_usd": 0.0171116,
-        "usage": {"input_tokens": 10, "output_tokens": 42,
-                  "cache_read_input_tokens": 17536},
-    })
+    RESULT = json.dumps(
+        {
+            "type": "result",
+            "subtype": "success",
+            "is_error": False,
+            "result": "OK",
+            "session_id": "0c4a565f-6f9f-4d62-b2a2-871773cc365e",
+            "num_turns": 1,
+            "total_cost_usd": 0.0171116,
+            "usage": {"input_tokens": 10, "output_tokens": 42, "cache_read_input_tokens": 17536},
+        }
+    )
 
     def test_happy_path(self) -> None:
         parser = ClaudeParser()
@@ -45,10 +50,12 @@ class TestClaudeParser:
 
     def test_api_retry_rate_limit_categorized(self) -> None:
         parser = ClaudeParser()
-        retry = json.dumps({"type": "system", "subtype": "api_retry",
-                            "error": "rate_limit", "attempt": 1})
-        error_result = json.dumps({"type": "result", "is_error": True,
-                                   "subtype": "error_during_execution", "result": ""})
+        retry = json.dumps(
+            {"type": "system", "subtype": "api_retry", "error": "rate_limit", "attempt": 1}
+        )
+        error_result = json.dumps(
+            {"type": "result", "is_error": True, "subtype": "error_during_execution", "result": ""}
+        )
         feed(parser, [retry, error_result])
         result = parser.result(1, 1.0, "/work")
         assert result.status is ResultStatus.ERROR
@@ -62,17 +69,31 @@ class TestClaudeParser:
 
     def test_structured_output_passthrough(self) -> None:
         parser = ClaudeParser()
-        envelope = json.dumps({"type": "result", "is_error": False, "result": "{}",
-                               "session_id": "s", "structured_output": {"a": 1}})
+        envelope = json.dumps(
+            {
+                "type": "result",
+                "is_error": False,
+                "result": "{}",
+                "session_id": "s",
+                "structured_output": {"a": 1},
+            }
+        )
         feed(parser, [envelope])
         assert parser.result(0, 1.0, "/w").structured == {"a": 1}
 
     def test_assistant_text_streams(self) -> None:
         parser = ClaudeParser()
-        message = json.dumps({"type": "assistant", "message": {"content": [
-            {"type": "text", "text": "thinking about it"},
-            {"type": "tool_use", "name": "Bash"},
-        ]}})
+        message = json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "thinking about it"},
+                        {"type": "tool_use", "name": "Bash"},
+                    ]
+                },
+            }
+        )
         events = feed(parser, [message])
         kinds = [e.kind.value for e in events]
         assert kinds == ["text", "tool"]
@@ -80,14 +101,20 @@ class TestClaudeParser:
 
 class TestCodexParser:
     LINES = [
-        json.dumps({"type": "thread.started",
-                    "thread_id": "019f957d-4f33-7e21-b4b6-38e78b78a0ee"}),
+        json.dumps({"type": "thread.started", "thread_id": "019f957d-4f33-7e21-b4b6-38e78b78a0ee"}),
         json.dumps({"type": "turn.started"}),
-        json.dumps({"type": "item.completed",
-                    "item": {"id": "item_0", "type": "agent_message", "text": "OK"}}),
-        json.dumps({"type": "turn.completed",
-                    "usage": {"input_tokens": 17144, "cached_input_tokens": 0,
-                              "output_tokens": 5}}),
+        json.dumps(
+            {
+                "type": "item.completed",
+                "item": {"id": "item_0", "type": "agent_message", "text": "OK"},
+            }
+        ),
+        json.dumps(
+            {
+                "type": "turn.completed",
+                "usage": {"input_tokens": 17144, "cached_input_tokens": 0, "output_tokens": 5},
+            }
+        ),
     ]
 
     def test_happy_path(self) -> None:
@@ -114,33 +141,77 @@ class TestCodexParser:
 
     def test_structured_expected_but_missing(self) -> None:
         parser = CodexParser(expect_structured=True)
-        feed(parser, [json.dumps({"type": "item.completed",
-                                  "item": {"type": "agent_message", "text": "no json"}})])
+        feed(
+            parser,
+            [
+                json.dumps(
+                    {"type": "item.completed", "item": {"type": "agent_message", "text": "no json"}}
+                )
+            ],
+        )
         result = parser.result(0, 1.0, "/w")
         assert result.error_kind is ErrorKind.INVALID_OUTPUT
 
     def test_structured_ok(self) -> None:
         parser = CodexParser(expect_structured=True)
-        feed(parser, [json.dumps({"type": "item.completed",
-                                  "item": {"type": "agent_message",
-                                           "text": '{"verdict": true}'}})])
+        feed(
+            parser,
+            [
+                json.dumps(
+                    {
+                        "type": "item.completed",
+                        "item": {"type": "agent_message", "text": '{"verdict": true}'},
+                    }
+                )
+            ],
+        )
         assert parser.result(0, 1.0, "/w").structured == {"verdict": True}
 
 
 class TestAntigravityParser:
     LINES = [
-        json.dumps({"event": "init", "conversation_id": "52861ad8",
-                    "init": {"cwd": "/tmp", "tools": ["run_command"],
-                             "permission_mode": "request-review"}}),
-        json.dumps({"event": "step_update", "step_update": {
-            "conversation_id": "52861ad8", "step_index": 2, "state": "DONE",
-            "step_type": "agent_response", "text_delta": "OK\n",
-            "usage": {"input_tokens": 9802, "output_tokens": 20}}}),
-        json.dumps({"event": "result", "result": {
-            "conversation_id": "52861ad8", "status": "SUCCESS", "response": "OK\n",
-            "duration_seconds": 1.11, "num_turns": 1,
-            "usage": {"input_tokens": 9899, "output_tokens": 24,
-                      "thinking_tokens": 19, "total_tokens": 9923}}}),
+        json.dumps(
+            {
+                "event": "init",
+                "conversation_id": "52861ad8",
+                "init": {
+                    "cwd": "/tmp",
+                    "tools": ["run_command"],
+                    "permission_mode": "request-review",
+                },
+            }
+        ),
+        json.dumps(
+            {
+                "event": "step_update",
+                "step_update": {
+                    "conversation_id": "52861ad8",
+                    "step_index": 2,
+                    "state": "DONE",
+                    "step_type": "agent_response",
+                    "text_delta": "OK\n",
+                    "usage": {"input_tokens": 9802, "output_tokens": 20},
+                },
+            }
+        ),
+        json.dumps(
+            {
+                "event": "result",
+                "result": {
+                    "conversation_id": "52861ad8",
+                    "status": "SUCCESS",
+                    "response": "OK\n",
+                    "duration_seconds": 1.11,
+                    "num_turns": 1,
+                    "usage": {
+                        "input_tokens": 9899,
+                        "output_tokens": 24,
+                        "thinking_tokens": 19,
+                        "total_tokens": 9923,
+                    },
+                },
+            }
+        ),
     ]
 
     def test_happy_path(self) -> None:
@@ -163,8 +234,17 @@ class TestAntigravityParser:
 
     def test_failure_status(self) -> None:
         parser = AntigravityParser(expect_structured=False)
-        feed(parser, [json.dumps({"event": "result", "result": {
-            "conversation_id": "x", "status": "FAILED", "response": ""}})])
+        feed(
+            parser,
+            [
+                json.dumps(
+                    {
+                        "event": "result",
+                        "result": {"conversation_id": "x", "status": "FAILED", "response": ""},
+                    }
+                )
+            ],
+        )
         assert parser.result(0, 1.0, "/w").status is ResultStatus.ERROR
 
     def test_auth_error_heuristic(self) -> None:
@@ -175,19 +255,37 @@ class TestAntigravityParser:
 
     def test_structured_extraction_from_response(self) -> None:
         parser = AntigravityParser(expect_structured=True)
-        feed(parser, [json.dumps({"event": "result", "result": {
-            "conversation_id": "x", "status": "SUCCESS",
-            "response": 'Here you go:\n```json\n{"plan": []}\n```'}})])
+        feed(
+            parser,
+            [
+                json.dumps(
+                    {
+                        "event": "result",
+                        "result": {
+                            "conversation_id": "x",
+                            "status": "SUCCESS",
+                            "response": 'Here you go:\n```json\n{"plan": []}\n```',
+                        },
+                    }
+                )
+            ],
+        )
         assert parser.result(0, 1.0, "/w").structured == {"plan": []}
 
 
 class TestGeminiParser:
     def test_auth_exit_41(self) -> None:
         parser = GeminiParser(expect_structured=False)
-        stderr_json = json.dumps({"session_id": "8180efc1", "error": {
-            "type": "Error",
-            "message": "Please set an Auth method in your settings.json",
-            "code": 41}})
+        stderr_json = json.dumps(
+            {
+                "session_id": "8180efc1",
+                "error": {
+                    "type": "Error",
+                    "message": "Please set an Auth method in your settings.json",
+                    "code": 41,
+                },
+            }
+        )
         feed(parser, [], stderr=[stderr_json])
         result = parser.result(41, 0.5, "/work")
         assert result.error_kind is ErrorKind.AUTH
@@ -195,8 +293,10 @@ class TestGeminiParser:
 
     def test_json_envelope(self) -> None:
         parser = GeminiParser(expect_structured=False)
-        feed(parser, [json.dumps({"response": "hello", "stats": {
-            "tokens": {"input": 12, "output": 3}}})])
+        feed(
+            parser,
+            [json.dumps({"response": "hello", "stats": {"tokens": {"input": 12, "output": 3}}})],
+        )
         result = parser.result(0, 1.0, "/work")
         assert result.status is ResultStatus.OK
         assert result.final_text == "hello"

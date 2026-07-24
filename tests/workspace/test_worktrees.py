@@ -50,9 +50,7 @@ class TestValidation:
 
 
 class TestRunAndWorkspaces:
-    async def test_start_run_creates_integration_branch(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_start_run_creates_integration_branch(self, project: WorkspaceManager) -> None:
         base, branch = await project.start_run("run_t1")
         assert branch == "ork/run_t1/integration"
         assert await project.repo.branch_exists(branch)
@@ -81,15 +79,11 @@ class TestRunAndWorkspaces:
         assert merged
         # File exists on the integration branch, not on main.
         integration_repo = GitRepo(project.root)
-        _, out, _ = await integration_repo._git(  # noqa: SLF001
-            "show", "ork/run_t3/integration:feature.py"
-        )
+        _, out, _ = await integration_repo._git("show", "ork/run_t3/integration:feature.py")
         assert "hi" in out
         assert not (project.root / "feature.py").exists()
 
-    async def test_clean_workspace_commit_returns_none(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_clean_workspace_commit_returns_none(self, project: WorkspaceManager) -> None:
         await project.start_run("run_t4")
         ws = await project.create_workspace("run_t4", "task_d4")
         assert await project.commit_workspace(ws, "nothing") is None
@@ -104,9 +98,7 @@ class TestRunAndWorkspaces:
         with pytest.raises(PolicyViolation, match="protected path"):
             await project.validate_workspace_changes(ws)
 
-    async def test_merge_conflict_detected_and_aborted(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_merge_conflict_detected_and_aborted(self, project: WorkspaceManager) -> None:
         await project.start_run("run_t6")
         ws1 = await project.create_workspace("run_t6", "task_f6")
         ws2 = await project.create_workspace("run_t6", "task_g7")
@@ -121,9 +113,7 @@ class TestRunAndWorkspaces:
         out = await GitRepo(project.root).rev_parse("ork/run_t6/integration")
         assert out
 
-    async def test_workspace_paths_with_spaces_and_unicode(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_workspace_paths_with_spaces_and_unicode(self, project: WorkspaceManager) -> None:
         await project.start_run("run_t7")
         ws = await project.create_workspace("run_t7", "task_h8")
         target = ws.path / "docs with space" / "übersicht.md"
@@ -146,9 +136,7 @@ class TestRunAndWorkspaces:
         await project.remove_workspace(ws2, keep_branch=False)
         assert not await project.repo.branch_exists(ws2.branch)
 
-    async def test_reconcile_reports_missing_worktrees(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_reconcile_reports_missing_worktrees(self, project: WorkspaceManager) -> None:
         await project.start_run("run_t9")
         ws = await project.create_workspace("run_t9", "task_j0")
         # Simulate crash: directory vanishes without unregistration.
@@ -160,15 +148,11 @@ class TestRunAndWorkspaces:
 
 
 class TestGitSafety:
-    async def test_refuses_to_delete_user_branches(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_refuses_to_delete_user_branches(self, project: WorkspaceManager) -> None:
         with pytest.raises(WorkspaceError, match="non-Orkestra branch"):
             await project.repo.delete_branch("main", force=True)
 
-    async def test_hooks_disabled_for_orkestra_git(
-        self, project: WorkspaceManager
-    ) -> None:
+    async def test_hooks_disabled_for_orkestra_git(self, project: WorkspaceManager) -> None:
         hook = project.root / ".git" / "hooks" / "pre-commit"
         hook.write_text("#!/bin/sh\necho HOOK-RAN > hook-marker.txt\nexit 1\n")
         hook.chmod(0o755)

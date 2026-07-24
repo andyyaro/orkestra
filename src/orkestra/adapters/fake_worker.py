@@ -53,8 +53,14 @@ def main(argv: list[str]) -> int:
     try:
         brief = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
-        emit({"type": "result", "status": "error", "error_kind": "invalid_output",
-              "error_detail": "fake worker received invalid brief JSON"})
+        emit(
+            {
+                "type": "result",
+                "status": "error",
+                "error_kind": "invalid_output",
+                "error_detail": "fake worker received invalid brief JSON",
+            }
+        )
         return 1
 
     instructions: str = brief.get("instructions", "")
@@ -71,9 +77,7 @@ def main(argv: list[str]) -> int:
     error_detail = ""
 
     directives = [
-        line.strip()[5:]
-        for line in instructions.splitlines()
-        if line.strip().startswith("FAKE:")
+        line.strip()[5:] for line in instructions.splitlines() if line.strip().startswith("FAKE:")
     ]
     wrote_something = False
     for directive in directives:
@@ -116,22 +120,29 @@ def main(argv: list[str]) -> int:
             marker = cwd / ".fake-reject-done"
             if marker.exists():
                 structured = {
-                    "schema_version": 1, "approve": True, "findings": [],
-                    "required_changes": [], "severity": "none",
+                    "schema_version": 1,
+                    "approve": True,
+                    "findings": [],
+                    "required_changes": [],
+                    "severity": "none",
                 }
             else:
                 marker.write_text("rejected once\n", encoding="utf-8")
                 structured = {
-                    "schema_version": 1, "approve": False,
-                    "findings": [reason], "required_changes": [reason],
+                    "schema_version": 1,
+                    "approve": False,
+                    "findings": [reason],
+                    "required_changes": [reason],
                     "severity": "medium",
                 }
             final_text = json.dumps(structured)
         elif op == "reject":
             reason = parts[1] if len(parts) > 1 else "scripted rejection"
             structured = {
-                "schema_version": 1, "approve": False,
-                "findings": [reason], "required_changes": [reason],
+                "schema_version": 1,
+                "approve": False,
+                "findings": [reason],
+                "required_changes": [reason],
                 "severity": "medium",
             }
             final_text = json.dumps(structured)
@@ -144,8 +155,11 @@ def main(argv: list[str]) -> int:
     if status == "ok" and structured is None and wants_json:
         if kind == "review":
             structured = {
-                "schema_version": 1, "approve": True, "findings": [],
-                "required_changes": [], "severity": "none",
+                "schema_version": 1,
+                "approve": True,
+                "findings": [],
+                "required_changes": [],
+                "severity": "none",
             }
         else:
             structured = {"note": final_text}
@@ -159,21 +173,22 @@ def main(argv: list[str]) -> int:
         and brief.get("task_id")
     ):
         marker = cwd / f"fake-{brief['task_id']}.txt"
-        marker.write_text(f"work by fake agent for {brief.get('title', '')}\n",
-                          encoding="utf-8")
+        marker.write_text(f"work by fake agent for {brief.get('title', '')}\n", encoding="utf-8")
         emit({"type": "tool", "name": f"write:{marker.name}"})
 
     emit({"type": "text", "text": final_text})
-    emit({
-        "type": "result",
-        "status": status,
-        "final_text": final_text,
-        "structured": structured,
-        "error_kind": error_kind,
-        "error_detail": error_detail,
-        "usage": {"input_tokens": len(instructions) // 4, "output_tokens": 20},
-    })
-    return 0 if status == "ok" else 0  # protocol errors are in-band
+    emit(
+        {
+            "type": "result",
+            "status": status,
+            "final_text": final_text,
+            "structured": structured,
+            "error_kind": error_kind,
+            "error_detail": error_detail,
+            "usage": {"input_tokens": len(instructions) // 4, "output_tokens": 20},
+        }
+    )
+    return 0  # protocol errors are reported in-band via the result event
 
 
 if __name__ == "__main__":

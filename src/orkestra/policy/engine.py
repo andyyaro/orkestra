@@ -38,9 +38,7 @@ class PolicyEngine:
     def check_assignment(self, assignment: Assignment) -> PolicyDecision:
         violations: list[str] = []
         if assignment.primary not in self.enabled_agents:
-            violations.append(
-                f"primary agent {assignment.primary!r} is not an enabled agent"
-            )
+            violations.append(f"primary agent {assignment.primary!r} is not an enabled agent")
         for reviewer in assignment.reviewers:
             if reviewer not in self.enabled_agents:
                 violations.append(f"reviewer {reviewer!r} is not an enabled agent")
@@ -60,9 +58,7 @@ class PolicyEngine:
 
     def check_reviewer(self, implementer: str, reviewer: str) -> PolicyDecision:
         if implementer == reviewer:
-            return PolicyDecision.deny(
-                f"agent {reviewer!r} cannot review its own implementation"
-            )
+            return PolicyDecision.deny(f"agent {reviewer!r} cannot review its own implementation")
         if reviewer not in self.enabled_agents:
             return PolicyDecision.deny(f"reviewer {reviewer!r} is not an enabled agent")
         return PolicyDecision.ok()
@@ -99,8 +95,7 @@ class PolicyEngine:
             if parts and parts[0] == ".git":
                 violations.append(f"diff touches .git internals: {raw}")
                 continue
-            if any(p == "hooks" and i > 0 and parts[i - 1] == ".git"
-                   for i, p in enumerate(parts)):
+            if any(p == "hooks" and i > 0 and parts[i - 1] == ".git" for i, p in enumerate(parts)):
                 violations.append(f"diff touches git hooks: {raw}")
                 continue
             for protected in self.config.protected_paths:

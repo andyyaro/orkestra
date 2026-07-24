@@ -38,8 +38,7 @@ async def prepare_run(
     orch.store.update_run_payload(run_id, agents=summary)
     unavailable = [n for n, s in summary.items() if s["available"] != "True"]
     if unavailable:
-        orch.emit(run_id, EventKind.WARNING,
-                  f"agents unavailable: {', '.join(unavailable)}")
+        orch.emit(run_id, EventKind.WARNING, f"agents unavailable: {', '.join(unavailable)}")
 
     # 1. Analyze.
     orch.store.set_run_state(run_id, RunState.ANALYZING, expected=(RunState.CREATED,))
@@ -67,9 +66,11 @@ async def prepare_run(
         budget=config.probes.budget,
         timeout_s=config.probes.timeout_s,
     )
-    orch.emit(run_id, EventKind.COMPLETED,
-              f"capability probes: {len(probe_observations)} observations "
-              f"(mode={config.probes.mode})")
+    orch.emit(
+        run_id,
+        EventKind.COMPLETED,
+        f"capability probes: {len(probe_observations)} observations (mode={config.probes.mode})",
+    )
 
     # 3. Matrix from ALL evidence (probes + prior task history).
     observations = []
@@ -81,23 +82,22 @@ async def prepare_run(
     # 4. Plan, challenge, revise, validate.
     orch.store.set_run_state(run_id, RunState.PLANNING, expected=(RunState.PROBING,))
     agent_names = list(config.enabled_agents.keys())
-    plan = await director.plan(
-        spec_text, analysis, matrix, agent_names, config.verify.commands
-    )
+    plan = await director.plan(spec_text, analysis, matrix, agent_names, config.verify.commands)
     director.validate_plan(plan, agent_names)
 
     challengers = [
-        (name, orch.adapters[name])
-        for name in usable_agents
-        if name != director.director_name
+        (name, orch.adapters[name]) for name in usable_agents if name != director.director_name
     ][:max_challengers]
     challenges = []
     for challenger_name, challenger_adapter in challengers:
         challenge = await director.challenge(plan, challenger_name, challenger_adapter)
         challenges.append(challenge)
-        orch.emit(run_id, EventKind.COMPLETED,
-                  f"plan challenge from {challenger_name}: {challenge.verdict} "
-                  f"({len(challenge.concerns)} concerns)")
+        orch.emit(
+            run_id,
+            EventKind.COMPLETED,
+            f"plan challenge from {challenger_name}: {challenge.verdict} "
+            f"({len(challenge.concerns)} concerns)",
+        )
     plan = await director.revise_plan(
         plan, challenges, agent_names, spec_text, matrix, config.verify.commands
     )
@@ -114,7 +114,8 @@ async def prepare_run(
     for planned in plan.tasks:
         orch.store.add_task(run_id, planned.task, planned.assignment)
     orch.emit(
-        run_id, EventKind.COMPLETED,
+        run_id,
+        EventKind.COMPLETED,
         f"plan finalized: {len(plan.tasks)} tasks "
         f"({json.dumps([p.task.key for p in plan.tasks])}); "
         f"integration branch {integration}",

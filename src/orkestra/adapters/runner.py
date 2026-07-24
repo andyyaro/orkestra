@@ -107,7 +107,9 @@ async def run_invocation(
 
     on_event(AgentEvent(kind=EventKind.STARTED, text=" ".join(spec.argv[:3]) + " ..."))
 
-    assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
+    if proc.stdin is None or proc.stdout is None or proc.stderr is None:
+        msg = "subprocess pipes missing despite PIPE configuration"
+        raise RuntimeError(msg)  # pragma: no cover - asyncio guarantees pipes
     if spec.stdin_data:
         proc.stdin.write(spec.stdin_data)
         with contextlib.suppress(ConnectionResetError, BrokenPipeError):
@@ -121,9 +123,9 @@ async def run_invocation(
 
     timed_out = False
     cancelled = False
-    wait_proc = asyncio.ensure_future(proc.wait())
-    waiters: list[asyncio.Future[object]] = [wait_proc]
-    cancel_waiter: asyncio.Future[object] | None = None
+    wait_proc: asyncio.Task[int] = asyncio.ensure_future(proc.wait())
+    waiters: list[asyncio.Task[int] | asyncio.Task[bool]] = [wait_proc]
+    cancel_waiter: asyncio.Task[bool] | None = None
     if cancel_event is not None:
         cancel_waiter = asyncio.ensure_future(cancel_event.wait())
         waiters.append(cancel_waiter)

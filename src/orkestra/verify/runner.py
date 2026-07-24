@@ -17,8 +17,20 @@ from pathlib import Path
 from orkestra.errors import VerificationError
 
 _ENV_ALLOWLIST = (
-    "PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR", "USER", "SHELL",
-    "VIRTUAL_ENV", "PYTHONPATH", "NODE_PATH", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM",
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TERM",
+    "TMPDIR",
+    "USER",
+    "SHELL",
+    "VIRTUAL_ENV",
+    "PYTHONPATH",
+    "NODE_PATH",
+    "GIT_CONFIG_GLOBAL",
+    "GIT_CONFIG_SYSTEM",
     "CI",
 )
 

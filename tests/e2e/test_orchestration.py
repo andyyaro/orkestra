@@ -33,10 +33,22 @@ async def manual_run(app: App, tasks: list[tuple[TaskSpec, Assignment]]) -> str:
     return run_id
 
 
-def spec(key: str, description: str, *, kind: TaskKind = TaskKind.IMPLEMENT,
-         deps: list[str] | None = None, acceptance: list[str] | None = None) -> TaskSpec:
-    return TaskSpec(key=key, title=key, kind=kind, description=description,
-                    depends_on=deps or [], acceptance=acceptance or [])
+def spec(
+    key: str,
+    description: str,
+    *,
+    kind: TaskKind = TaskKind.IMPLEMENT,
+    deps: list[str] | None = None,
+    acceptance: list[str] | None = None,
+) -> TaskSpec:
+    return TaskSpec(
+        key=key,
+        title=key,
+        kind=kind,
+        description=description,
+        depends_on=deps or [],
+        acceptance=acceptance or [],
+    )
 
 
 def assign(primary: str, reviewer: str, fallbacks: list[str] | None = None) -> Assignment:
@@ -45,9 +57,7 @@ def assign(primary: str, reviewer: str, fallbacks: list[str] | None = None) -> A
 
 async def show_integration_files(app: App, run_id: str) -> str:
     repo = GitRepo(app.root)
-    _, out, _ = await repo._git(  # noqa: SLF001
-        "ls-tree", "-r", "--name-only", f"ork/{run_id}/integration"
-    )
+    _, out, _ = await repo._git("ls-tree", "-r", "--name-only", f"ork/{run_id}/integration")
     return out
 
 
@@ -76,9 +86,7 @@ class TestTwoAgentRun:
             attempts = app.store.attempts_for_task(task.task_id)
             implementers = {a.agent for a in attempts if a.role == "primary"}
             reviewers = {a.agent for a in attempts if a.role == "reviewer"}
-            assert not (implementers & reviewers), (
-                f"task {task.key}: agent reviewed its own work"
-            )
+            assert not (implementers & reviewers), f"task {task.key}: agent reviewed its own work"
 
 
 class TestManyAgents:
@@ -96,33 +104,33 @@ class TestManyAgents:
         run_id = await prepare_run(app.orchestrator, app.director, "# Demo5")
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
-        primaries = {
-            t.assignment.primary
-            for t in app.store.tasks_for_run(run_id)
-            if t.assignment
-        }
+        primaries = {t.assignment.primary for t in app.store.tasks_for_run(run_id) if t.assignment}
         assert len(primaries) >= 2
         app.close()
 
 
 class TestFailureHandling:
     async def test_primary_failure_falls_back(self, app: App) -> None:
-        run_id = await manual_run(app, [(
-            spec("feat", "FAKE:fail_if_agent:alpha\nFAKE:write:out.txt:done"),
-            assign("alpha", "beta", ["beta"]),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("feat", "FAKE:fail_if_agent:alpha\nFAKE:write:out.txt:done"),
+                    assign("alpha", "beta", ["beta"]),
+                )
+            ],
+        )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
-        attempts = app.store.attempts_for_task(
-            app.store.tasks_for_run(run_id)[0].task_id
-        )
+        attempts = app.store.attempts_for_task(app.store.tasks_for_run(run_id)[0].task_id)
         agents_tried = [a.agent for a in attempts if a.role == "primary"]
         assert agents_tried[0] == "alpha"
         assert "beta" in agents_tried  # fallback took over
 
     async def test_agent_unavailable_uses_fallback(self, tmp_path: Path) -> None:
         app = await make_project(
-            tmp_path, ["broken"],
+            tmp_path,
+            ["broken"],
             extra_agents=agent_block("alpha") + "\n\n" + agent_block("beta"),
         )
         # "broken" is a fake agent whose executable does not exist.
@@ -136,19 +144,29 @@ class TestFailureHandling:
         from orkestra.app import build_app
 
         app = build_app(app.root, offline=True)
-        run_id = await manual_run(app, [(
-            spec("feat", "FAKE:write:out.txt:done"),
-            assign("broken", "alpha", ["beta"]),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("feat", "FAKE:write:out.txt:done"),
+                    assign("broken", "alpha", ["beta"]),
+                )
+            ],
+        )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
         app.close()
 
     async def test_reviewer_rejection_then_repair(self, app: App) -> None:
-        run_id = await manual_run(app, [(
-            spec("feat", "FAKE:reject_once\nFAKE:write:feature.txt:v1"),
-            assign("alpha", "beta"),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("feat", "FAKE:reject_once\nFAKE:write:feature.txt:v1"),
+                    assign("alpha", "beta"),
+                )
+            ],
+        )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
         task = app.store.tasks_for_run(run_id)[0]
@@ -161,10 +179,15 @@ class TestFailureHandling:
     async def test_deterministic_gate_vetoes_and_escalates(self, app: App) -> None:
         # `false` always exits 1: verification can never pass, an agent
         # claiming success is irrelevant, and the kernel escalates.
-        run_id = await manual_run(app, [(
-            spec("doomed", "FAKE:write:x.txt:y", acceptance=["false"]),
-            assign("alpha", "beta", ["beta"]),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("doomed", "FAKE:write:x.txt:y", acceptance=["false"]),
+                    assign("alpha", "beta", ["beta"]),
+                )
+            ],
+        )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.WAITING_HUMAN
         task = app.store.tasks_for_run(run_id)[0]
@@ -174,10 +197,15 @@ class TestFailureHandling:
         assert "failed" in decisions[0].question
 
     async def test_decision_skip_then_run_fails_cleanly(self, app: App) -> None:
-        run_id = await manual_run(app, [(
-            spec("doomed", "FAKE:write:x.txt:y", acceptance=["false"]),
-            assign("alpha", "beta", ["beta"]),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("doomed", "FAKE:write:x.txt:y", acceptance=["false"]),
+                    assign("alpha", "beta", ["beta"]),
+                )
+            ],
+        )
         await app.orchestrator.execute(run_id)
         [decision] = app.store.decisions_for_run(run_id, unresolved_only=True)
         message = app.orchestrator.apply_decision(decision.decision_id, "skip")
@@ -186,10 +214,15 @@ class TestFailureHandling:
         assert state is RunState.FAILED
 
     async def test_decision_retry_resets_budgets(self, app: App) -> None:
-        run_id = await manual_run(app, [(
-            spec("flaky", "FAKE:fail", acceptance=[]),
-            assign("alpha", "beta"),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("flaky", "FAKE:fail", acceptance=[]),
+                    assign("alpha", "beta"),
+                )
+            ],
+        )
         await app.orchestrator.execute(run_id)
         [decision] = app.store.decisions_for_run(run_id, unresolved_only=True)
         # Fix the task by resolving retry (fake still fails, but budgets reset
@@ -203,10 +236,15 @@ class TestFailureHandling:
 
 class TestInterruptionAndResume:
     async def test_kill_and_resume_completes(self, app: App) -> None:
-        run_id = await manual_run(app, [(
-            spec("slow", "FAKE:sleep:3\nFAKE:write:slow.txt:done"),
-            assign("alpha", "beta"),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("slow", "FAKE:sleep:3\nFAKE:write:slow.txt:done"),
+                    assign("alpha", "beta"),
+                )
+            ],
+        )
         execution = asyncio.ensure_future(app.orchestrator.execute(run_id))
         await asyncio.sleep(1.2)
         execution.cancel()  # simulates process death mid-attempt
@@ -221,10 +259,15 @@ class TestInterruptionAndResume:
         assert "slow.txt" in files
 
     async def test_cancel_terminates_run(self, app: App) -> None:
-        run_id = await manual_run(app, [(
-            spec("slow", "FAKE:sleep:20"),
-            assign("alpha", "beta"),
-        )])
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("slow", "FAKE:sleep:20"),
+                    assign("alpha", "beta"),
+                )
+            ],
+        )
         execution = asyncio.ensure_future(app.orchestrator.execute(run_id))
         await asyncio.sleep(1.0)
         app.orchestrator.request_cancel(run_id)
@@ -233,10 +276,13 @@ class TestInterruptionAndResume:
         assert app.store.tasks_for_run(run_id)[0].state is TaskState.CANCELLED
 
     async def test_pause_then_resume(self, app: App) -> None:
-        run_id = await manual_run(app, [
-            (spec("a", "FAKE:write:a.txt:1"), assign("alpha", "beta")),
-            (spec("b", "FAKE:write:b.txt:2", deps=["a"]), assign("beta", "alpha")),
-        ])
+        run_id = await manual_run(
+            app,
+            [
+                (spec("a", "FAKE:write:a.txt:1"), assign("alpha", "beta")),
+                (spec("b", "FAKE:write:b.txt:2", deps=["a"]), assign("beta", "alpha")),
+            ],
+        )
         app.orchestrator.request_pause(run_id)
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.PAUSED
@@ -247,12 +293,17 @@ class TestInterruptionAndResume:
 
 class TestParallelism:
     async def test_independent_tasks_run_and_integrate(self, app: App) -> None:
-        run_id = await manual_run(app, [
-            (spec("left", "FAKE:write:left.txt:L"), assign("alpha", "beta")),
-            (spec("right", "FAKE:write:right.txt:R"), assign("beta", "alpha")),
-            (spec("join", "FAKE:write:join.txt:J", deps=["left", "right"]),
-             assign("alpha", "beta")),
-        ])
+        run_id = await manual_run(
+            app,
+            [
+                (spec("left", "FAKE:write:left.txt:L"), assign("alpha", "beta")),
+                (spec("right", "FAKE:write:right.txt:R"), assign("beta", "alpha")),
+                (
+                    spec("join", "FAKE:write:join.txt:J", deps=["left", "right"]),
+                    assign("alpha", "beta"),
+                ),
+            ],
+        )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
         files = await show_integration_files(app, run_id)
@@ -263,10 +314,13 @@ class TestParallelism:
         # Two independent tasks writing the same file: second integration
         # conflicts, kernel recreates the workspace from the updated
         # integration branch and retries.
-        run_id = await manual_run(app, [
-            (spec("one", "FAKE:write:shared.txt:from-one"), assign("alpha", "beta")),
-            (spec("two", "FAKE:write:shared.txt:from-two"), assign("beta", "alpha")),
-        ])
+        run_id = await manual_run(
+            app,
+            [
+                (spec("one", "FAKE:write:shared.txt:from-one"), assign("alpha", "beta")),
+                (spec("two", "FAKE:write:shared.txt:from-two"), assign("beta", "alpha")),
+            ],
+        )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
         files = await show_integration_files(app, run_id)

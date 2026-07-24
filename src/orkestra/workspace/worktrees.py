@@ -44,10 +44,7 @@ class WorkspaceManager:
 
     async def validate_repository(self, *, allow_dirty: bool = False) -> None:
         if not await self.repo.is_repo():
-            msg = (
-                f"{self.root} is not a Git repository — run `git init` or "
-                "`orkestra init` first"
-            )
+            msg = f"{self.root} is not a Git repository — run `git init` or `orkestra init` first"
             raise WorkspaceError(msg)
         if not await self.repo.has_commits():
             msg = (
@@ -119,9 +116,7 @@ class WorkspaceManager:
             # Merge in a worktree of the integration branch to avoid touching
             # the user's checkout; serialized because a branch can host only
             # one worktree at a time.
-            merge_dir = (
-                self.worktrees_dir / f"integrate-{worktree_dirname(run_id, 'merge')}"
-            )
+            merge_dir = self.worktrees_dir / f"integrate-{worktree_dirname(run_id, 'merge')}"
             await self.repo.worktree_add_existing(merge_dir, integration)
             try:
                 merge_repo = GitRepo(merge_dir)
@@ -150,7 +145,4 @@ class WorkspaceManager:
         """
         await self.repo.worktree_prune()
         live = {Path(p).resolve() for p in await self.repo.worktree_list()}
-        missing = [
-            p for p in recorded_paths if Path(p).resolve() not in live
-        ]
-        return missing
+        return [p for p in recorded_paths if Path(p).resolve() not in live]

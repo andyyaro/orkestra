@@ -15,9 +15,9 @@ from orkestra.errors import StateTransitionError, StoreError
 from orkestra.ids import new_id
 from orkestra.redact import redact
 from orkestra.schemas.agent import AgentEvent, AgentResult, Usage
+from orkestra.schemas.capability import CapabilityObservation
 from orkestra.schemas.common import AttemptState, RunState, TaskState, utc_now
 from orkestra.schemas.decision import HumanDecision
-from orkestra.schemas.capability import CapabilityObservation
 from orkestra.schemas.task import Assignment, TaskSpec
 from orkestra.store.db import Database
 
@@ -86,8 +86,7 @@ class Store:
             conn.execute(
                 "INSERT INTO runs (run_id, project_name, state, created_at, updated_at, payload)"
                 " VALUES (?, ?, ?, ?, ?, ?)",
-                (run_id, project_name, RunState.CREATED.value, now, now,
-                 json.dumps(payload or {})),
+                (run_id, project_name, RunState.CREATED.value, now, now, json.dumps(payload or {})),
             )
         return run_id
 
@@ -113,9 +112,7 @@ class Store:
         self, run_id: str, new: RunState, expected: tuple[RunState, ...] | None = None
     ) -> None:
         with self.db.tx() as conn:
-            row = conn.execute(
-                "SELECT state FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = conn.execute("SELECT state FROM runs WHERE run_id = ?", (run_id,)).fetchone()
             if row is None:
                 msg = f"run not found: {run_id}"
                 raise StoreError(msg)
@@ -140,9 +137,7 @@ class Store:
 
     def update_run_payload(self, run_id: str, **updates: Any) -> None:
         with self.db.tx() as conn:
-            row = conn.execute(
-                "SELECT payload FROM runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = conn.execute("SELECT payload FROM runs WHERE run_id = ?", (run_id,)).fetchone()
             if row is None:
                 msg = f"run not found: {run_id}"
                 raise StoreError(msg)
@@ -201,9 +196,7 @@ class Store:
         return self._task_from_row(row)
 
     def tasks_for_run(self, run_id: str) -> list[TaskRow]:
-        rows = self.db.query(
-            "SELECT * FROM tasks WHERE run_id = ? ORDER BY task_id", (run_id,)
-        )
+        rows = self.db.query("SELECT * FROM tasks WHERE run_id = ? ORDER BY task_id", (run_id,))
         return [self._task_from_row(r) for r in rows]
 
     def deps_for_run(self, run_id: str) -> dict[str, list[str]]:
@@ -219,9 +212,7 @@ class Store:
         self, task_id: str, new: TaskState, expected: tuple[TaskState, ...] | None = None
     ) -> None:
         with self.db.tx() as conn:
-            row = conn.execute(
-                "SELECT state FROM tasks WHERE task_id = ?", (task_id,)
-            ).fetchone()
+            row = conn.execute("SELECT state FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
             if row is None:
                 msg = f"task not found: {task_id}"
                 raise StoreError(msg)
@@ -249,12 +240,12 @@ class Store:
             raise StoreError(msg)
         with self.db.tx() as conn:
             conn.execute(
-                f"UPDATE tasks SET {column} = {column} + 1, updated_at = ?"  # noqa: S608
+                f"UPDATE tasks SET {column} = {column} + 1, updated_at = ?"  # noqa: S608  # nosec B608 - column allowlisted above
                 " WHERE task_id = ?",
                 (_now(), task_id),
             )
             row = conn.execute(
-                f"SELECT {column} AS n FROM tasks WHERE task_id = ?",  # noqa: S608
+                f"SELECT {column} AS n FROM tasks WHERE task_id = ?",  # noqa: S608  # nosec B608 - column allowlisted above
                 (task_id,),
             ).fetchone()
         return int(row["n"])
@@ -269,8 +260,16 @@ class Store:
             conn.execute(
                 "INSERT INTO attempts (attempt_id, task_id, run_id, agent, role, state,"
                 " started_at, workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (attempt_id, task_id, run_id, agent, role,
-                 AttemptState.RUNNING.value, _now(), workspace),
+                (
+                    attempt_id,
+                    task_id,
+                    run_id,
+                    agent,
+                    role,
+                    AttemptState.RUNNING.value,
+                    _now(),
+                    workspace,
+                ),
             )
         return attempt_id
 
@@ -287,10 +286,8 @@ class Store:
             if AttemptState(row["state"]) not in (AttemptState.RUNNING,):
                 return  # already terminal — idempotent
             conn.execute(
-                "UPDATE attempts SET state = ?, finished_at = ?, result = ?"
-                " WHERE attempt_id = ?",
-                (state.value, _now(),
-                 result.model_dump_json() if result else None, attempt_id),
+                "UPDATE attempts SET state = ?, finished_at = ?, result = ? WHERE attempt_id = ?",
+                (state.value, _now(), result.model_dump_json() if result else None, attempt_id),
             )
 
     def _attempt_from_row(self, row: Any) -> AttemptRow:
@@ -368,8 +365,12 @@ class Store:
             conn.execute(
                 "INSERT INTO decisions (decision_id, run_id, resolved, payload)"
                 " VALUES (?, ?, ?, ?)",
-                (decision.decision_id, decision.run_id, int(decision.resolved),
-                 decision.model_dump_json()),
+                (
+                    decision.decision_id,
+                    decision.run_id,
+                    int(decision.resolved),
+                    decision.model_dump_json(),
+                ),
             )
 
     def get_decision(self, decision_id: str) -> HumanDecision:
@@ -385,7 +386,9 @@ class Store:
         sql = "SELECT payload FROM decisions WHERE run_id = ?"
         if unresolved_only:
             sql += " AND resolved = 0"
-        return [HumanDecision.model_validate_json(r["payload"]) for r in self.db.query(sql, (run_id,))]
+        return [
+            HumanDecision.model_validate_json(r["payload"]) for r in self.db.query(sql, (run_id,))
+        ]
 
     def resolve_decision(self, decision_id: str, option: str, note: str = "") -> HumanDecision:
         decision = self.get_decision(decision_id)
@@ -414,8 +417,15 @@ class Store:
             conn.execute(
                 "INSERT INTO observations (observation_id, agent, agent_version,"
                 " capability, source, payload, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (observation_id, obs.agent, obs.agent_version, obs.capability,
-                 obs.source, obs.model_dump_json(), _now()),
+                (
+                    observation_id,
+                    obs.agent,
+                    obs.agent_version,
+                    obs.capability,
+                    obs.source,
+                    obs.model_dump_json(),
+                    _now(),
+                ),
             )
         return observation_id
 
@@ -446,9 +456,7 @@ class Store:
             )
 
     def ledger_summary(self, agent: str | None = None) -> list[dict[str, Any]]:
-        sql = (
-            "SELECT agent, kind, outcome, COUNT(*) AS n FROM ledger"
-        )
+        sql = "SELECT agent, kind, outcome, COUNT(*) AS n FROM ledger"
         params: tuple[object, ...] = ()
         if agent:
             sql += " WHERE agent = ?"
@@ -485,8 +493,12 @@ class Store:
             params.append(state)
         return [
             WorkspaceRow(
-                workspace_id=r["workspace_id"], run_id=r["run_id"], task_id=r["task_id"],
-                path=r["path"], branch=r["branch"], base_commit=r["base_commit"],
+                workspace_id=r["workspace_id"],
+                run_id=r["run_id"],
+                task_id=r["task_id"],
+                path=r["path"],
+                branch=r["branch"],
+                base_commit=r["base_commit"],
                 state=r["state"],
             )
             for r in self.db.query(sql, tuple(params))
@@ -499,8 +511,15 @@ class Store:
             conn.execute(
                 "INSERT INTO usage_log (run_id, agent, attempt_id, input_tokens,"
                 " output_tokens, total_cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (run_id, agent, attempt_id, usage.input_tokens, usage.output_tokens,
-                 usage.total_cost_usd, _now()),
+                (
+                    run_id,
+                    agent,
+                    attempt_id,
+                    usage.input_tokens,
+                    usage.output_tokens,
+                    usage.total_cost_usd,
+                    _now(),
+                ),
             )
 
     def usage_summary(self, run_id: str) -> list[dict[str, Any]]:

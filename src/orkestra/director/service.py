@@ -144,12 +144,15 @@ class DirectorService:
     async def challenge(
         self, plan: DirectorPlan, challenger_name: str, challenger: AgentAdapter
     ) -> PlanChallenge:
-        brief_prompt = prompts.CHALLENGE.format(
-            agent=challenger_name, plan=plan.model_dump_json()
-        )
+        brief_prompt = prompts.CHALLENGE.format(agent=challenger_name, plan=plan.model_dump_json())
         service = DirectorService(
-            challenger_name, challenger, self.policy, self.work_dir,
-            max_retries=1, timeout_s=self.timeout_s, offline=self.offline,
+            challenger_name,
+            challenger,
+            self.policy,
+            self.work_dir,
+            max_retries=1,
+            timeout_s=self.timeout_s,
+            offline=self.offline,
         )
         if self.offline:
             return PlanChallenge(agent=challenger_name, verdict="accept")
@@ -195,8 +198,9 @@ class DirectorService:
         matrix: CapabilityMatrix,
     ) -> ReassignmentAdvice:
         if self.offline:
-            return ReassignmentAdvice(escalate_to_human=True,
-                                      reason="offline mode: escalating after failures")
+            return ReassignmentAdvice(
+                escalate_to_human=True, reason="offline mode: escalating after failures"
+            )
         prompt = prompts.REASSIGN.format(
             matrix=matrix.model_dump_json(), title=title, kind=kind, failures=failures
         )

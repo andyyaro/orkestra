@@ -50,7 +50,7 @@ class ClaudeParser(StreamParser):
     def feed_line(self, line: str, *, is_stderr: bool) -> Iterable[AgentEvent]:
         if is_stderr:
             if line.strip():
-                self.stderr_tail = (self.stderr_tail + [line])[-20:]
+                self.stderr_tail = [*self.stderr_tail, line][-20:]
             return
         obj = try_parse_json(line)
         if obj is None:
@@ -148,20 +148,23 @@ class ClaudeCodeAdapter(AgentAdapter):
     async def detect(self) -> AdapterInfo:
         path = self.which()
         if not path:
-            return AdapterInfo(self.adapter_id, available=False,
-                               detail="`claude` not found on PATH")
+            return AdapterInfo(
+                self.adapter_id, available=False, detail="`claude` not found on PATH"
+            )
         code, out, err = await run_capture([path, "--version"])
         if code != 0:
-            return AdapterInfo(self.adapter_id, available=False, executable=path,
-                               detail=f"--version failed: {err.strip()[:200]}")
+            return AdapterInfo(
+                self.adapter_id,
+                available=False,
+                executable=path,
+                detail=f"--version failed: {err.strip()[:200]}",
+            )
         return AdapterInfo(
             self.adapter_id,
             available=True,
             version=out.strip().split()[0] if out.strip() else "",
             executable=path,
-            features=frozenset(
-                {"structured_output", "resume", "structured_director", "stream"}
-            ),
+            features=frozenset({"structured_output", "resume", "structured_director", "stream"}),
         )
 
     async def check_auth(self) -> AuthStatus:
@@ -181,9 +184,11 @@ class ClaudeCodeAdapter(AgentAdapter):
         argv = [
             self.which() or self.executable,
             "-p",
-            "--output-format", "stream-json",
+            "--output-format",
+            "stream-json",
             "--verbose",
-            "--setting-sources", "user",
+            "--setting-sources",
+            "user",
         ]
         if self.autonomy == "unsafe-full":
             argv += ["--permission-mode", "bypassPermissions"]

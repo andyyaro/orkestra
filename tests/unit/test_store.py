@@ -179,8 +179,9 @@ class TestDecisions:
 class TestUsageAndLedger:
     def test_usage_summary(self, store: Store) -> None:
         run_id = store.create_run("demo")
-        store.add_usage(run_id, "claude", None, Usage(input_tokens=10, output_tokens=5,
-                                                      total_cost_usd=0.01))
+        store.add_usage(
+            run_id, "claude", None, Usage(input_tokens=10, output_tokens=5, total_cost_usd=0.01)
+        )
         store.add_usage(run_id, "claude", None, Usage(input_tokens=20, output_tokens=15))
         [summary] = store.usage_summary(run_id)
         assert summary["input_tokens"] == 30
