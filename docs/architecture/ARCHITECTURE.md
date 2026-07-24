@@ -134,8 +134,14 @@ installed CLIs, 2026-07-24):
 |---|---|---|---|
 | `claude-code` | `claude -p --output-format stream-json --permission-mode ...` | JSONL events | terminal `type:"result"` object |
 | `codex-cli` | `codex exec --json -C <dir> --sandbox workspace-write` | JSONL (`thread.*`, `item.*`, `turn.*`) | `item.completed agent_message` + `turn.completed` usage |
-| `gemini-cli` | `gemini -p -o stream-json --approval-mode ...` | JSONL | final JSON; auth errors: exit 41 + JSON on stderr |
+| `antigravity-cli` | `agy -p --output-format stream-json --mode accept-edits` | JSONL (`init`, `step_update`) | terminal `result` event (`conversation_id`, `status`, `response`, usage) |
+| `gemini-cli` (non-default; API-key/Vertex auth only) | `gemini -p -o stream-json --approval-mode ...` | JSONL | final JSON; auth errors: exit 41 + JSON on stderr |
 | `fake` | scripted subprocess or in-process script | synthetic | deterministic, for tests |
+
+Note: Google retired individual-consumer OAuth on the legacy `gemini`
+CLI in favor of the Antigravity suite (`agy`); `antigravity-cli` is the
+first-party Google adapter, `gemini-cli` remains supported for API-key /
+Vertex / Standard-Enterprise authentication.
 
 ### Workspace isolation
 

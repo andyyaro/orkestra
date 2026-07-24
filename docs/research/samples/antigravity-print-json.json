@@ -1,0 +1,14 @@
+{
+  "_note": "Captured 2026-07-24 from `agy --output-format json -p '...'` (agy 1.1.6, authenticated Google account). Single JSON envelope on stdout, exit 0. `--output-format` is accepted although not listed in --help.",
+  "conversation_id": "de5adf30-25a7-4fc7-8ead-5b6ba32e5ae5",
+  "status": "SUCCESS",
+  "response": "Hello! I'm ready to assist you. How can I help you today?\n",
+  "duration_seconds": 1.205281,
+  "num_turns": 1,
+  "usage": {
+    "input_tokens": 9878,
+    "output_tokens": 75,
+    "thinking_tokens": 54,
+    "total_tokens": 9953
+  }
+}

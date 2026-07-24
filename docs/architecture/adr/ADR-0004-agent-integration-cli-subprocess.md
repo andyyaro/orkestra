@@ -19,8 +19,14 @@ headless mode with JSON/JSONL output:
   object confirmed locally; stream events for progress).
 - Codex: `codex exec --json` (JSONL `thread.*`/`item.*`/`turn.*` events
   confirmed locally; `--output-schema` available for structured finals).
+- Antigravity (`agy`): `agy -p --output-format stream-json` (JSONL
+  `init`/`step_update` events + terminal `result` envelope, confirmed
+  locally) — the first-party Google adapter after Google migrated
+  individual-consumer OAuth from the legacy Gemini CLI to the
+  Antigravity suite.
 - Gemini: `gemini -p -o stream-json` (auth-not-ready = exit 41 with JSON
-  error on stderr, confirmed locally).
+  error on stderr, confirmed locally). Non-default adapter; valid for
+  API-key/Vertex/Standard-Enterprise auth only.
 
 The Claude *director* role also uses `claude -p`, with strict JSON
 decision envelopes parsed and schema-validated by the kernel.

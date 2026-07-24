@@ -58,7 +58,41 @@ captures in `samples/`.
   JSON-RPC), `codex mcp-server`; app-server marked experimental —
   subprocess `exec` chosen for v0.1.
 
-## Gemini CLI (`gemini`)
+## Antigravity CLI (`agy`) — first-party Google adapter
+
+Added 2026-07-24 after Google's migration notice: the legacy `gemini`
+CLI rejects individual-consumer OAuth ("This client is no longer
+supported for Gemini Code Assist for individuals. To continue using
+Gemini, please migrate to the Antigravity suite of products."). The
+Antigravity CLI (`agy` 1.1.6) is installed and authenticated on this
+machine; all findings below verified live (`samples/antigravity-*`).
+
+- **Headless:** `agy -p "<prompt>"` (`--print`); `--print-timeout`
+  (default 5m); `--output-format json|stream-json` accepted although
+  not listed in `--help` (version-pin and feature-detect in the
+  adapter).
+- **JSON envelope:** `conversation_id`, `status` (`"SUCCESS"` observed),
+  `response`, `duration_seconds`, `num_turns`,
+  `usage {input_tokens, output_tokens, thinking_tokens, total_tokens}`.
+- **Stream events:** `init` (conversation_id, cwd, tools list,
+  `permission_mode: "request-review"`), `step_update`
+  (`step_type: user_input|agent_response|checkpoint|unknown`,
+  `text_delta`, per-step usage, `state: DONE`), terminal `result`
+  (same envelope as json mode).
+- **Structured output:** no schema flag → prompt-level JSON with
+  bounded repair loop (same strategy as Gemini).
+- **Sessions:** `--conversation <id>` resume; `-c/--continue` for most
+  recent.
+- **Permissions/sandbox:** default `request-review`; `--mode
+  accept-edits|plan`; `--dangerously-skip-permissions` (opt-in unsafe);
+  `--sandbox` (terminal restrictions); `--add-dir` workspace scoping.
+- **Extras:** `--model` (slugs from `agy models`: gemini-3.6-flash-*,
+  gemini-3.1-pro-*, claude-sonnet-4-6, gpt-oss-120b-…), `--effort
+  low|medium|high`, custom agents via `agent.md`, plugins/MCP.
+- **Auth readiness:** `agy models` succeeds only when authenticated —
+  a cheap non-invasive readiness probe.
+
+## Gemini CLI (`gemini`) — non-default (API-key / Vertex / Enterprise auth)
 
 - **Headless:** `-p` (or non-TTY); `--output-format json` → envelope
   `{response, stats, error?}`; `stream-json` → JSONL events `init`
