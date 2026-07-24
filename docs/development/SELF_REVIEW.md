@@ -14,6 +14,12 @@ sanitized). Findings feed the roadmap; see also
 
 ---
 
+> **Resolution (v0.1.1, 2026-07-24):** every verified miss and
+> false-positive class below was addressed in `src/orkestra/redact.py`
+> and locked in by `tests/unit/test_redact_v2.py`. Remaining by design:
+> `redact()` still favors recall over precision for unrecognized
+> assignment values.
+
 Preflight: `docs/development/SELF_REVIEW.md` does not exist, so the analysis proceeded. The worktree and index remain unchanged; both diff checks returned exit code 0, and `git status --porcelain` was empty.
 
 ## 1. Credential-format coverage

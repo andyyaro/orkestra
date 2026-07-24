@@ -13,7 +13,7 @@ from typing import Any
 
 from orkestra.errors import StateTransitionError, StoreError
 from orkestra.ids import new_id
-from orkestra.redact import redact
+from orkestra.redact import redact, redact_structure
 from orkestra.schemas.agent import AgentEvent, AgentResult, Usage
 from orkestra.schemas.capability import CapabilityObservation
 from orkestra.schemas.common import AttemptState, RunState, TaskState, utc_now
@@ -338,7 +338,7 @@ class Store:
                     event.ts.isoformat(),
                     event.kind.value,
                     redact(event.text)[:20_000],
-                    redact(json.dumps(event.data))[:50_000],
+                    redact(json.dumps(redact_structure(event.data)))[:50_000],
                 ),
             )
 
