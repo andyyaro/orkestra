@@ -25,10 +25,15 @@
         analysis, live probes, plan challenges verified; three kernel
         defects found and fixed (dirty-repo fail-fast, orphaned
         PLANNING runs, prose acceptance commands crashing the pipeline)
-  - [ ] Full live run to COMPLETE (in progress)
-  - [ ] Controlled self-review dogfood
-- [ ] Phase 10 — Documentation ✔ (README + docs set written), packaging,
-      GitHub publication, release
+  - [x] Full live run to COMPLETE (run_7ccfb487: gate-caught failure,
+        fallback repair, Codex structured review approval, human gate,
+        integration branch verified — evidence/LIVE_SMOKE_REPORT.md)
+  - [ ] Controlled self-review dogfood (final review cycle in flight;
+        already demonstrated: cross-vendor delegation, review rejection,
+        bounded fix loop, human-gate escalation and retry)
+- [ ] Phase 10 — Documentation ✔, packaging ✔ (wheel + clean-install run
+      ✔), GitHub publication ✔ (repo public, CI green), release pending
+      (tag v0.1.0 + GitHub release + final report after dogfood merge)
 
 ## Quality gates (current)
 
