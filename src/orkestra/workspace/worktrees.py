@@ -52,12 +52,19 @@ class WorkspaceManager:
                 "(`orkestra init` creates one)"
             )
             raise WorkspaceError(msg)
-        if not allow_dirty and await self.repo.is_dirty():
-            msg = (
-                "repository has uncommitted changes; commit or stash them "
-                "before starting a run (Orkestra will not touch dirty state)"
-            )
-            raise WorkspaceError(msg)
+        if not allow_dirty:
+            # Tracked modifications could entangle user work with agent work;
+            # untracked files are safe (worktrees and merges never include
+            # them) — agent CLIs routinely drop state dirs like .claude/.
+            changed = await self.repo.tracked_changes()
+            if changed:
+                listing = ", ".join(changed[:5])
+                msg = (
+                    f"repository has uncommitted changes to tracked files "
+                    f"({listing}); commit or stash them before starting a run "
+                    "(Orkestra will not touch dirty state)"
+                )
+                raise WorkspaceError(msg)
 
     # ------------------------------------------------------------ runs
 
