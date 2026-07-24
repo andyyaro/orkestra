@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Agent session reuse on fix cycles: when verification fails or a
+  reviewer requests changes, the retry by the same agent in the same
+  workspace resumes the agent's prior CLI session (`--resume` /
+  `codex exec resume` / `--conversation`) instead of cold-starting —
+  cutting quota use on repair loops. Sessions never cross agents or
+  workspaces; disable with `policy.session_reuse = false`.
+  Live-verified context recall across resumed Claude invocations.
+
 ## [0.1.2] - 2026-07-24
 
 ### Added

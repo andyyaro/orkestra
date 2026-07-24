@@ -325,3 +325,58 @@ class TestParallelism:
         assert state is RunState.COMPLETE
         files = await show_integration_files(app, run_id)
         assert "shared.txt" in files
+
+
+class TestSessionReuse:
+    async def test_fix_cycle_resumes_implementer_session(self, app: App) -> None:
+        # Review rejects once -> the fix attempt by the same agent in the
+        # same workspace must resume its prior CLI session (quota saver).
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("feat", "FAKE:reject_once\nFAKE:write:feature.txt:v1"),
+                    assign("alpha", "beta"),
+                )
+            ],
+        )
+        state = await app.orchestrator.execute(run_id)
+        assert state is RunState.COMPLETE
+        task = app.store.tasks_for_run(run_id)[0]
+        events = app.store.events_for_run(run_id, limit=500, task_id=task.task_id)
+        resumed = [e for e in events if e["text"].startswith("RESUMED:")]
+        assert len(resumed) == 1, [e["text"][:60] for e in events]
+        assert resumed[0]["text"] == f"RESUMED:fake-{task.task_id}"
+        # And the resume happened on the second primary attempt, not the first.
+        primary_attempts = [
+            a for a in app.store.attempts_for_task(task.task_id) if a.role == "primary"
+        ]
+        assert len(primary_attempts) == 2
+
+    async def test_first_attempt_never_resumes(self, app: App) -> None:
+        run_id = await manual_run(
+            app,
+            [(spec("clean", "FAKE:write:x.txt:1"), assign("alpha", "beta"))],
+        )
+        await app.orchestrator.execute(run_id)
+        task = app.store.tasks_for_run(run_id)[0]
+        events = app.store.events_for_run(run_id, limit=500, task_id=task.task_id)
+        assert not any(e["text"].startswith("RESUMED:") for e in events)
+
+    async def test_fallback_agent_does_not_inherit_session(self, app: App) -> None:
+        # alpha crashes; beta takes over — beta must start fresh, and alpha's
+        # session must not leak into beta's brief.
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("feat", "FAKE:fail_if_agent:alpha\nFAKE:write:out.txt:done"),
+                    assign("alpha", "beta", ["beta"]),
+                )
+            ],
+        )
+        state = await app.orchestrator.execute(run_id)
+        assert state is RunState.COMPLETE
+        task = app.store.tasks_for_run(run_id)[0]
+        events = app.store.events_for_run(run_id, limit=500, task_id=task.task_id)
+        assert not any(e["text"].startswith("RESUMED:") for e in events)

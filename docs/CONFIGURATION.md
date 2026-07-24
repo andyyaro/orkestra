@@ -44,6 +44,7 @@ agents with different models).
 | `max_attempts_per_task` | `3` | Attempt budget incl. fallbacks (1–10) |
 | `max_review_cycles` | `2` | Review→fix loops per task (0–5) |
 | `require_review` | `true` | Independent review gate for mutating tasks |
+| `session_reuse` | `true` | Resume the same agent's CLI session on fix-cycle retries in the same workspace (quota saver); sessions never cross agents or workspaces |
 | `allow_push` | `false` | Orkestra never pushes unless this is true |
 | `task_timeout_s` | `1800` | Kernel-enforced ceiling per attempt |
 | `protected_paths` | `[".git", ".orkestra", ".github/workflows"]` | Diffs touching these are rejected |

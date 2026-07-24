@@ -9,8 +9,8 @@ Direction, not commitment. Items move as evidence accumulates.
   `sandbox = "docker"`; needs hardening and CI coverage.
 - Textual-based TUI (`orkestra watch`) over the same state store.
 - Quota-aware scheduling using recorded usage observations per agent.
-- Adapter session reuse across tasks (Claude `--fork-session`, Codex
-  `exec resume`) for cheaper multi-turn refinement loops.
+- ~~Adapter session reuse~~ shipped for fix cycles (post-0.1.2);
+  remaining: cross-task session forking (Claude `--fork-session`).
 
 ## v0.3
 

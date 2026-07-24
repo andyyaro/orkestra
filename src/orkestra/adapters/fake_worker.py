@@ -69,6 +69,8 @@ def main(argv: list[str]) -> int:
     wants_json = brief.get("json_schema") is not None
 
     emit({"type": "started", "session_id": f"fake-{brief.get('task_id', 'unknown')}"})
+    if brief.get("resume_session_id"):
+        emit({"type": "text", "text": f"RESUMED:{brief['resume_session_id']}"})
 
     final_text = f"fake agent completed {kind} task"
     structured: dict[str, Any] | None = None

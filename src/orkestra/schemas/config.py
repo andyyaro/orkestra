@@ -57,6 +57,8 @@ class PolicyConfig(BaseModel):
     max_attempts_per_task: int = Field(default=3, ge=1, le=10)
     max_review_cycles: int = Field(default=2, ge=0, le=5)
     require_review: bool = True
+    session_reuse: bool = True
+    """Resume an agent's CLI session on fix cycles in the same workspace."""
     allow_push: bool = False
     task_timeout_s: int = Field(default=1800, ge=30, le=24 * 3600)
     protected_paths: list[str] = Field(
