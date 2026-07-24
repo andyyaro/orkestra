@@ -33,6 +33,17 @@ jobs:
         run: uv run pip-audit --skip-editable
         continue-on-error: false
 
+  secrets-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   test:
     name: Tests (py${{ matrix.python }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
