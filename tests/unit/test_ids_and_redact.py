@@ -54,6 +54,8 @@ class TestRedact:
             "github_pat_11ABCDEFG0123456789_abcdef",
             "AIzaFAKEFAKEFAKEFAKEFAKEFAKEFAKE-NO",
             "AKIAIOSFODNN7EXAMPLE",
+            # Letters (not digits) so real secret scanners don't false-positive
+            # on this deliberately fake fixture; still matches our redactor.
             "xoxb-NOTAREALTOKEN-abcdefghijklmnop",
         ],
     )
