@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/andyyaro/orkestra/discussions
+    about: Usage questions, design discussions, and show-and-tell belong in Discussions.
+  - name: Security vulnerabilities (private)
+    url: https://github.com/andyyaro/orkestra/security/advisories/new
+    about: Please never open a public issue for a security problem.

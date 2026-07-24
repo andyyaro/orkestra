@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in Orkestra misbehaved
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Orkestra version
+      description: Output of `orkestra --version`
+      placeholder: orkestra 0.1.2
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: >
+        What did you run, what did you expect, what happened instead?
+        Attach `orkestra report --out report.md` output where possible —
+        it is redacted and safe to share.
+    validations:
+      required: true
+  - type: textarea
+    id: agents
+    attributes:
+      label: Agents involved
+      description: >
+        Relevant rows from `orkestra agents list` (adapter, version,
+        auth state). Never paste credentials or tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log excerpt
+      description: "`orkestra logs --limit 50` around the failure (already redacted at write time)."
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I ran `orkestra doctor` and it did not explain the problem
+          required: true
+        - label: I checked docs/TROUBLESHOOTING.md
+          required: true
