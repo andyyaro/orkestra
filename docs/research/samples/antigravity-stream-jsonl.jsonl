@@ -1,0 +1,6 @@
+{"_note": "Captured 2026-07-24 from `agy --output-format stream-json -p 'Reply with exactly: OK'` (agy 1.1.6). Events verbatim except the init tools list is truncated here for brevity."}
+{"event":"init","conversation_id":"52861ad8-72ef-4a59-8838-e023890c6d3b","init":{"cwd":"/tmp/example","tools":["ask_permission","run_command","view_file","write_to_file","..."],"permission_mode":"request-review"}}
+{"event":"step_update","step_update":{"conversation_id":"52861ad8-72ef-4a59-8838-e023890c6d3b","step_index":0,"state":"DONE","step_type":"user_input"}}
+{"event":"step_update","step_update":{"conversation_id":"52861ad8-72ef-4a59-8838-e023890c6d3b","step_index":2,"state":"DONE","step_type":"agent_response","text_delta":"OK\n","duration_seconds":0.682717,"usage":{"input_tokens":9802,"output_tokens":20,"thinking_tokens":19,"total_tokens":9822}}}
+{"event":"step_update","step_update":{"conversation_id":"52861ad8-72ef-4a59-8838-e023890c6d3b","step_index":3,"state":"DONE","step_type":"checkpoint","duration_seconds":0.396632,"usage":{"input_tokens":97,"output_tokens":4,"thinking_tokens":0,"total_tokens":101}}}
+{"event":"result","result":{"conversation_id":"52861ad8-72ef-4a59-8838-e023890c6d3b","status":"SUCCESS","response":"OK\n","duration_seconds":1.110763,"num_turns":1,"usage":{"input_tokens":9899,"output_tokens":24,"thinking_tokens":19,"total_tokens":9923}}}
