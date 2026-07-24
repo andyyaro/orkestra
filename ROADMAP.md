@@ -26,8 +26,8 @@ Direction, not commitment. Items move as evidence accumulates.
 - MCP-based adapter surface (`codex mcp-server`, Claude MCP) as an
   alternative to subprocess JSONL.
 - OpenTelemetry export of runtime events.
-- PyPI publication as `orkestra-runtime` (and PEP 541 request for the
-  dormant `orkestra` name).
+- PEP 541 request for the dormant bare `orkestra` PyPI name
+  (`orkestra-runtime` is published as of v0.1.2).
 - Multi-repository projects; cross-repo task graphs.
 - Cost/quota dashboards from the usage ledger.
 - Signed release artifacts and SLSA provenance.

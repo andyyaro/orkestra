@@ -21,13 +21,13 @@ With [uv](https://docs.astral.sh/uv/) (recommended — isolated tool
 install):
 
 ```bash
-uv tool install git+https://github.com/andyyaro/orkestra
+uv tool install orkestra-runtime
 ```
 
 With pip:
 
 ```bash
-pip install git+https://github.com/andyyaro/orkestra
+pip install orkestra-runtime
 ```
 
 From a clone (development):
