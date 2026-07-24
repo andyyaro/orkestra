@@ -14,7 +14,7 @@ worktree, runs acceptance commands itself, enforces independent
 cross-agent review, and integrates verified results on a dedicated
 branch. State is persistent and resumable across crashes.
 
-The system was validated three ways: a 250+-test suite (unit,
+The system was validated three ways: a 211-test suite (unit,
 integration, 15-scenario fake-agent E2E, CLI); a **live end-to-end
 orchestration on a disposable sample project using the real
 authenticated Claude Code, Codex CLI, and Antigravity CLI** (including a
@@ -133,15 +133,25 @@ examples/{two-agents,three-agents,many-agents}
    acceptance commands (director prompt + VerificationError human
    gate); pipeline-crash task stranding; codex strict-schema rejection;
    agy empty review response (two-round review candidates).
-4. Dogfood: bounded self-review run on Orkestra's own repository
-   (see below).
+4. Dogfood: Orkestra orchestrated a bounded self-review of its own
+   repository (run `run_cb25ff11`): the Claude director planned two
+   tasks after live plan challenges from Codex and Antigravity; Codex
+   implemented a sourced redaction-gap analysis of `redact.py` (approved
+   by an independent Claude review and integrated); a second
+   formatting task was rejected twice by the Codex reviewer under a
+   deliberately tight 1-cycle review budget and skipped by the operator
+   at the human gate — bounded loops and escalation demonstrated on
+   Orkestra itself. Evidence: `docs/development/SELF_REVIEW.md`,
+   `docs/development/evidence/DOGFOOD_RUN_REPORT.md`. The dogfood also
+   surfaced and fixed a real usability defect (untracked agent-CLI
+   state dirs blocking runs).
 
 ## Test counts and commands
 
-- `uv run pytest` — 253 tests passing (unit, integration/workspace with
-  real git, adapters incl. contract suite, 15 E2E orchestration
-  scenarios, CLI via Typer runner).
-- Coverage: 81–82% overall (`--cov=orkestra`), CI floor 80%; kernel,
+- `uv run pytest` — 211 tests passing (142 unit, 25 adapter incl. the
+  contract suite, 15 workspace-integration with real git, 15 E2E
+  orchestration scenarios, 14 CLI via Typer runner).
+- Coverage: 81% overall (`--cov=orkestra`), CI floor 80%; kernel,
   store, policy, and workspace modules 83–100%.
 - Static analysis: `ruff check` clean (security rules enabled);
   `mypy --strict` clean over 56 source files; `bandit` 0 findings
@@ -170,9 +180,13 @@ macOS 26.5.1 / Python 3.14). Windows untested (roadmap).
 
 - Repository: https://github.com/andyyaro/orkestra (public)
 - Default branch: `main`
-- Release: v0.1.0 — <!-- RELEASE_URL -->
-- History note: pre-publication history was rewritten once to purge a
-  fake-but-scanner-triggering test token; no real secret ever existed.
+- Release: v0.1.0 — https://github.com/andyyaro/orkestra/releases/tag/v0.1.0
+- History note: history was rewritten twice (once pre-publication, once
+  ~1 hour after, before any forks/clones existed) to purge two
+  fake-but-scanner-triggering redaction-test fixtures (a fake Slack
+  token and a fake Google API key). No real secret ever existed; the
+  GitHub secret-scanning alert was closed as a documented false
+  positive and fixtures are now scanner-safe shapes.
 
 ## Global tools installed during the build
 
@@ -209,4 +223,26 @@ $EDITOR SPEC.md && git add -A && git commit -m spec && orkestra run
 
 ## Completion criteria
 
-<!-- COMPLETION_STATEMENT -->
+**All applicable completion criteria of MASTERPROMPT.md §15 pass.**
+
+- *Product*: installable (wheel + uv tool); `orkestra` command works;
+  2..N agents with no fixed-three assumptions; Claude default director
+  via config, core decoupled (any structured-output adapter, heuristic
+  fallback); claude/codex/antigravity/gemini first-party adapters plus
+  fake/external; dynamic evidence-based delegation; task DAG; worktree
+  isolation; independent review; deterministic gate veto; persistent
+  resumable state; bounded retries/loops; working human gates; safe
+  defaults; reports/logs; documented + tested adapter extension.
+- *Quality*: research docs complete; 8 ADRs; unit/integration/E2E suites
+  pass (211 tests); ruff clean; mypy --strict clean; bandit/pip-audit/
+  gitleaks clean; clean install verified; sample orchestration succeeded
+  live; failure and resume behavior demonstrated live and in tests; no
+  known critical defect; working tree clean.
+- *Open source & release*: README with diagrams; Apache-2.0 LICENSE +
+  NOTICE; CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/CHANGELOG/ROADMAP;
+  GitHub Actions green; public repo published; code pushed; v0.1.0 tag
+  and GitHub release created; this report contains the evidence.
+
+One deviation is disclosed rather than claimed complete: the Docker
+sandbox execution mode is deferred to v0.2 with an honest in-product
+refusal (per §17 autonomous decision policy).

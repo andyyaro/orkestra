@@ -1,7 +1,7 @@
 # Orkestra Build Status
 
-**Status:** IN_PROGRESS
-**Phase:** 9 — Live validation and dogfooding (fake-agent E2E complete)
+**Status:** COMPLETE
+**Phase:** 10 — Released (v0.1.0)
 **Last updated:** 2026-07-24
 
 ## Phase checklist
@@ -28,15 +28,19 @@
   - [x] Full live run to COMPLETE (run_7ccfb487: gate-caught failure,
         fallback repair, Codex structured review approval, human gate,
         integration branch verified — evidence/LIVE_SMOKE_REPORT.md)
-  - [ ] Controlled self-review dogfood (final review cycle in flight;
-        already demonstrated: cross-vendor delegation, review rejection,
-        bounded fix loop, human-gate escalation and retry)
-- [ ] Phase 10 — Documentation ✔, packaging ✔ (wheel + clean-install run
-      ✔), GitHub publication ✔ (repo public, CI green), release pending
-      (tag v0.1.0 + GitHub release + final report after dogfood merge)
+  - [x] Controlled self-review dogfood (run_cb25ff11: codex analysis
+        integrated after independent claude review; second task skipped
+        at the human gate after bounded review cycles — evidence in
+        docs/development/SELF_REVIEW.md)
+- [x] Phase 10 — Documentation, packaging, GitHub publication,
+      v0.1.0 tag + release, FINAL_BUILD_REPORT.md
 
-## Quality gates (current)
+## Final quality gates
 
-- 249 tests passing (unit, integration, E2E, CLI)
-- Coverage 82% (floor 80)
-- ruff clean, mypy --strict clean, bandit 0 findings, pip-audit clean
+- 211 tests passing (unit, integration, E2E, CLI)
+- Coverage 81% (floor 80); ruff / mypy --strict / bandit / pip-audit /
+  gitleaks clean; CI green on GitHub
+- Live cross-vendor orchestration + dogfood evidence in
+  docs/development/evidence/
+
+See FINAL_BUILD_REPORT.md for the complete evidence trail.
