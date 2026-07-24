@@ -319,3 +319,25 @@ class TestJsonHelpers:
 
     def test_extract_none(self) -> None:
         assert extract_json_object("no json here") is None
+
+
+class TestCodexStrictSchema:
+    def test_strict_transform(self) -> None:
+        from orkestra.adapters.codex_cli import to_strict_schema
+        from orkestra.schemas.director import ReviewVerdict
+
+        schema = to_strict_schema(ReviewVerdict.model_json_schema())
+
+        def check(node):  # type: ignore[no-untyped-def]
+            if isinstance(node, dict):
+                assert "default" not in node
+                if node.get("type") == "object" and "properties" in node:
+                    assert set(node["required"]) == set(node["properties"])
+                    assert node["additionalProperties"] is False
+                for value in node.values():
+                    check(value)
+            elif isinstance(node, list):
+                for item in node:
+                    check(item)
+
+        check(schema)

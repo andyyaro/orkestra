@@ -129,6 +129,31 @@ class CodexParser(StreamParser):
         )
 
 
+def to_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Transform a Pydantic JSON schema into OpenAI strict-mode form.
+
+    Strict mode requires every object to list ALL properties in
+    ``required`` and to set ``additionalProperties: false``; ``default``
+    and ``title`` annotations are stripped (observed live 2026-07-24:
+    codex rejects schemas whose ``required`` omits defaulted fields).
+    """
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            out = {k: walk(v) for k, v in node.items() if k not in ("default", "title")}
+            if out.get("type") == "object" and isinstance(out.get("properties"), dict):
+                out["required"] = list(out["properties"].keys())
+                out["additionalProperties"] = False
+            return out
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        return node
+
+    result = walk(schema)
+    assert isinstance(result, dict)  # noqa: S101 - input is a dict by signature
+    return result
+
+
 class CodexCliAdapter(AgentAdapter):
     adapter_id = "codex-cli"
     executable = "codex"
@@ -181,7 +206,9 @@ class CodexCliAdapter(AgentAdapter):
             argv += ["--model", self.model]
         if brief.json_schema is not None:
             schema_file = self._schema_dir / f"orkestra-schema-{brief.task_id}.json"
-            schema_file.write_text(json.dumps(brief.json_schema), encoding="utf-8")
+            schema_file.write_text(
+                json.dumps(to_strict_schema(brief.json_schema)), encoding="utf-8"
+            )
             argv += ["--output-schema", str(schema_file)]
         if brief.resume_session_id:
             argv = [*argv[:2], "resume", brief.resume_session_id, *argv[2:]]
