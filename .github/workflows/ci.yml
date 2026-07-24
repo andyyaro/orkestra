@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, types, security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Sync dependencies
+        run: uv sync --locked
+      - name: Ruff format check
+        run: uv run ruff format --check .
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Mypy (strict)
+        run: uv run mypy
+      - name: Bandit
+        run: uv run bandit -c pyproject.toml -r src
+      - name: pip-audit
+        run: uv run pip-audit --skip-editable
+        continue-on-error: false
+
+  test:
+    name: Tests (py${{ matrix.python }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Sync dependencies
+        run: uv sync --locked
+      - name: Configure git identity (worktree tests)
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+      - name: Run tests with coverage
+        run: uv run pytest --cov=orkestra --cov-report=xml --cov-report=term
+      - name: Enforce coverage floor
+        run: uv run coverage report --fail-under=80
+
+  install-smoke:
+    name: Clean install smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: uv build
+      - name: Install wheel into fresh venv and smoke test
+        run: |
+          uv venv /tmp/smoke
+          VIRTUAL_ENV=/tmp/smoke uv pip install dist/*.whl
+          /tmp/smoke/bin/orkestra --version
+          /tmp/smoke/bin/orkestra --help
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+          mkdir /tmp/smokeproj && cd /tmp/smokeproj
+          /tmp/smoke/bin/orkestra init . --non-interactive
+          /tmp/smoke/bin/orkestra doctor || true
