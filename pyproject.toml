@@ -1,0 +1,124 @@
+[project]
+name = "orkestra-runtime"
+version = "0.1.0"
+description = "Local-first orchestration runtime for multiple autonomous coding agents (Claude Code, Codex CLI, Gemini CLI, and more) collaborating on one software project."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Andy Yaro" }]
+keywords = [
+    "agents",
+    "orchestration",
+    "claude-code",
+    "codex",
+    "gemini",
+    "multi-agent",
+    "developer-tools",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.9,<3",
+    "typer>=0.15,<1",
+    "rich>=13.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/andyyaro/orkestra"
+Repository = "https://github.com/andyyaro/orkestra"
+Issues = "https://github.com/andyyaro/orkestra/issues"
+Changelog = "https://github.com/andyyaro/orkestra/blob/main/CHANGELOG.md"
+
+[project.scripts]
+orkestra = "orkestra.cli.main:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "pytest-cov>=6.0",
+    "mypy>=1.14",
+    "ruff>=0.9",
+    "bandit>=1.8",
+    "pip-audit>=2.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/orkestra"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",      # pycodestyle
+    "F",           # pyflakes
+    "I",           # isort
+    "B",           # bugbear
+    "UP",          # pyupgrade
+    "S",           # bandit (flake8-bandit)
+    "C4",          # comprehensions
+    "SIM",         # simplify
+    "RET",         # return
+    "PTH",         # use pathlib
+    "RUF",
+]
+ignore = [
+    "S603",  # subprocess without shell=True is exactly our security model
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S108", "S105", "S106", "S607"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = "src"
+packages = ["orkestra"]
+warn_unreachable = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q"
+markers = [
+    "e2e: end-to-end tests (slower)",
+    "live: tests that invoke real agent CLIs (opt-in, quota-consuming)",
+]
+
+[tool.coverage.run]
+source = ["orkestra"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B603"]
