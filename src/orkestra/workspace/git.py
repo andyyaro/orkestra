@@ -89,11 +89,7 @@ class GitRepo:
     async def tracked_changes(self) -> list[str]:
         """Modified/staged/deleted tracked paths (untracked excluded)."""
         _, out, _ = await self._git("status", "--porcelain")
-        return [
-            line[3:]
-            for line in out.splitlines()
-            if line.strip() and not line.startswith("??")
-        ]
+        return [line[3:] for line in out.splitlines() if line.strip() and not line.startswith("??")]
 
     async def untracked_files(self) -> list[str]:
         _, out, _ = await self._git("status", "--porcelain")
