@@ -1,0 +1,54 @@
+name: Publish to PyPI
+
+# PyPI Trusted Publishing via GitHub OIDC — no API tokens anywhere.
+# The `publish` job deploys through the protected `pypi` environment
+# (required reviewer: repository owner; tag pattern v*).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Check package metadata
+        run: uvx twine check --strict dist/*
+      - name: Smoke test the built wheel
+        run: |
+          uv venv /tmp/pubsmoke
+          VIRTUAL_ENV=/tmp/pubsmoke uv pip install dist/*.whl
+          /tmp/pubsmoke/bin/orkestra --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI (requires approval)
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/orkestra-runtime/
+    permissions:
+      id-token: write  # OIDC token for PyPI Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

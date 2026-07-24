@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-24
+
+### Added
+
+- PyPI publication via Trusted Publishing (GitHub OIDC): new
+  `publish-to-pypi.yml` workflow builds, metadata-checks, and smoke-tests
+  distributions, then publishes through the protected `pypi` environment
+  with manual approval. No API tokens are stored anywhere.
+- Orkestra is now installable as `uv tool install orkestra-runtime`
+  (or `pip install orkestra-runtime`).
+
 ## [0.1.1] - 2026-07-24
 
 ### Security
