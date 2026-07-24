@@ -1,0 +1,28 @@
+# Example: three agents, Claude directing, moderate parallelism.
+version = 1
+
+[project]
+name = "example-three-agents"
+
+[agents.claude]
+adapter = "claude-code"
+model = "sonnet"
+
+[agents.codex]
+adapter = "codex-cli"
+
+[agents.antigravity]
+adapter = "antigravity-cli"
+
+[director]
+agent = "claude"
+
+[policy]
+max_concurrency = 2
+
+[verify]
+commands = ["pytest -q", "ruff check ."]
+
+[probes]
+mode = "cached"
+budget = 8

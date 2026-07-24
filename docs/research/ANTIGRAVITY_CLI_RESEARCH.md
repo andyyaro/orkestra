@@ -51,6 +51,21 @@ mutating tasks (edit autonomy inside the worktree) and treats
 permission stalls as timeouts; `--dangerously-skip-permissions` is only
 mapped from Orkestra's explicit `unsafe-full` autonomy mode.
 
+## Live orchestration observations (2026-07-24, agy 1.1.6)
+
+During Orkestra's live smoke runs, `agy -p --mode accept-edits` attempts
+reported `status: SUCCESS` **without actually writing the requested
+files** into the working directory (deterministic verification failed at
+0.0 s; a fallback agent then created them). Interpretation: headless agy
+honors its persisted permission policy, and file writes outside what it
+auto-allows are silently skipped rather than surfaced as errors. Also
+observed once: an empty `response` with `status: SUCCESS` on a review
+prompt. Consequences for the adapter/kernel (implemented): agent claims
+are never trusted (gates catch silent no-ops), review candidates get a
+bounded second round, and users who want agy as a primary implementer
+should pre-seed `~/.gemini/antigravity-cli/settings.json`
+`permissions.allow` for `write_file`/`command` in their projects.
+
 ## Plans and quotas
 
 - Free: weekly-refreshed quota. Google AI Pro: 5-hour refresh + weekly
