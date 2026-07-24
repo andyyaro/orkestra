@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+coverage.xml
+htmlcov/
+
+# Orkestra runtime state (never commit local orchestration state)
+.orkestra/
+*.orkestra.db
+*.sqlite3
+
+# Worktrees and scratch
+.worktrees/
+.scratch/
+
+# OS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Env / secrets
+.env
+.env.*
+*.pem
+*.key
