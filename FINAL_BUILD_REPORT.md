@@ -101,7 +101,7 @@ examples/{two-agents,three-agents,many-agents}
 ## Installation and quickstart
 
 `docs/INSTALL.md`, `docs/QUICKSTART.md`. Short form:
-`uv tool install git+https://github.com/andyyaro/orkestra`, then
+`uv tool install orkestra-runtime`, then
 `orkestra init . && orkestra doctor && orkestra run`.
 
 ## Agent integration status
