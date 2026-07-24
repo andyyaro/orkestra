@@ -18,8 +18,9 @@ from orkestra.schemas.task import Assignment, TaskSpec
 
 def heuristic_analysis(spec_text: str) -> DirectorAnalysis:
     lines = [line.strip() for line in spec_text.splitlines() if line.strip()]
-    title = next((line.lstrip("# ") for line in lines if line.startswith("#")),
-                 "project specification")
+    title = next(
+        (line.lstrip("# ") for line in lines if line.startswith("#")), "project specification"
+    )
     return DirectorAnalysis(
         summary=f"Heuristic analysis of: {title}",
         assumptions=["heuristic planner in use (director agent unavailable or offline)"],
@@ -33,18 +34,14 @@ def heuristic_analysis(spec_text: str) -> DirectorAnalysis:
     )
 
 
-def _assign(
-    kind: TaskKind, agents: list[str], matrix: CapabilityMatrix, offset: int
-) -> Assignment:
+def _assign(kind: TaskKind, agents: list[str], matrix: CapabilityMatrix, offset: int) -> Assignment:
     capability = TASK_CAPABILITY.get(kind.value, "implementation")
     ranked = rank_agents(matrix, capability, agents)
     # Rotate by offset so work spreads across agents instead of piling on
     # the single top-ranked one.
     primary = ranked[offset % len(ranked)]
     reviewer_capability = "bug_detection"
-    reviewer_ranked = [
-        a for a in rank_agents(matrix, reviewer_capability, agents) if a != primary
-    ]
+    reviewer_ranked = [a for a in rank_agents(matrix, reviewer_capability, agents) if a != primary]
     reviewer = reviewer_ranked[0]
     fallbacks = [a for a in ranked if a not in (primary, reviewer)]
     return Assignment(
@@ -76,8 +73,7 @@ def heuristic_plan(
                 kind=TaskKind.IMPLEMENT,
                 description=(
                     "Implement the project specification faithfully. "
-                    "Work only inside this workspace.\n\nSpecification:\n"
-                    + spec_text[:8000]
+                    "Work only inside this workspace.\n\nSpecification:\n" + spec_text[:8000]
                 ),
                 depends_on=[],
                 acceptance=verify_commands,

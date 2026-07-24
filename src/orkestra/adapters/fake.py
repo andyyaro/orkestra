@@ -19,8 +19,11 @@ class FakeAdapter(ExternalAdapter):
         # model/autonomy accepted for constructor uniformity; unused.
         super().__init__(
             command=[
-                sys.executable, "-m", "orkestra.adapters.fake_worker",
-                "--agent-name", agent_name,
+                sys.executable,
+                "-m",
+                "orkestra.adapters.fake_worker",
+                "--agent-name",
+                agent_name,
             ],
             name=agent_name,
         )

@@ -7,6 +7,7 @@ crash can never leave half-applied transitions (threat T13).
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -32,9 +33,7 @@ class Database:
         self._migrate()
 
     def _migrate(self) -> None:
-        self._conn.execute(
-            "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)"
-        )
+        self._conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
         row = self._conn.execute("SELECT version FROM schema_version").fetchone()
         current = int(row["version"]) if row else 0
         if current > len(MIGRATIONS):
@@ -51,7 +50,7 @@ class Database:
             # the version bump is part of the same transaction. index+1 is a
             # trusted integer, not external input.
             script = (
-                "BEGIN IMMEDIATE;\n"
+                "BEGIN IMMEDIATE;\n"  # nosec B608 - index below is a trusted loop integer
                 f"{MIGRATIONS[index]}\n"
                 f"UPDATE schema_version SET version = {index + 1};\n"
                 "COMMIT;"
@@ -59,10 +58,8 @@ class Database:
             try:
                 self._conn.executescript(script)
             except sqlite3.Error as exc:
-                try:
+                with contextlib.suppress(sqlite3.Error):
                     self._conn.execute("ROLLBACK")
-                except sqlite3.Error:
-                    pass
                 msg = f"migration {index + 1} failed: {exc}"
                 raise StoreError(msg) from exc
 
@@ -88,7 +85,8 @@ class Database:
         return list(self._conn.execute(sql, params).fetchall())
 
     def query_one(self, sql: str, params: tuple[object, ...] = ()) -> sqlite3.Row | None:
-        return self._conn.execute(sql, params).fetchone()
+        row: sqlite3.Row | None = self._conn.execute(sql, params).fetchone()
+        return row
 
     def close(self) -> None:
         self._conn.close()

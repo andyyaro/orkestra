@@ -50,9 +50,7 @@ class TestValid:
         assert len(cfg.enabled_agents) == 2
 
     def test_many_agents_supported(self, tmp_path: Path) -> None:
-        extra = "".join(
-            f'\n[agents.fake{i}]\nadapter = "fake"\n' for i in range(6)
-        )
+        extra = "".join(f'\n[agents.fake{i}]\nadapter = "fake"\n' for i in range(6))
         cfg = load_config(write(tmp_path, VALID + extra))
         assert len(cfg.enabled_agents) == 9  # no fixed-three assumption anywhere
 

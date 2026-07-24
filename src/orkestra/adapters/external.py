@@ -47,7 +47,7 @@ class ExternalParser(StreamParser):
     def feed_line(self, line: str, *, is_stderr: bool) -> Iterable[AgentEvent]:
         if is_stderr:
             if line.strip():
-                self.stderr_tail = (self.stderr_tail + [line])[-20:]
+                self.stderr_tail = [*self.stderr_tail, line][-20:]
             return
         obj = try_parse_json(line)
         if obj is None:
@@ -57,8 +57,11 @@ class ExternalParser(StreamParser):
         kind = obj.get("type")
         if kind == "started":
             self.session_id = str(obj.get("session_id") or "")
-            yield AgentEvent(kind=EventKind.STARTED, text="external agent started",
-                             data={"session_id": self.session_id})
+            yield AgentEvent(
+                kind=EventKind.STARTED,
+                text="external agent started",
+                data={"session_id": self.session_id},
+            )
         elif kind == "text":
             yield AgentEvent(kind=EventKind.TEXT, text=str(obj.get("text", ""))[:4000])
         elif kind == "tool":
@@ -73,9 +76,7 @@ class ExternalParser(StreamParser):
             return AgentResult(
                 status=ResultStatus.ERROR,
                 error_kind=ErrorKind.INVALID_OUTPUT if exit_code == 0 else ErrorKind.CRASH,
-                error_detail=(
-                    "\n".join(self.stderr_tail) or "no result event received"
-                )[:2000],
+                error_detail=("\n".join(self.stderr_tail) or "no result event received")[:2000],
                 exit_code=exit_code,
                 duration_s=duration_s,
             )
@@ -93,11 +94,7 @@ class ExternalParser(StreamParser):
             error_detail=str(self.final.get("error_detail") or "")[:2000],
             final_text=str(self.final.get("final_text") or ""),
             structured=structured if isinstance(structured, dict) else None,
-            session=(
-                SessionRef(session_id=self.session_id, cwd=cwd)
-                if self.session_id
-                else None
-            ),
+            session=(SessionRef(session_id=self.session_id, cwd=cwd) if self.session_id else None),
             usage=Usage(
                 input_tokens=int(usage_raw.get("input_tokens") or 0),
                 output_tokens=int(usage_raw.get("output_tokens") or 0),
@@ -121,8 +118,9 @@ class ExternalAdapter(AgentAdapter):
     async def detect(self) -> AdapterInfo:
         code, out, err = await run_capture([*self.command, "--orkestra-detect"])
         if code is None:
-            return AdapterInfo(self.adapter_id, available=False,
-                               detail=f"command failed: {err[:200]}")
+            return AdapterInfo(
+                self.adapter_id, available=False, detail=f"command failed: {err[:200]}"
+            )
         version = ""
         protocol_ok = False
         for line in out.splitlines():
@@ -132,12 +130,16 @@ class ExternalAdapter(AgentAdapter):
                 version = str(obj.get("version") or "")
         if code != 0 or not protocol_ok:
             return AdapterInfo(
-                self.adapter_id, available=False, executable=self.executable,
+                self.adapter_id,
+                available=False,
+                executable=self.executable,
                 detail=f"detect handshake failed (exit {code}); expected "
-                       f'{{"protocol": "{PROTOCOL_VERSION}"}} on stdout',
+                f'{{"protocol": "{PROTOCOL_VERSION}"}} on stdout',
             )
         return AdapterInfo(
-            self.adapter_id, available=True, version=version,
+            self.adapter_id,
+            available=True,
+            version=version,
             executable=self.executable,
             features=frozenset({"structured_output", "structured_director"}),
         )

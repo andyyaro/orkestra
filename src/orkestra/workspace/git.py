@@ -28,9 +28,12 @@ class GitRepo:
     ) -> tuple[int, str, str]:
         argv = [
             "git",
-            "-c", "core.hooksPath=",
-            "-c", "commit.gpgsign=false",
-            "-c", "advice.detachedHead=false",
+            "-c",
+            "core.hooksPath=",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "advice.detachedHead=false",
             *args,
         ]
         proc = await asyncio.create_subprocess_exec(
@@ -39,13 +42,15 @@ class GitRepo:
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=subprocess_env({
-                "GIT_TERMINAL_PROMPT": "0",
-                "GIT_AUTHOR_NAME": "Orkestra",
-                "GIT_AUTHOR_EMAIL": "orkestra@localhost",
-                "GIT_COMMITTER_NAME": "Orkestra",
-                "GIT_COMMITTER_EMAIL": "orkestra@localhost",
-            }),
+            env=subprocess_env(
+                {
+                    "GIT_TERMINAL_PROMPT": "0",
+                    "GIT_AUTHOR_NAME": "Orkestra",
+                    "GIT_AUTHOR_EMAIL": "orkestra@localhost",
+                    "GIT_COMMITTER_NAME": "Orkestra",
+                    "GIT_COMMITTER_EMAIL": "orkestra@localhost",
+                }
+            ),
             start_new_session=True,
         )
         try:
@@ -86,9 +91,7 @@ class GitRepo:
         return out.strip()
 
     async def branch_exists(self, branch: str) -> bool:
-        code, _, _ = await self._git(
-            "show-ref", "--verify", f"refs/heads/{branch}", check=False
-        )
+        code, _, _ = await self._git("show-ref", "--verify", f"refs/heads/{branch}", check=False)
         return code == 0
 
     # ------------------------------------------------------- lifecycle
@@ -111,7 +114,7 @@ class GitRepo:
     async def add_all_and_commit(self, message: str) -> str | None:
         """Stage everything and commit; returns commit sha or None if clean."""
         await self._git("add", "-A")
-        code, out, _ = await self._git("status", "--porcelain")
+        _, out, _ = await self._git("status", "--porcelain")
         if not out.strip():
             return None
         await self._git("commit", "-m", message)
@@ -153,9 +156,7 @@ class GitRepo:
     # ------------------------------------------------------ inspection
 
     async def changed_paths(self, base: str, head: str = "HEAD") -> list[str]:
-        _, out, _ = await self._git(
-            "diff", "--name-only", "-z", f"{base}..{head}"
-        )
+        _, out, _ = await self._git("diff", "--name-only", "-z", f"{base}..{head}")
         return [p for p in out.split("\0") if p]
 
     async def diff_stat(self, base: str, head: str = "HEAD") -> str:

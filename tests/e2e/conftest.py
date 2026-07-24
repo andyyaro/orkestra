@@ -50,9 +50,7 @@ async def make_project(
     repo = GitRepo(root)
     await repo.init()
     (root / "README.md").write_text("# demo\n")
-    agents = "\n\n".join(
-        agent_block(name) for name in (agent_names or ["alpha", "beta"])
-    )
+    agents = "\n\n".join(agent_block(name) for name in (agent_names or ["alpha", "beta"]))
     if extra_agents:
         agents += "\n\n" + extra_agents
     orkestra_dir = root / ".orkestra"

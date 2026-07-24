@@ -24,15 +24,17 @@ def service(agents: list[str] = AGENTS) -> DirectorService:
     from orkestra.adapters.fake import FakeAdapter
 
     return DirectorService(
-        "claude", FakeAdapter(), PolicyEngine(PolicyConfig(), agents), Path.cwd(),
+        "claude",
+        FakeAdapter(),
+        PolicyEngine(PolicyConfig(), agents),
+        Path.cwd(),
         offline=True,
     )
 
 
 class TestHeuristicPlanner:
     def test_plan_valid_for_two_agents(self) -> None:
-        plan = heuristic_plan("# Spec\nBuild a thing", ["a", "b"], build_matrix([]),
-                              ["pytest -q"])
+        plan = heuristic_plan("# Spec\nBuild a thing", ["a", "b"], build_matrix([]), ["pytest -q"])
         assert len(plan.tasks) == 3
         for planned in plan.tasks:
             assert planned.assignment.primary != planned.assignment.reviewers[0]
@@ -49,8 +51,9 @@ class TestHeuristicPlanner:
 
     def test_matrix_influences_assignment(self) -> None:
         observations = [
-            CapabilityObservation(agent="codex", capability="implementation",
-                                  source=f"probe:{i}", objective_pass=True)
+            CapabilityObservation(
+                agent="codex", capability="implementation", source=f"probe:{i}", objective_pass=True
+            )
             for i in range(4)
         ]
         plan = heuristic_plan("# Spec", AGENTS, build_matrix(observations), [])
@@ -69,16 +72,16 @@ class TestHeuristicPlanner:
 
 def planned(key: str, primary: str, reviewer: str, deps: list[str] | None = None) -> PlannedTask:
     return PlannedTask(
-        task=TaskSpec(key=key, title=key, kind=TaskKind.IMPLEMENT,
-                      depends_on=deps or []),
+        task=TaskSpec(key=key, title=key, kind=TaskKind.IMPLEMENT, depends_on=deps or []),
         assignment=Assignment(primary=primary, reviewers=[reviewer]),
     )
 
 
 class TestPlanValidation:
     def test_valid_plan_passes(self) -> None:
-        plan = DirectorPlan(tasks=[planned("a", "claude", "codex"),
-                                   planned("b", "codex", "anti", ["a"])])
+        plan = DirectorPlan(
+            tasks=[planned("a", "claude", "codex"), planned("b", "codex", "anti", ["a"])]
+        )
         service().validate_plan(plan, AGENTS)
 
     def test_empty_plan_rejected(self) -> None:
@@ -86,8 +89,9 @@ class TestPlanValidation:
             service().validate_plan(DirectorPlan(tasks=[]), AGENTS)
 
     def test_cycle_rejected(self) -> None:
-        plan = DirectorPlan(tasks=[planned("a", "claude", "codex", ["b"]),
-                                   planned("b", "codex", "anti", ["a"])])
+        plan = DirectorPlan(
+            tasks=[planned("a", "claude", "codex", ["b"]), planned("b", "codex", "anti", ["a"])]
+        )
         with pytest.raises(DirectorError, match="cycle"):
             service().validate_plan(plan, AGENTS)
 

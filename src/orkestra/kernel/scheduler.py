@@ -9,6 +9,7 @@ resumed (``resume()`` reconciles in-flight state first).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -46,8 +47,7 @@ if TYPE_CHECKING:
     from orkestra.workspace import WorkspaceManager
 
 MUTATING_KINDS = frozenset(
-    {TaskKind.IMPLEMENT, TaskKind.TEST, TaskKind.DEBUG, TaskKind.DOCUMENT,
-     TaskKind.INTEGRATE}
+    {TaskKind.IMPLEMENT, TaskKind.TEST, TaskKind.DEBUG, TaskKind.DOCUMENT, TaskKind.INTEGRATE}
 )
 
 
@@ -94,9 +94,7 @@ class Orchestrator:
         if self._on_event:
             self._on_event(run_id, event)
 
-    def _attempt_event_cb(
-        self, run_id: str, task_id: str, attempt_id: str
-    ) -> EventCallback:
+    def _attempt_event_cb(self, run_id: str, task_id: str, attempt_id: str) -> EventCallback:
         def callback(event: AgentEvent) -> None:
             self.store.append_event(run_id, event, task_id=task_id, attempt_id=attempt_id)
             if self._on_event:
@@ -145,16 +143,12 @@ class Orchestrator:
         self.store.get_run(run_id)  # existence check with a clear error
         self.store.set_run_state(run_id, RunState.RUNNING)
         tasks = {t.key: t for t in self.store.tasks_for_run(run_id)}
-        dag = TaskDag(
-            deps=self.store.deps_for_run(run_id), all_keys=list(tasks.keys())
-        )
+        dag = TaskDag(deps=self.store.deps_for_run(run_id), all_keys=list(tasks.keys()))
         semaphore = asyncio.Semaphore(self.config.policy.max_concurrency)
         in_flight: dict[str, asyncio.Task[None]] = {}
 
         def states() -> dict[str, TaskState]:
-            return {
-                t.key: t.state for t in self.store.tasks_for_run(run_id)
-            }
+            return {t.key: t.state for t in self.store.tasks_for_run(run_id)}
 
         try:
             return await self._execute_loop(run_id, dag, semaphore, in_flight, states)
@@ -203,7 +197,8 @@ class Orchestrator:
                     task = self.store.tasks_for_run(run_id)
                     row = next(t for t in task if t.key == key)
                     self.store.set_task_state(
-                        row.task_id, TaskState.READY,
+                        row.task_id,
+                        TaskState.READY,
                         expected=(TaskState.PENDING, TaskState.READY),
                     )
                     in_flight[key] = asyncio.ensure_future(
@@ -217,7 +212,8 @@ class Orchestrator:
                     if unresolved:
                         self.store.set_run_state(run_id, RunState.WAITING_HUMAN)
                         self.emit(
-                            run_id, EventKind.WARNING,
+                            run_id,
+                            EventKind.WARNING,
                             f"waiting on {len(unresolved)} human decision(s) — "
                             "see `orkestra decisions`",
                         )
@@ -235,8 +231,7 @@ class Orchestrator:
             for key in finished:
                 exc = in_flight[key].exception()
                 if exc is not None and not isinstance(exc, asyncio.CancelledError):
-                    self.emit(run_id, EventKind.ERROR,
-                              f"task {key} crashed the pipeline: {exc}")
+                    self.emit(run_id, EventKind.ERROR, f"task {key} crashed the pipeline: {exc}")
                 del in_flight[key]
 
     def _cancel_open_tasks(self, run_id: str) -> None:
@@ -252,12 +247,13 @@ class Orchestrator:
         """Crash recovery: close dangling attempts, repair workspaces."""
         for attempt in self.store.running_attempts(run_id):
             self.store.mark_interrupted(attempt.attempt_id)
-            self.emit(run_id, EventKind.WARNING,
-                      f"attempt {attempt.attempt_id} marked interrupted on resume",
-                      task_id=attempt.task_id)
-        recorded = [
-            w.path for w in self.store.workspaces_for_run(run_id, state="active")
-        ]
+            self.emit(
+                run_id,
+                EventKind.WARNING,
+                f"attempt {attempt.attempt_id} marked interrupted on resume",
+                task_id=attempt.task_id,
+            )
+        recorded = [w.path for w in self.store.workspaces_for_run(run_id, state="active")]
         missing = await self.workspaces.reconcile(run_id, recorded)
         for workspace in self.store.workspaces_for_run(run_id, state="active"):
             if workspace.path in missing:
@@ -271,18 +267,23 @@ class Orchestrator:
             from orkestra.workspace.worktrees import Workspace as _Workspace
 
             stale = _Workspace(
-                path=_Path(workspace.path), branch=workspace.branch,
-                base_commit=workspace.base_commit, task_id=workspace.task_id,
+                path=_Path(workspace.path),
+                branch=workspace.branch,
+                base_commit=workspace.base_commit,
+                task_id=workspace.task_id,
             )
-            try:
+            with contextlib.suppress(WorkspaceError):
+                # On failure, leave for manual cleanup; creation uses unique paths.
                 await self.workspaces.remove_workspace(stale, keep_branch=True)
-            except WorkspaceError:
-                pass  # leave for manual cleanup; creation uses unique paths anyway
             self.store.set_workspace_state(workspace.workspace_id, "removed")
         # Any task stranded mid-pipeline goes back to ready for a clean attempt.
         for row in self.store.tasks_for_run(run_id):
-            if row.state in (TaskState.RUNNING, TaskState.VERIFYING,
-                             TaskState.REVIEWING, TaskState.INTEGRATING):
+            if row.state in (
+                TaskState.RUNNING,
+                TaskState.VERIFYING,
+                TaskState.REVIEWING,
+                TaskState.INTEGRATING,
+            ):
                 self.store.set_task_state(row.task_id, TaskState.READY)
         payload_control = self._control(run_id)
         if payload_control == "pause":
@@ -305,16 +306,19 @@ class Orchestrator:
 
     def _block_task(self, run_id: str, task_id: str, reason: str) -> None:
         task = self.store.get_task(task_id)
-        self.emit(run_id, EventKind.ERROR, f"task {task.key} blocked: {reason}",
-                  task_id=task_id)
+        self.emit(run_id, EventKind.ERROR, f"task {task.key} blocked: {reason}", task_id=task_id)
         self._open_decision(
-            run_id, task_id,
+            run_id,
+            task_id,
             question=f"Task {task.key!r} is blocked: {reason}. How should Orkestra proceed?",
             why=reason,
             options=[
                 DecisionOption(key="retry", label="Reset the task and retry"),
-                DecisionOption(key="skip", label="Skip this task (dependents will fail)",
-                               consequences="downstream tasks cannot run"),
+                DecisionOption(
+                    key="skip",
+                    label="Skip this task (dependents will fail)",
+                    consequences="downstream tasks cannot run",
+                ),
                 DecisionOption(key="abort", label="Fail the run"),
             ],
             recommendation="retry",
@@ -367,7 +371,8 @@ class Orchestrator:
                 return
 
             self.store.set_task_state(
-                task.task_id, TaskState.RUNNING,
+                task.task_id,
+                TaskState.RUNNING,
                 expected=(TaskState.READY, TaskState.RUNNING),
             )
             self.store.bump_task_counter(task.task_id, "attempt_count")
@@ -376,41 +381,54 @@ class Orchestrator:
             if workspace is None:
                 workspace = await self._make_workspace(run_id, task)
 
-            result, attempt_id = await self._attempt(
-                run_id, task, agent, workspace, fix_context
-            )
+            result, attempt_id = await self._attempt(run_id, task, agent, workspace, fix_context)
             self.store.add_usage(run_id, agent, attempt_id, result.usage)
 
             if not result.ok:
                 self.store.finish_attempt(
                     attempt_id,
-                    AttemptState.TIMEOUT if result.error_kind is ErrorKind.TIMEOUT
-                    else AttemptState.CANCELLED if result.error_kind is ErrorKind.CANCELLED
+                    AttemptState.TIMEOUT
+                    if result.error_kind is ErrorKind.TIMEOUT
+                    else AttemptState.CANCELLED
+                    if result.error_kind is ErrorKind.CANCELLED
                     else AttemptState.FAILED,
                     result,
                 )
                 record_task_outcome(
-                    self.store, run_id, agent, self.agent_version(agent),
-                    task.task_id, task.spec.kind.value,
-                    succeeded=False, detail=result.error_kind.value,
+                    self.store,
+                    run_id,
+                    agent,
+                    self.agent_version(agent),
+                    task.task_id,
+                    task.spec.kind.value,
+                    succeeded=False,
+                    detail=result.error_kind.value,
                 )
                 if result.error_kind is ErrorKind.CANCELLED:
                     self.store.set_task_state(task.task_id, TaskState.CANCELLED)
                     return
                 if result.error_kind in FALLBACK_IMMEDIATELY:
                     failed_agents.append(agent)
-                    self.emit(run_id, EventKind.WARNING,
-                              f"agent {agent} unavailable ({result.error_kind.value}); "
-                              "trying fallback", task_id=task.task_id)
+                    self.emit(
+                        run_id,
+                        EventKind.WARNING,
+                        f"agent {agent} unavailable ({result.error_kind.value}); trying fallback",
+                        task_id=task.task_id,
+                    )
                 else:
                     delay = self.backoff.delay(attempt_index - 1, result.error_kind)
-                    self.emit(run_id, EventKind.WARNING,
-                              f"attempt by {agent} failed ({result.error_kind.value}); "
-                              f"backing off {delay:.0f}s", task_id=task.task_id)
+                    self.emit(
+                        run_id,
+                        EventKind.WARNING,
+                        f"attempt by {agent} failed ({result.error_kind.value}); "
+                        f"backing off {delay:.0f}s",
+                        task_id=task.task_id,
+                    )
                     await asyncio.sleep(delay)
                     failed_agents.append(agent)
                 self.store.set_task_state(
-                    task.task_id, TaskState.READY,
+                    task.task_id,
+                    TaskState.READY,
                     expected=(TaskState.RUNNING,),
                 )
                 continue
@@ -427,9 +445,14 @@ class Orchestrator:
                     await self.workspaces.validate_workspace_changes(workspace)
                 except PolicyViolation as exc:
                     record_task_outcome(
-                        self.store, run_id, agent, self.agent_version(agent),
-                        task.task_id, task.spec.kind.value,
-                        succeeded=False, detail=f"policy: {exc}",
+                        self.store,
+                        run_id,
+                        agent,
+                        self.agent_version(agent),
+                        task.task_id,
+                        task.spec.kind.value,
+                        succeeded=False,
+                        detail=f"policy: {exc}",
                     )
                     self._block_task(run_id, task_id, str(exc))
                     return
@@ -440,20 +463,27 @@ class Orchestrator:
             verify_ok = await self._verify(run_id, task, workspace)
             if not verify_ok:
                 record_task_outcome(
-                    self.store, run_id, agent, self.agent_version(agent),
-                    task.task_id, task.spec.kind.value,
-                    succeeded=False, detail="verification failed",
+                    self.store,
+                    run_id,
+                    agent,
+                    self.agent_version(agent),
+                    task.task_id,
+                    task.spec.kind.value,
+                    succeeded=False,
+                    detail="verification failed",
                 )
                 failed_agents_snapshot = list(failed_agents)
                 failed_agents.append(agent)
-                fix_context = "Deterministic verification failed; fix the code so the acceptance commands pass."
+                fix_context = (
+                    "Deterministic verification failed; fix the code so the "
+                    "acceptance commands pass."
+                )
                 self.store.set_task_state(
                     task.task_id, TaskState.READY, expected=(TaskState.VERIFYING,)
                 )
                 # Verification failure keeps the same workspace so the next
                 # attempt (same or fallback agent) repairs instead of restarts.
-                if next_agent(failed_agents, assignment.primary,
-                              assignment.fallbacks) is None:
+                if next_agent(failed_agents, assignment.primary, assignment.fallbacks) is None:
                     failed_agents = failed_agents_snapshot  # allow same-agent retry
                     fix_context += "\n(Repeated failure: previous fix attempt did not pass.)"
                 continue
@@ -465,7 +495,8 @@ class Orchestrator:
                 verdict = await self._review(run_id, task, workspace, agent)
                 if verdict is None:
                     self._block_task(
-                        run_id, task_id,
+                        run_id,
+                        task_id,
                         "no independent reviewer could produce a verdict "
                         "(review is required by policy)",
                     )
@@ -473,8 +504,9 @@ class Orchestrator:
                 if not verdict.approve:
                     cycles = self.store.bump_task_counter(task.task_id, "review_cycles")
                     if not self.policy.check_review_budget(cycles).allowed:
-                        await self._exhausted(run_id, task, failed_agents,
-                                              reason="review cycles exhausted")
+                        await self._exhausted(
+                            run_id, task, failed_agents, reason="review cycles exhausted"
+                        )
                         return
                     fix_context = prompts.FIX.format(
                         title=task.spec.title,
@@ -482,9 +514,12 @@ class Orchestrator:
                         findings="\n".join(f"- {f}" for f in verdict.findings),
                         required="\n".join(f"- {c}" for c in verdict.required_changes),
                     )
-                    self.emit(run_id, EventKind.WARNING,
-                              f"review requested changes (cycle {cycles})",
-                              task_id=task.task_id)
+                    self.emit(
+                        run_id,
+                        EventKind.WARNING,
+                        f"review requested changes (cycle {cycles})",
+                        task_id=task.task_id,
+                    )
                     self.store.set_task_state(
                         task.task_id, TaskState.READY, expected=(TaskState.REVIEWING,)
                     )
@@ -492,17 +527,19 @@ class Orchestrator:
 
             if mutating and commit is not None:
                 self.store.set_task_state(
-                    task.task_id, TaskState.INTEGRATING,
+                    task.task_id,
+                    TaskState.INTEGRATING,
                     expected=(TaskState.REVIEWING, TaskState.VERIFYING),
                 )
-                merged = await self.workspaces.integrate(
-                    run_id, workspace, task.spec.title
-                )
+                merged = await self.workspaces.integrate(run_id, workspace, task.spec.title)
                 if not merged:
-                    self.emit(run_id, EventKind.WARNING,
-                              f"merge conflict integrating {task.key}; recreating "
-                              "workspace from updated integration branch",
-                              task_id=task.task_id)
+                    self.emit(
+                        run_id,
+                        EventKind.WARNING,
+                        f"merge conflict integrating {task.key}; recreating "
+                        "workspace from updated integration branch",
+                        task_id=task.task_id,
+                    )
                     await self.workspaces.remove_workspace(workspace, keep_branch=True)
                     workspace = None
                     fix_context = ""
@@ -516,15 +553,25 @@ class Orchestrator:
                 await self.workspaces.remove_workspace(workspace, keep_branch=False)
 
             record_task_outcome(
-                self.store, run_id, agent, self.agent_version(agent),
-                task.task_id, task.spec.kind.value, succeeded=True,
+                self.store,
+                run_id,
+                agent,
+                self.agent_version(agent),
+                task.task_id,
+                task.spec.kind.value,
+                succeeded=True,
             )
             self.store.set_task_state(
-                task.task_id, TaskState.DONE,
+                task.task_id,
+                TaskState.DONE,
                 expected=(TaskState.INTEGRATING, TaskState.VERIFYING),
             )
-            self.emit(run_id, EventKind.COMPLETED,
-                      f"task {task.key} done (agent {agent})", task_id=task.task_id)
+            self.emit(
+                run_id,
+                EventKind.COMPLETED,
+                f"task {task.key} done (agent {agent})",
+                task_id=task.task_id,
+            )
             return
 
     # -------------------------------------------------------- sub-steps
@@ -532,7 +579,10 @@ class Orchestrator:
     async def _make_workspace(self, run_id: str, task: TaskRow) -> Workspace:
         workspace = await self.workspaces.create_workspace(run_id, task.task_id)
         self.store.add_workspace(
-            run_id, task.task_id, str(workspace.path), workspace.branch,
+            run_id,
+            task.task_id,
+            str(workspace.path),
+            workspace.branch,
             workspace.base_commit,
         )
         return workspace
@@ -564,13 +614,13 @@ class Orchestrator:
         self._cancel_flags[attempt_id] = cancel_flag
         try:
             result = await asyncio.wait_for(
-                self._invoke(adapter, brief, run_id, task.task_id, attempt_id,
-                             cancel_flag),
+                self._invoke(adapter, brief, run_id, task.task_id, attempt_id, cancel_flag),
                 timeout=brief.timeout_s + 120,
             )
         except TimeoutError:
             result = AgentResult(
-                status=ResultStatus.ERROR, error_kind=ErrorKind.TIMEOUT,
+                status=ResultStatus.ERROR,
+                error_kind=ErrorKind.TIMEOUT,
                 error_detail="hard kernel timeout",
             )
         finally:
@@ -636,7 +686,8 @@ class Orchestrator:
         self, run_id: str, task: TaskRow, workspace: Workspace, implementer: str
     ) -> ReviewVerdict | None:
         assignment = task.assignment
-        assert assignment is not None
+        if assignment is None:  # pragma: no cover - guarded by caller
+            return None
         from orkestra.adapters.jsonl import extract_json_object
         from orkestra.workspace.git import GitRepo
 
@@ -648,15 +699,17 @@ class Orchestrator:
         # agent — review independence is preserved, review coverage is kept.
         candidates = list(assignment.reviewers)
         candidates += [
-            name for name in self.adapters
-            if name not in candidates and name != implementer
+            name for name in self.adapters if name not in candidates and name != implementer
         ]
         for reviewer in candidates:
             pairing = self.policy.check_reviewer(implementer, reviewer)
             if not pairing.allowed:
-                self.emit(run_id, EventKind.WARNING,
-                          f"reviewer {reviewer} rejected by policy: "
-                          + "; ".join(pairing.violations), task_id=task.task_id)
+                self.emit(
+                    run_id,
+                    EventKind.WARNING,
+                    f"reviewer {reviewer} rejected by policy: " + "; ".join(pairing.violations),
+                    task_id=task.task_id,
+                )
                 continue
             adapter = self.adapters[reviewer]
             attempt_id = self.store.create_attempt(
@@ -700,11 +753,17 @@ class Orchestrator:
                 continue
             self.store.finish_attempt(attempt_id, AttemptState.SUCCEEDED, result)
             record_task_outcome(
-                self.store, run_id, reviewer, self.agent_version(reviewer),
-                task.task_id, "review", succeeded=True,
+                self.store,
+                run_id,
+                reviewer,
+                self.agent_version(reviewer),
+                task.task_id,
+                "review",
+                succeeded=True,
             )
             self.emit(
-                run_id, EventKind.COMPLETED,
+                run_id,
+                EventKind.COMPLETED,
                 f"review by {reviewer}: "
                 f"{'approved' if verdict.approve else 'changes requested'} "
                 f"(severity {verdict.severity})",
@@ -751,13 +810,12 @@ class Orchestrator:
             and advice.reassign_to not in failed_agents
         ):
             assignment = task.assignment
-            assert assignment is not None
+            if assignment is None:  # pragma: no cover
+                return
             new_assignment = assignment.model_copy(
                 update={
                     "primary": advice.reassign_to,
-                    "reviewers": [
-                        r for r in assignment.reviewers if r != advice.reassign_to
-                    ]
+                    "reviewers": [r for r in assignment.reviewers if r != advice.reassign_to]
                     or [a for a in self.adapters if a != advice.reassign_to][:1],
                     "rationale": f"director reassignment: {advice.reason}",
                 }
@@ -765,9 +823,12 @@ class Orchestrator:
             if self.policy.check_assignment(new_assignment).allowed:
                 self.store.set_task_assignment(task.task_id, new_assignment)
                 self.store.set_task_state(task.task_id, TaskState.READY)
-                self.emit(run_id, EventKind.WARNING,
-                          f"director reassigned {task.key} to {advice.reassign_to}",
-                          task_id=task.task_id)
+                self.emit(
+                    run_id,
+                    EventKind.WARNING,
+                    f"director reassigned {task.key} to {advice.reassign_to}",
+                    task_id=task.task_id,
+                )
                 return
         self._open_decision(
             run_id,
@@ -779,8 +840,9 @@ class Orchestrator:
             why=f"{reason}; failed agents: {', '.join(failed_agents) or 'n/a'}",
             options=[
                 DecisionOption(key="retry", label="Reset budgets and retry"),
-                DecisionOption(key="skip", label="Skip this task",
-                               consequences="dependent tasks cannot run"),
+                DecisionOption(
+                    key="skip", label="Skip this task", consequences="dependent tasks cannot run"
+                ),
                 DecisionOption(key="abort", label="Fail the run"),
             ],
             recommendation="retry",
@@ -797,22 +859,18 @@ class Orchestrator:
         task = self.store.get_task(decision.task_id)
         if option == "retry":
             # Reset budgets by treating this as a fresh dispatch cycle.
-            self.store.set_task_state(task.task_id, TaskState.READY,
-                                      expected=(TaskState.BLOCKED,))
+            self.store.set_task_state(task.task_id, TaskState.READY, expected=(TaskState.BLOCKED,))
             with self.store.db.tx() as conn:
                 conn.execute(
-                    "UPDATE tasks SET attempt_count = 0, review_cycles = 0"
-                    " WHERE task_id = ?",
+                    "UPDATE tasks SET attempt_count = 0, review_cycles = 0 WHERE task_id = ?",
                     (task.task_id,),
                 )
             return f"task {task.key} reset and ready; run `orkestra resume`"
         if option == "skip":
-            self.store.set_task_state(task.task_id, TaskState.FAILED,
-                                      expected=(TaskState.BLOCKED,))
+            self.store.set_task_state(task.task_id, TaskState.FAILED, expected=(TaskState.BLOCKED,))
             return f"task {task.key} marked failed (skipped)"
         if option == "abort":
-            self.store.set_task_state(task.task_id, TaskState.FAILED,
-                                      expected=(TaskState.BLOCKED,))
+            self.store.set_task_state(task.task_id, TaskState.FAILED, expected=(TaskState.BLOCKED,))
             self.store.set_run_state(decision.run_id, RunState.FAILED)
             return "run marked failed"
         return f"decision {decision_id} resolved: {option}"

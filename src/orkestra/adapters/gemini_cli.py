@@ -46,7 +46,7 @@ class GeminiParser(StreamParser):
             if obj and "error" in obj:
                 self.error_obj = obj
             elif line.strip():
-                self.stderr_tail = (self.stderr_tail + [line])[-20:]
+                self.stderr_tail = [*self.stderr_tail, line][-20:]
             return
         if obj is None:
             if line.strip():
@@ -55,8 +55,11 @@ class GeminiParser(StreamParser):
         event_type = obj.get("type") or obj.get("event")
         if event_type == "init":
             self.session_id = str(obj.get("session_id") or obj.get("sessionId") or "")
-            yield AgentEvent(kind=EventKind.STARTED, text="gemini session initialized",
-                             data={"session_id": self.session_id})
+            yield AgentEvent(
+                kind=EventKind.STARTED,
+                text="gemini session initialized",
+                data={"session_id": self.session_id},
+            )
         elif event_type == "message":
             content = str(obj.get("content") or obj.get("text") or "")
             if content and obj.get("role") != "user":
@@ -67,9 +70,7 @@ class GeminiParser(StreamParser):
         elif event_type == "error":
             self.error_obj = obj
             yield AgentEvent(kind=EventKind.ERROR, text=str(obj)[:1000])
-        elif event_type == "result":
-            self.final = obj
-        elif "response" in obj:  # -o json single envelope on stdout
+        elif event_type == "result" or "response" in obj:
             self.final = obj
 
     def result(self, exit_code: int | None, duration_s: float, cwd: str) -> AgentResult:
@@ -96,9 +97,7 @@ class GeminiParser(StreamParser):
                 if isinstance(tokens, dict):
                     usage = Usage(
                         input_tokens=int(tokens.get("input") or tokens.get("input_tokens") or 0),
-                        output_tokens=int(
-                            tokens.get("output") or tokens.get("output_tokens") or 0
-                        ),
+                        output_tokens=int(tokens.get("output") or tokens.get("output_tokens") or 0),
                     )
         if not text:
             text = "\n".join(self.text_parts).strip()
@@ -118,9 +117,7 @@ class GeminiParser(StreamParser):
                 final_text=text,
                 structured=structured,
                 session=(
-                    SessionRef(session_id=self.session_id, cwd=cwd)
-                    if self.session_id
-                    else None
+                    SessionRef(session_id=self.session_id, cwd=cwd) if self.session_id else None
                 ),
                 usage=usage,
                 exit_code=exit_code,
@@ -158,12 +155,17 @@ class GeminiCliAdapter(AgentAdapter):
     async def detect(self) -> AdapterInfo:
         path = self.which()
         if not path:
-            return AdapterInfo(self.adapter_id, available=False,
-                               detail="`gemini` not found on PATH")
+            return AdapterInfo(
+                self.adapter_id, available=False, detail="`gemini` not found on PATH"
+            )
         code, out, err = await run_capture([path, "--version"])
         if code != 0:
-            return AdapterInfo(self.adapter_id, available=False, executable=path,
-                               detail=f"--version failed: {err.strip()[:200]}")
+            return AdapterInfo(
+                self.adapter_id,
+                available=False,
+                executable=path,
+                detail=f"--version failed: {err.strip()[:200]}",
+            )
         return AdapterInfo(
             self.adapter_id,
             available=True,
@@ -192,8 +194,10 @@ class GeminiCliAdapter(AgentAdapter):
     def build_invocation(self, brief: TaskBrief) -> InvocationSpec:
         argv = [
             self.which() or self.executable,
-            "-p", brief.instructions,
-            "-o", "stream-json",
+            "-p",
+            brief.instructions,
+            "-o",
+            "stream-json",
             "--skip-trust",
         ]
         if self.autonomy == "unsafe-full":
@@ -210,8 +214,9 @@ class GeminiCliAdapter(AgentAdapter):
         for key in ("GEMINI_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI", "GOOGLE_CLOUD_PROJECT"):
             if key in os.environ:
                 env_extra[key] = os.environ[key]
-        return InvocationSpec(argv=argv, cwd=brief.cwd, env_extra=env_extra,
-                              timeout_s=brief.timeout_s)
+        return InvocationSpec(
+            argv=argv, cwd=brief.cwd, env_extra=env_extra, timeout_s=brief.timeout_s
+        )
 
     def make_parser(self, brief: TaskBrief) -> StreamParser:
         return GeminiParser(expect_structured=brief.json_schema is not None)

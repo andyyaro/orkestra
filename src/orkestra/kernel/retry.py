@@ -8,14 +8,17 @@ from orkestra.schemas.agent import ErrorKind
 
 #: Error kinds where retrying the same agent may help.
 RETRYABLE: frozenset[ErrorKind] = frozenset(
-    {ErrorKind.RATE_LIMIT, ErrorKind.TIMEOUT, ErrorKind.CRASH, ErrorKind.INVALID_OUTPUT,
-     ErrorKind.UNKNOWN}
+    {
+        ErrorKind.RATE_LIMIT,
+        ErrorKind.TIMEOUT,
+        ErrorKind.CRASH,
+        ErrorKind.INVALID_OUTPUT,
+        ErrorKind.UNKNOWN,
+    }
 )
 
 #: Error kinds where the agent is unusable and a fallback should be tried.
-FALLBACK_IMMEDIATELY: frozenset[ErrorKind] = frozenset(
-    {ErrorKind.AUTH, ErrorKind.UNAVAILABLE}
-)
+FALLBACK_IMMEDIATELY: frozenset[ErrorKind] = frozenset({ErrorKind.AUTH, ErrorKind.UNAVAILABLE})
 
 
 @dataclass(frozen=True)
@@ -31,9 +34,7 @@ class BackoffPolicy:
         return min(base * (self.factor**attempt_index), self.max_s)
 
 
-def next_agent(
-    failed_agents: list[str], primary: str, fallbacks: list[str]
-) -> str | None:
+def next_agent(failed_agents: list[str], primary: str, fallbacks: list[str]) -> str | None:
     """Pick the next agent to try: primary first, then fallbacks in order.
 
     Returns None when everyone in the chain has been consumed.

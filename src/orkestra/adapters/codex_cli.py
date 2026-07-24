@@ -42,7 +42,7 @@ class CodexParser(StreamParser):
     def feed_line(self, line: str, *, is_stderr: bool) -> Iterable[AgentEvent]:
         if is_stderr:
             if line.strip():
-                self.stderr_tail = (self.stderr_tail + [line])[-20:]
+                self.stderr_tail = [*self.stderr_tail, line][-20:]
             return
         obj = try_parse_json(line)
         if obj is None:
@@ -52,8 +52,11 @@ class CodexParser(StreamParser):
         kind = obj.get("type")
         if kind == "thread.started":
             self.thread_id = str(obj.get("thread_id") or "")
-            yield AgentEvent(kind=EventKind.STARTED, text="codex thread started",
-                             data={"thread_id": self.thread_id})
+            yield AgentEvent(
+                kind=EventKind.STARTED,
+                text="codex thread started",
+                data={"thread_id": self.thread_id},
+            )
         elif kind == "item.completed":
             item = obj.get("item") or {}
             item_type = item.get("type")
@@ -61,11 +64,11 @@ class CodexParser(StreamParser):
                 self.final_text = str(item.get("text") or "")
                 yield AgentEvent(kind=EventKind.TEXT, text=self.final_text[:4000])
             elif item_type == "command_execution":
-                yield AgentEvent(kind=EventKind.TOOL,
-                                 text=str(item.get("command", "command"))[:500])
+                yield AgentEvent(
+                    kind=EventKind.TOOL, text=str(item.get("command", "command"))[:500]
+                )
             elif item_type == "reasoning":
-                yield AgentEvent(kind=EventKind.THINKING,
-                                 text=str(item.get("text", ""))[:1000])
+                yield AgentEvent(kind=EventKind.THINKING, text=str(item.get("text", ""))[:1000])
         elif kind == "turn.completed":
             usage_raw: dict[str, Any] = obj.get("usage") or {}
             self.usage = self.usage.merged(
@@ -101,9 +104,7 @@ class CodexParser(StreamParser):
                 final_text=self.final_text,
                 structured=structured,
                 session=(
-                    SessionRef(session_id=self.thread_id, cwd=cwd)
-                    if self.thread_id
-                    else None
+                    SessionRef(session_id=self.thread_id, cwd=cwd) if self.thread_id else None
                 ),
                 usage=self.usage,
                 exit_code=exit_code,
@@ -140,15 +141,21 @@ class CodexCliAdapter(AgentAdapter):
     async def detect(self) -> AdapterInfo:
         path = self.which()
         if not path:
-            return AdapterInfo(self.adapter_id, available=False,
-                               detail="`codex` not found on PATH")
+            return AdapterInfo(self.adapter_id, available=False, detail="`codex` not found on PATH")
         code, out, err = await run_capture([path, "--version"])
         if code != 0:
-            return AdapterInfo(self.adapter_id, available=False, executable=path,
-                               detail=f"--version failed: {err.strip()[:200]}")
+            return AdapterInfo(
+                self.adapter_id,
+                available=False,
+                executable=path,
+                detail=f"--version failed: {err.strip()[:200]}",
+            )
         version = out.strip().split()[-1] if out.strip() else ""
         return AdapterInfo(
-            self.adapter_id, available=True, version=version, executable=path,
+            self.adapter_id,
+            available=True,
+            version=version,
+            executable=path,
             features=frozenset({"structured_output", "resume", "stream", "os_sandbox"}),
         )
 

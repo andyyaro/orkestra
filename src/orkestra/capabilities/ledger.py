@@ -29,8 +29,12 @@ def record_task_outcome(
     built from.
     """
     store.add_ledger_entry(
-        run_id, agent, task_id, task_kind,
-        "succeeded" if succeeded else "failed", detail,
+        run_id,
+        agent,
+        task_id,
+        task_kind,
+        "succeeded" if succeeded else "failed",
+        detail,
     )
     capability = TASK_CAPABILITY.get(task_kind, "implementation")
     store.add_observation(

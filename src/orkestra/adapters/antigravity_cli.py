@@ -45,7 +45,7 @@ class AntigravityParser(StreamParser):
     def feed_line(self, line: str, *, is_stderr: bool) -> Iterable[AgentEvent]:
         if is_stderr:
             if line.strip():
-                self.stderr_tail = (self.stderr_tail + [line])[-20:]
+                self.stderr_tail = [*self.stderr_tail, line][-20:]
             return
         obj = try_parse_json(line)
         if obj is None:
@@ -70,8 +70,7 @@ class AntigravityParser(StreamParser):
             step = obj.get("step_update") or {}
             step_type = step.get("step_type")
             if step_type == "agent_response" and step.get("text_delta"):
-                yield AgentEvent(kind=EventKind.TEXT,
-                                 text=str(step["text_delta"])[:4000])
+                yield AgentEvent(kind=EventKind.TEXT, text=str(step["text_delta"])[:4000])
             elif step_type not in (None, "user_input", "checkpoint", "unknown"):
                 yield AgentEvent(kind=EventKind.TOOL, text=str(step_type))
         elif event == "result":
@@ -85,9 +84,7 @@ class AntigravityParser(StreamParser):
                 input_tokens=int(usage_raw.get("input_tokens") or 0),
                 output_tokens=int(usage_raw.get("output_tokens") or 0),
             )
-            conversation_id = str(
-                self.final.get("conversation_id") or self.conversation_id
-            )
+            conversation_id = str(self.final.get("conversation_id") or self.conversation_id)
             status = str(self.final.get("status") or "")
             text = str(self.final.get("response") or "")
             ok = status.upper() == "SUCCESS" and (exit_code in (0, None))
@@ -108,9 +105,7 @@ class AntigravityParser(StreamParser):
                 final_text=text,
                 structured=structured,
                 session=(
-                    SessionRef(session_id=conversation_id, cwd=cwd)
-                    if conversation_id
-                    else None
+                    SessionRef(session_id=conversation_id, cwd=cwd) if conversation_id else None
                 ),
                 usage=usage,
                 exit_code=exit_code,
@@ -163,12 +158,15 @@ class AntigravityCliAdapter(AgentAdapter):
     async def detect(self) -> AdapterInfo:
         path = self.which()
         if not path:
-            return AdapterInfo(self.adapter_id, available=False,
-                               detail="`agy` not found on PATH")
+            return AdapterInfo(self.adapter_id, available=False, detail="`agy` not found on PATH")
         code, out, err = await run_capture([path, "--version"])
         if code != 0:
-            return AdapterInfo(self.adapter_id, available=False, executable=path,
-                               detail=f"--version failed: {err.strip()[:200]}")
+            return AdapterInfo(
+                self.adapter_id,
+                available=False,
+                executable=path,
+                detail=f"--version failed: {err.strip()[:200]}",
+            )
         return AdapterInfo(
             self.adapter_id,
             available=True,
@@ -200,9 +198,12 @@ class AntigravityCliAdapter(AgentAdapter):
         timeout_arg = f"{max(brief.timeout_s, 60)}s"
         argv = [
             self.which() or self.executable,
-            "-p", brief.instructions,
-            "--output-format", "stream-json",
-            "--print-timeout", timeout_arg,
+            "-p",
+            brief.instructions,
+            "--output-format",
+            "stream-json",
+            "--print-timeout",
+            timeout_arg,
         ]
         if self.autonomy == "unsafe-full":
             argv += ["--dangerously-skip-permissions"]

@@ -29,10 +29,11 @@ def build_adapter(agent_name: str, config: AgentConfig) -> AgentAdapter:
     if adapter_id == "gemini-cli":
         return GeminiCliAdapter(model=config.model, autonomy=config.autonomy)
     if adapter_id == "fake":
-        return FakeAdapter(model=config.model, autonomy=config.autonomy,
-                           agent_name=agent_name)
+        return FakeAdapter(model=config.model, autonomy=config.autonomy, agent_name=agent_name)
     if adapter_id == "external":
-        assert config.command is not None  # validated by AgentConfig
+        if config.command is None:  # pragma: no cover - validated by AgentConfig
+            msg = f"agent {agent_name!r}: external adapter requires command"
+            raise ConfigError(msg)
         return ExternalAdapter(command=config.command, name=agent_name)
     msg = (
         f"agent {agent_name!r}: unknown adapter {adapter_id!r} "

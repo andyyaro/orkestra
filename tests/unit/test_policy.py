@@ -22,16 +22,12 @@ class TestAssignment:
         assert decision.allowed
 
     def test_self_review_rejected(self) -> None:
-        decision = engine().check_assignment(
-            Assignment(primary="claude", reviewers=["claude"])
-        )
+        decision = engine().check_assignment(Assignment(primary="claude", reviewers=["claude"]))
         assert not decision.allowed
         assert any("independent" in v for v in decision.violations)
 
     def test_unknown_agent_rejected(self) -> None:
-        decision = engine().check_assignment(
-            Assignment(primary="ghost", reviewers=["codex"])
-        )
+        decision = engine().check_assignment(Assignment(primary="ghost", reviewers=["codex"]))
         assert not decision.allowed
 
     def test_review_required_by_default(self) -> None:
@@ -39,9 +35,7 @@ class TestAssignment:
         assert not decision.allowed
 
     def test_review_optional_when_configured(self) -> None:
-        decision = engine(require_review=False).check_assignment(
-            Assignment(primary="claude")
-        )
+        decision = engine(require_review=False).check_assignment(Assignment(primary="claude"))
         assert decision.allowed
 
     def test_reviewer_pairing(self) -> None:

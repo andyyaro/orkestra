@@ -8,12 +8,22 @@ TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
     TaskState.PENDING: frozenset({TaskState.READY, TaskState.CANCELLED}),
     TaskState.READY: frozenset({TaskState.RUNNING, TaskState.CANCELLED, TaskState.BLOCKED}),
     TaskState.RUNNING: frozenset(
-        {TaskState.VERIFYING, TaskState.READY, TaskState.BLOCKED, TaskState.CANCELLED,
-         TaskState.FAILED}
+        {
+            TaskState.VERIFYING,
+            TaskState.READY,
+            TaskState.BLOCKED,
+            TaskState.CANCELLED,
+            TaskState.FAILED,
+        }
     ),
     TaskState.VERIFYING: frozenset(
-        {TaskState.REVIEWING, TaskState.READY, TaskState.BLOCKED, TaskState.CANCELLED,
-         TaskState.DONE}
+        {
+            TaskState.REVIEWING,
+            TaskState.READY,
+            TaskState.BLOCKED,
+            TaskState.CANCELLED,
+            TaskState.DONE,
+        }
     ),
     TaskState.REVIEWING: frozenset(
         {TaskState.INTEGRATING, TaskState.READY, TaskState.BLOCKED, TaskState.CANCELLED}
@@ -30,8 +40,13 @@ TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
 RUN_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
     RunState.CREATED: frozenset({RunState.ANALYZING, RunState.CANCELLED}),
     RunState.ANALYZING: frozenset(
-        {RunState.PROBING, RunState.PLANNING, RunState.FAILED, RunState.CANCELLED,
-         RunState.WAITING_HUMAN}
+        {
+            RunState.PROBING,
+            RunState.PLANNING,
+            RunState.FAILED,
+            RunState.CANCELLED,
+            RunState.WAITING_HUMAN,
+        }
     ),
     RunState.PROBING: frozenset(
         {RunState.PLANNING, RunState.FAILED, RunState.CANCELLED, RunState.WAITING_HUMAN}
@@ -40,8 +55,13 @@ RUN_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
         {RunState.RUNNING, RunState.FAILED, RunState.CANCELLED, RunState.WAITING_HUMAN}
     ),
     RunState.RUNNING: frozenset(
-        {RunState.PAUSED, RunState.WAITING_HUMAN, RunState.COMPLETE, RunState.FAILED,
-         RunState.CANCELLED}
+        {
+            RunState.PAUSED,
+            RunState.WAITING_HUMAN,
+            RunState.COMPLETE,
+            RunState.FAILED,
+            RunState.CANCELLED,
+        }
     ),
     RunState.PAUSED: frozenset({RunState.RUNNING, RunState.CANCELLED}),
     RunState.WAITING_HUMAN: frozenset(

@@ -31,8 +31,7 @@ STANDARD_PROBES: list[CapabilityProbe] = [
         capability="structured_output",
         kind=TaskKind.PLAN,
         prompt=(
-            "Return exactly this JSON object and nothing else: "
-            '{"status": "ready", "count": 3}'
+            'Return exactly this JSON object and nothing else: {"status": "ready", "count": 3}'
         ),
         expected_kind="json",
         check='parsed == {"status": "ready", "count": 3}',
@@ -83,7 +82,9 @@ def _evaluate(probe: CapabilityProbe, text: str) -> bool:
     safe_builtins = {"len": len, "str": str, "int": int, "float": float, "abs": abs}
     try:
         # Checks are Orkestra-authored constants, not external input.
-        return bool(eval(probe.check, {"__builtins__": safe_builtins}, namespace))  # noqa: S307
+        return bool(
+            eval(probe.check, {"__builtins__": safe_builtins}, namespace)  # noqa: S307  # nosec B307 - Orkestra-authored constants
+        )
     except Exception:
         return False
 

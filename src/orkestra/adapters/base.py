@@ -54,9 +54,7 @@ class StreamParser(ABC):
         """Parse one output line into zero or more normalized events."""
 
     @abstractmethod
-    def result(
-        self, exit_code: int | None, duration_s: float, cwd: str
-    ) -> AgentResult:
+    def result(self, exit_code: int | None, duration_s: float, cwd: str) -> AgentResult:
         """Produce the final structured result after process exit."""
 
 

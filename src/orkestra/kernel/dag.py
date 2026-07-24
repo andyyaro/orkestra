@@ -116,8 +116,10 @@ class TaskDag:
         if self.ready_keys(states):
             return False
         active = {
-            TaskState.RUNNING, TaskState.VERIFYING,
-            TaskState.REVIEWING, TaskState.INTEGRATING,
+            TaskState.RUNNING,
+            TaskState.VERIFYING,
+            TaskState.REVIEWING,
+            TaskState.INTEGRATING,
         }
         if any(states.get(k) in active for k in self.keys):
             return False

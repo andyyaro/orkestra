@@ -50,32 +50,49 @@ class TestScheduling:
 
     def test_parallel_frontier_after_a(self) -> None:
         dag = make_dag()
-        states = {"a": TaskState.DONE, "b": TaskState.PENDING,
-                  "c": TaskState.PENDING, "d": TaskState.PENDING}
+        states = {
+            "a": TaskState.DONE,
+            "b": TaskState.PENDING,
+            "c": TaskState.PENDING,
+            "d": TaskState.PENDING,
+        }
         assert dag.ready_keys(states) == ["b", "c"]
 
     def test_join_waits_for_all(self) -> None:
         dag = make_dag()
-        states = {"a": TaskState.DONE, "b": TaskState.DONE,
-                  "c": TaskState.RUNNING, "d": TaskState.PENDING}
+        states = {
+            "a": TaskState.DONE,
+            "b": TaskState.DONE,
+            "c": TaskState.RUNNING,
+            "d": TaskState.PENDING,
+        }
         assert dag.ready_keys(states) == []
 
     def test_complete(self) -> None:
         dag = make_dag()
         assert dag.is_complete(dict.fromkeys("abcd", TaskState.DONE))
-        assert not dag.is_complete({**dict.fromkeys("abcd", TaskState.DONE),
-                                    "d": TaskState.RUNNING})
+        assert not dag.is_complete(
+            {**dict.fromkeys("abcd", TaskState.DONE), "d": TaskState.RUNNING}
+        )
 
     def test_stuck_when_dependency_failed(self) -> None:
         dag = make_dag()
-        states = {"a": TaskState.FAILED, "b": TaskState.PENDING,
-                  "c": TaskState.PENDING, "d": TaskState.PENDING}
+        states = {
+            "a": TaskState.FAILED,
+            "b": TaskState.PENDING,
+            "c": TaskState.PENDING,
+            "d": TaskState.PENDING,
+        }
         assert dag.is_stuck(states)
 
     def test_not_stuck_while_running(self) -> None:
         dag = make_dag()
-        states = {"a": TaskState.RUNNING, "b": TaskState.PENDING,
-                  "c": TaskState.PENDING, "d": TaskState.PENDING}
+        states = {
+            "a": TaskState.RUNNING,
+            "b": TaskState.PENDING,
+            "c": TaskState.PENDING,
+            "d": TaskState.PENDING,
+        }
         assert not dag.is_stuck(states)
 
     def test_downstream(self) -> None:

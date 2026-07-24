@@ -46,11 +46,21 @@ class ContractReport:
         )
 
 
-def _brief(cwd: Path, instructions: str, kind: TaskKind = TaskKind.IMPLEMENT,
-           timeout_s: int = 30, json_schema: dict[str, object] | None = None) -> TaskBrief:
+def _brief(
+    cwd: Path,
+    instructions: str,
+    kind: TaskKind = TaskKind.IMPLEMENT,
+    timeout_s: int = 30,
+    json_schema: dict[str, object] | None = None,
+) -> TaskBrief:
     return TaskBrief(
-        task_id="contract", run_id="contract", title="contract check",
-        kind=kind, instructions=instructions, cwd=str(cwd), timeout_s=timeout_s,
+        task_id="contract",
+        run_id="contract",
+        title="contract check",
+        kind=kind,
+        instructions=instructions,
+        cwd=str(cwd),
+        timeout_s=timeout_s,
         json_schema=json_schema,
     )
 
@@ -71,17 +81,14 @@ async def run_contract_suite(adapter: AgentAdapter, work_dir: Path) -> ContractR
 
     # 1. Detection handshake
     info = await adapter.detect()
-    report.checks.append(
-        ContractCheck("detect", info.available, info.detail)
-    )
+    report.checks.append(ContractCheck("detect", info.available, info.detail))
     if not info.available:
         return report
 
     # 2. Happy path
     result = await invoke("FAKE:text:hello contract")
-    ok = (
-        getattr(result, "status", None) is ResultStatus.OK
-        and "hello contract" in getattr(result, "final_text", "")
+    ok = getattr(result, "status", None) is ResultStatus.OK and "hello contract" in getattr(
+        result, "final_text", ""
     )
     report.checks.append(ContractCheck("happy_path", ok, str(result)[:200] if not ok else ""))
 
@@ -92,11 +99,9 @@ async def run_contract_suite(adapter: AgentAdapter, work_dir: Path) -> ContractR
 
     # 4. Non-zero exit is normalized to a crash-like error
     result = await invoke("FAKE:exit:3")
-    ok = (
-        getattr(result, "status", None) is ResultStatus.ERROR
-        and getattr(result, "error_kind", None)
-        in (ErrorKind.CRASH, ErrorKind.INVALID_OUTPUT)
-    )
+    ok = getattr(result, "status", None) is ResultStatus.ERROR and getattr(
+        result, "error_kind", None
+    ) in (ErrorKind.CRASH, ErrorKind.INVALID_OUTPUT)
     report.checks.append(ContractCheck("nonzero_exit", ok))
 
     # 5. Garbage output does not break the parser
@@ -135,10 +140,9 @@ async def run_contract_suite(adapter: AgentAdapter, work_dir: Path) -> ContractR
         'FAKE:structured:{"answer": 42}',
         json_schema={"type": "object"},
     )
-    ok = (
-        getattr(result, "status", None) is ResultStatus.OK
-        and getattr(result, "structured", None) == {"answer": 42}
-    )
+    ok = getattr(result, "status", None) is ResultStatus.OK and getattr(
+        result, "structured", None
+    ) == {"answer": 42}
     report.checks.append(ContractCheck("structured_output", ok))
 
     return report
