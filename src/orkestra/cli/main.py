@@ -435,7 +435,11 @@ def run(
 
         application.orchestrator._on_event = _print_event
         latest = application.store.latest_run()
-        if latest is not None and latest.state in (RunState.PLANNING,):
+        if (
+            latest is not None
+            and latest.state is RunState.PLANNING
+            and application.store.tasks_for_run(latest.run_id)
+        ):
             run_id = latest.run_id
             console.print(f"executing prepared run {run_id}")
         else:

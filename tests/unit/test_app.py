@@ -33,7 +33,7 @@ def make(root: Path, extra: str = "") -> None:
 class TestBuildApp:
     def test_docker_sandbox_rejected_in_v01(self, tmp_path: Path) -> None:
         make(tmp_path, '[policy]\nsandbox = "docker"\n')
-        with pytest.raises(ConfigError, match="not yet supported in v0.1"):
+        with pytest.raises(ConfigError, match=r"not yet supported in v0\.1"):
             build_app(tmp_path)
 
     def test_find_project_root_walks_up(self, tmp_path: Path) -> None:

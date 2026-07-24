@@ -23,8 +23,13 @@ def run_worker(
     json_schema: dict[str, Any] | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     brief = {
-        "task_id": "t1", "run_id": "r1", "title": "unit", "kind": kind,
-        "instructions": instructions, "cwd": str(cwd), "timeout_s": 30,
+        "task_id": "t1",
+        "run_id": "r1",
+        "title": "unit",
+        "kind": kind,
+        "instructions": instructions,
+        "cwd": str(cwd),
+        "timeout_s": 30,
         "json_schema": json_schema,
     }
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(brief)))
@@ -57,16 +62,16 @@ class TestDirectives:
 
     def test_write_and_text(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
         _, events = run_worker(
-            monkeypatch, capsys, "FAKE:write:sub/x.txt:hello\nFAKE:text:custom",
+            monkeypatch,
+            capsys,
+            "FAKE:write:sub/x.txt:hello\nFAKE:text:custom",
             cwd=tmp_path,
         )
         assert (tmp_path / "sub" / "x.txt").read_text() == "hello\n"
         assert final(events)["final_text"] == "custom"
 
     def test_write_outside_workspace_refused(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        _, events = run_worker(
-            monkeypatch, capsys, "FAKE:write:../escape.txt:oops", cwd=tmp_path
-        )
+        _, events = run_worker(monkeypatch, capsys, "FAKE:write:../escape.txt:oops", cwd=tmp_path)
         assert final(events)["status"] == "error"
         assert final(events)["error_kind"] == "policy"
         assert not (tmp_path.parent / "escape.txt").exists()
@@ -78,38 +83,73 @@ class TestDirectives:
 
     def test_fail_if_agent_scoping(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
         argv = ["--agent-name", "alpha"]
-        _, events = run_worker(monkeypatch, capsys, "FAKE:fail_if_agent:alpha",
-                               cwd=tmp_path, argv=argv)
+        _, events = run_worker(
+            monkeypatch, capsys, "FAKE:fail_if_agent:alpha", cwd=tmp_path, argv=argv
+        )
         assert final(events)["status"] == "error"
         # Other agent unaffected.
-        _, events = run_worker(monkeypatch, capsys, "FAKE:fail_if_agent:alpha",
-                               cwd=tmp_path, argv=["--agent-name", "beta"])
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            "FAKE:fail_if_agent:alpha",
+            cwd=tmp_path,
+            argv=["--agent-name", "beta"],
+        )
         assert final(events)["status"] == "ok"
         # Review role unaffected even for the named agent.
-        _, events = run_worker(monkeypatch, capsys, "FAKE:fail_if_agent:alpha",
-                               cwd=tmp_path, argv=argv, kind="review",
-                               json_schema={"type": "object"})
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            "FAKE:fail_if_agent:alpha",
+            cwd=tmp_path,
+            argv=argv,
+            kind="review",
+            json_schema={"type": "object"},
+        )
         assert final(events)["status"] == "ok"
 
     def test_review_defaults_to_approval(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        _, events = run_worker(monkeypatch, capsys, "please review", kind="review",
-                               cwd=tmp_path, json_schema={"type": "object"})
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            "please review",
+            kind="review",
+            cwd=tmp_path,
+            json_schema={"type": "object"},
+        )
         assert final(events)["structured"]["approve"] is True
 
     def test_reject(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        _, events = run_worker(monkeypatch, capsys, "FAKE:reject:bad code",
-                               kind="review", cwd=tmp_path,
-                               json_schema={"type": "object"})
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            "FAKE:reject:bad code",
+            kind="review",
+            cwd=tmp_path,
+            json_schema={"type": "object"},
+        )
         verdict = final(events)["structured"]
         assert verdict["approve"] is False
         assert verdict["findings"] == ["bad code"]
 
     def test_reject_once_stateful(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        _, events = run_worker(monkeypatch, capsys, "FAKE:reject_once", kind="review",
-                               cwd=tmp_path, json_schema={"type": "object"})
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            "FAKE:reject_once",
+            kind="review",
+            cwd=tmp_path,
+            json_schema={"type": "object"},
+        )
         assert final(events)["structured"]["approve"] is False
-        _, events = run_worker(monkeypatch, capsys, "FAKE:reject_once", kind="review",
-                               cwd=tmp_path, json_schema={"type": "object"})
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            "FAKE:reject_once",
+            kind="review",
+            cwd=tmp_path,
+            json_schema={"type": "object"},
+        )
         assert final(events)["structured"]["approve"] is True
 
     def test_reject_once_ignored_for_implementer(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -118,9 +158,13 @@ class TestDirectives:
         assert not (tmp_path / ".fake-reject-done").exists()
 
     def test_structured_passthrough(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        _, events = run_worker(monkeypatch, capsys,
-                               'FAKE:structured:{"answer": 42}', cwd=tmp_path,
-                               json_schema={"type": "object"})
+        _, events = run_worker(
+            monkeypatch,
+            capsys,
+            'FAKE:structured:{"answer": 42}',
+            cwd=tmp_path,
+            json_schema={"type": "object"},
+        )
         assert final(events)["structured"] == {"answer": 42}
 
     def test_exit_code(self, monkeypatch, capsys, tmp_path) -> None:  # type: ignore[no-untyped-def]

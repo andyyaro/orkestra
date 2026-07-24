@@ -44,6 +44,11 @@ violations):
 {agents}
 - kinds: research | plan | implement | test | review | debug | integrate | document
 - tasks of kind implement/test/debug/document mutate the repository
+- "acceptance" entries must be EXECUTABLE SHELL COMMANDS (run without a
+  shell, exit code 0 = pass), e.g. "python3 test_greet.py" — never prose.
+  Leave the list empty if the project-level verify commands suffice.
+- do NOT create separate review/verify tasks: the orchestrator itself runs
+  verification commands and independent reviews after every mutating task
 - keep descriptions self-contained: the assigned agent sees ONLY your
   description plus the workspace, not this conversation
 

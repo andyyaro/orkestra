@@ -9,16 +9,29 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from orkestra.cli.main import app
+
 
 def git_commit_all(root: Path, message: str = "test setup") -> None:
     subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
     subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid",
-         "commit", "-q", "--allow-empty", "-m", message],
-        cwd=root, check=True, capture_output=True,
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@e.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            message,
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
     )
 
-from orkestra.cli.main import app
 
 runner = CliRunner()
 
@@ -64,8 +77,18 @@ class TestBasics:
     def test_help_lists_commands(self) -> None:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        for command in ("init", "doctor", "run", "status", "decisions", "approve",
-                        "pause", "resume", "cancel", "report"):
+        for command in (
+            "init",
+            "doctor",
+            "run",
+            "status",
+            "decisions",
+            "approve",
+            "pause",
+            "resume",
+            "cancel",
+            "report",
+        ):
             assert command in result.output
 
     def test_commands_outside_project_fail_cleanly(
@@ -78,8 +101,7 @@ class TestBasics:
 
 
 class TestInit:
-    def test_init_creates_layout(self, tmp_path: Path,
-                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_init_creates_layout(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["init", "newproj", "--non-interactive"])
         assert result.exit_code == 0, result.output
@@ -130,8 +152,9 @@ class TestWorkflow:
 
         report_path = project / "report.md"
         json_path = project / "report.json"
-        result = runner.invoke(app, ["report", "--out", str(report_path),
-                                     "--json-out", str(json_path)])
+        result = runner.invoke(
+            app, ["report", "--out", str(report_path), "--json-out", str(json_path)]
+        )
         assert result.exit_code == 0
         assert "Orkestra Run Report" in report_path.read_text()
         assert json.loads(json_path.read_text())["run"]["state"] == "complete"
