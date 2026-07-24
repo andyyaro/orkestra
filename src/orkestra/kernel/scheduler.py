@@ -385,6 +385,9 @@ class Orchestrator:
         attempt_index = 0
         workspace: Workspace | None = None
         fix_context: str = ""
+        # agent -> resumable session id, valid only for the current workspace
+        # (all vendor CLIs scope sessions to the working directory).
+        sessions: dict[str, str] = {}
 
         while True:
             budget = self.policy.check_attempt_budget(task.attempt_count + attempt_index)
@@ -403,9 +406,19 @@ class Orchestrator:
 
             if workspace is None:
                 workspace = await self._make_workspace(run_id, task)
+                sessions.clear()
 
-            result, attempt_id = await self._attempt(run_id, task, agent, workspace, fix_context)
+            resume_id = sessions.get(agent) if self.config.policy.session_reuse else None
+            result, attempt_id = await self._attempt(
+                run_id, task, agent, workspace, fix_context, resume_session_id=resume_id
+            )
             self.store.add_usage(run_id, agent, attempt_id, result.usage)
+            if (
+                result.ok
+                and result.session is not None
+                and result.session.cwd == str(workspace.path)
+            ):
+                sessions[agent] = result.session.session_id
 
             if not result.ok:
                 self.store.finish_attempt(
@@ -617,6 +630,8 @@ class Orchestrator:
         agent: str,
         workspace: Workspace,
         fix_context: str,
+        *,
+        resume_session_id: str | None = None,
     ) -> tuple[AgentResult, str]:
         adapter = self.adapters[agent]
         attempt_id = self.store.create_attempt(
@@ -632,6 +647,7 @@ class Orchestrator:
             instructions=instructions,
             cwd=str(workspace.path),
             timeout_s=min(agent_config.timeout_s, self.config.policy.task_timeout_s),
+            resume_session_id=resume_session_id,
         )
         cancel_flag = asyncio.Event()
         self._cancel_flags[attempt_id] = cancel_flag
