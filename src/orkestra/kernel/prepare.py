@@ -30,8 +30,28 @@ async def prepare_run(
 ) -> str:
     """Create, analyze, probe, and plan a run. Returns the run id."""
     config = orch.config
+    # Fail fast on repository problems BEFORE any quota is spent on
+    # analysis or probes.
+    await orch.workspaces.validate_repository()
     run_id = orch.store.create_run(config.project.name)
     orch.director_service = director
+    try:
+        await _prepare(orch, director, run_id, spec_text, max_challengers)
+    except BaseException:
+        # Never leave a half-prepared run looking executable.
+        orch.store.set_run_state(run_id, RunState.FAILED)
+        raise
+    return run_id
+
+
+async def _prepare(
+    orch: Orchestrator,
+    director: DirectorService,
+    run_id: str,
+    spec_text: str,
+    max_challengers: int,
+) -> None:
+    config = orch.config
 
     # Inventory before anything else; recorded for the report.
     summary = await orch.inventory_agents()
@@ -57,11 +77,15 @@ async def prepare_run(
         for name, adapter in orch.adapters.items()
         if summary[name]["available"] == "True" and summary[name]["auth_ready"] == "True"
     }
+    # Probes run in a scratch directory, never the project root — probe
+    # prompts don't mutate files, but agents get no chance to.
+    probe_dir = orch.root / ".orkestra" / "probes"
+    probe_dir.mkdir(parents=True, exist_ok=True)
     probe_observations = await run_probes(
         usable_agents,
         {n: summary[n]["version"] for n in usable_agents},
         orch.store,
-        orch.root,
+        probe_dir,
         mode=config.probes.mode,
         budget=config.probes.budget,
         timeout_s=config.probes.timeout_s,
@@ -120,7 +144,6 @@ async def prepare_run(
         f"({json.dumps([p.task.key for p in plan.tasks])}); "
         f"integration branch {integration}",
     )
-    return run_id
 
 
 def plan_summary(plan: DirectorPlan) -> str:

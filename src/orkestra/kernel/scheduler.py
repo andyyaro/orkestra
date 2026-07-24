@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from orkestra.capabilities.ledger import record_task_outcome
 from orkestra.capabilities.matrix import build_matrix
 from orkestra.director import prompts
-from orkestra.errors import PolicyViolation, WorkspaceError
+from orkestra.errors import PolicyViolation, VerificationError, WorkspaceError
 from orkestra.ids import new_id
 from orkestra.kernel.dag import TaskDag
 from orkestra.kernel.retry import FALLBACK_IMMEDIATELY, BackoffPolicy, next_agent
@@ -141,8 +141,14 @@ class Orchestrator:
     async def execute(self, run_id: str) -> RunState:
         """Main loop: schedule ready tasks until terminal state."""
         self.store.get_run(run_id)  # existence check with a clear error
-        self.store.set_run_state(run_id, RunState.RUNNING)
         tasks = {t.key: t for t in self.store.tasks_for_run(run_id)}
+        if not tasks:
+            self.store.set_run_state(run_id, RunState.FAILED)
+            self.emit(
+                run_id, EventKind.ERROR, "run has no tasks (preparation did not finish); plan again"
+            )
+            return RunState.FAILED
+        self.store.set_run_state(run_id, RunState.RUNNING)
         dag = TaskDag(deps=self.store.deps_for_run(run_id), all_keys=list(tasks.keys()))
         semaphore = asyncio.Semaphore(self.config.policy.max_concurrency)
         in_flight: dict[str, asyncio.Task[None]] = {}
@@ -232,6 +238,19 @@ class Orchestrator:
                 exc = in_flight[key].exception()
                 if exc is not None and not isinstance(exc, asyncio.CancelledError):
                     self.emit(run_id, EventKind.ERROR, f"task {key} crashed the pipeline: {exc}")
+                    # A crashed pipeline coroutine must not strand its task in
+                    # an active state (that would spin the loop forever) —
+                    # block it behind a human decision instead.
+                    crashed_task = next(
+                        (t for t in self.store.tasks_for_run(run_id) if t.key == key), None
+                    )
+                    if crashed_task is not None and crashed_task.state not in (
+                        TaskState.DONE,
+                        TaskState.FAILED,
+                        TaskState.CANCELLED,
+                        TaskState.BLOCKED,
+                    ):
+                        self._block_task(run_id, crashed_task.task_id, f"pipeline crash: {exc}")
                 del in_flight[key]
 
     def _cancel_open_tasks(self, run_id: str) -> None:
@@ -303,6 +322,10 @@ class Orchestrator:
                 self._block_task(run_id, task_id, f"policy violation: {exc}")
             except WorkspaceError as exc:
                 self._block_task(run_id, task_id, f"workspace error: {exc}")
+            except VerificationError as exc:
+                # E.g. an acceptance command that isn't executable: a plan
+                # defect the human should see, not an agent failure to retry.
+                self._block_task(run_id, task_id, f"verification setup error: {exc}")
 
     def _block_task(self, run_id: str, task_id: str, reason: str) -> None:
         task = self.store.get_task(task_id)

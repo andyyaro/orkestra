@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 from orkestra.kernel.retry import BackoffPolicy, next_agent
 from orkestra.kernel.states import (
     RUN_TRANSITIONS,
@@ -26,11 +28,15 @@ class TestTransitionTables:
 
     def test_pipeline_happy_path_is_legal(self) -> None:
         chain = [
-            TaskState.PENDING, TaskState.READY, TaskState.RUNNING,
-            TaskState.VERIFYING, TaskState.REVIEWING, TaskState.INTEGRATING,
+            TaskState.PENDING,
+            TaskState.READY,
+            TaskState.RUNNING,
+            TaskState.VERIFYING,
+            TaskState.REVIEWING,
+            TaskState.INTEGRATING,
             TaskState.DONE,
         ]
-        for current, upcoming in zip(chain, chain[1:], strict=False):
+        for current, upcoming in itertools.pairwise(chain):
             assert can_transition_task(current, upcoming), f"{current} -> {upcoming}"
 
     def test_illegal_shortcuts_rejected(self) -> None:

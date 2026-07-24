@@ -1,0 +1,124 @@
+# Configuration Reference
+
+Location: `.orkestra/config.toml` (project-local, created by
+`orkestra init`, discovered by walking up from the current directory).
+Validation is strict: unknown keys are errors with precise messages.
+
+```toml
+version = 1                      # config schema version (required)
+```
+
+## `[project]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `name` | — (required) | Project slug (`[a-z0-9._-]`, ≤64 chars) |
+| `spec_file` | `"SPEC.md"` | Markdown specification read by `plan`/`run` |
+
+## `[agents.<name>]` — one table per agent; **≥ 2 enabled required**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `adapter` | — (required) | `claude-code`, `codex-cli`, `antigravity-cli`, `gemini-cli`, `fake`, or `external` |
+| `enabled` | `true` | Disabled agents are ignored entirely |
+| `model` | adapter default | Model override passed to the CLI |
+| `autonomy` | `"safe"` | `safe` = workspace-scoped edit autonomy via the CLI's own safety system; `unsafe-full` = the CLI's bypass mode (explicit opt-in, logged) |
+| `timeout_s` | `1800` | Per-attempt wall clock (30–86400) |
+| `command` | — | **external adapter only**: argv of your agent binary |
+
+Multiple profiles of the same adapter are valid (e.g. two `claude-code`
+agents with different models).
+
+## `[director]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `agent` | `"claude"` | Which configured agent leads analysis/planning/arbitration; must be enabled. Any adapter with structured-output support works; without it Orkestra falls back to heuristic planning |
+| `max_decision_retries` | `2` | Schema-repair retries per director exchange (0–5) |
+
+## `[policy]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `max_concurrency` | `2` | Parallel tasks (1–32). Remember: parallel agents multiply your subscription usage |
+| `max_attempts_per_task` | `3` | Attempt budget incl. fallbacks (1–10) |
+| `max_review_cycles` | `2` | Review→fix loops per task (0–5) |
+| `require_review` | `true` | Independent review gate for mutating tasks |
+| `allow_push` | `false` | Orkestra never pushes unless this is true |
+| `task_timeout_s` | `1800` | Kernel-enforced ceiling per attempt |
+| `protected_paths` | `[".git", ".orkestra", ".github/workflows"]` | Diffs touching these are rejected |
+| `sandbox` | `"none"` | `"docker"` is reserved (refused in v0.1 with an explanation; see ROADMAP) |
+
+## `[verify]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). Tasks may carry their own `acceptance` list from the plan; otherwise these run |
+| `timeout_s` | `900` | Per-command timeout |
+
+## `[probes]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `mode` | `"cached"` | `live` (always spend), `cached` (reuse per agent version), `off` |
+| `budget` | `6` | Max live probe invocations per run across all agents |
+| `timeout_s` | `240` | Per-probe timeout |
+
+## Example: two agents
+
+```toml
+version = 1
+[project]
+name = "myapp"
+[agents.claude]
+adapter = "claude-code"
+[agents.codex]
+adapter = "codex-cli"
+[verify]
+commands = ["pytest -q"]
+```
+
+## Example: three agents, custom director model
+
+```toml
+version = 1
+[project]
+name = "myapp"
+[agents.claude]
+adapter = "claude-code"
+model = "sonnet"
+[agents.codex]
+adapter = "codex-cli"
+[agents.antigravity]
+adapter = "antigravity-cli"
+[director]
+agent = "claude"
+[verify]
+commands = ["pytest -q", "ruff check ."]
+```
+
+## Example: four+ agents including a third-party adapter
+
+```toml
+version = 1
+[project]
+name = "myapp"
+[agents.claude]
+adapter = "claude-code"
+[agents.codex]
+adapter = "codex-cli"
+[agents.antigravity]
+adapter = "antigravity-cli"
+[agents.inhouse]
+adapter = "external"
+command = ["/opt/agents/inhouse", "--headless"]
+[policy]
+max_concurrency = 3
+```
+
+## Secrets
+
+Config files carry no secrets by design; agent auth lives with each
+vendor CLI. `GEMINI_API_KEY` (gemini-cli only) is read from the
+environment, never from config, and is passed only to that adapter's
+subprocess.
