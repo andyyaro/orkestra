@@ -52,6 +52,8 @@ class TestRedact:
             "sk-proj-ABCDEFGHIJKLMNOPqrstuv123456",
             "ghp_abcdefghijklmnopqrstuvwxyz012345",
             "github_pat_11ABCDEFG0123456789_abcdef",
+            # 31-char body: matches our redactor (30+) but not real-scanner
+            # patterns for Google keys (exactly 35), so no false alerts.
             "AIzaFAKEFAKEFAKEFAKEFAKEFAKEFAKE-NO",
             "AKIAIOSFODNN7EXAMPLE",
             # Letters (not digits) so real secret scanners don't false-positive
