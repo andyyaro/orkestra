@@ -724,7 +724,10 @@ class Orchestrator:
         candidates += [
             name for name in self.adapters if name not in candidates and name != implementer
         ]
-        for reviewer in candidates:
+        # Two bounded rounds: transient reviewer flakiness (empty responses,
+        # malformed JSON) gets one more chance before escalating to a human.
+        attempts_plan = [*candidates, *candidates]
+        for reviewer in attempts_plan:
             pairing = self.policy.check_reviewer(implementer, reviewer)
             if not pairing.allowed:
                 self.emit(

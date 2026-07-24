@@ -192,10 +192,20 @@ class GeminiCliAdapter(AgentAdapter):
         )
 
     def build_invocation(self, brief: TaskBrief) -> InvocationSpec:
+        instructions = brief.instructions
+        if brief.json_schema is not None:
+            # No native schema flag: embed the schema in the prompt and rely
+            # on extract_json_object + kernel-side validation/retries.
+            import json as _json
+
+            instructions += (
+                "\n\nRespond with ONLY one JSON object (no prose, no code "
+                "fences) conforming to this JSON Schema:\n" + _json.dumps(brief.json_schema)
+            )
         argv = [
             self.which() or self.executable,
             "-p",
-            brief.instructions,
+            instructions,
             "-o",
             "stream-json",
             "--skip-trust",
