@@ -1,7 +1,7 @@
 # Orkestra Build Status
 
 **Status:** COMPLETE
-**Phase:** 10 — Released (v0.1.0)
+**Phase:** Released and published (v0.1.2 on PyPI)
 **Last updated:** 2026-07-24
 
 ## Phase checklist
@@ -42,5 +42,14 @@
   gitleaks clean; CI green on GitHub
 - Live cross-vendor orchestration + dogfood evidence in
   docs/development/evidence/
+
+## Post-release (same day)
+
+- v0.1.1: redaction hardening implementing all five improvements from
+  Orkestra's own dogfood self-review, with a table-driven regression
+  suite.
+- v0.1.2: published to PyPI as `orkestra-runtime` via Trusted
+  Publishing (OIDC, approval-gated `pypi` environment, no tokens);
+  install verified from PyPI (`uv tool install orkestra-runtime`).
 
 See FINAL_BUILD_REPORT.md for the complete evidence trail.

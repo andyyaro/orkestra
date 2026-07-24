@@ -91,9 +91,9 @@ credentials).
 
 ```bash
 # with uv (recommended)
-uv tool install git+https://github.com/andyyaro/orkestra
+uv tool install orkestra-runtime
 # or with pip
-pip install git+https://github.com/andyyaro/orkestra
+pip install orkestra-runtime
 ```
 
 ## Quickstart (two agents)

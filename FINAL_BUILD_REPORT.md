@@ -180,7 +180,14 @@ macOS 26.5.1 / Python 3.14). Windows untested (roadmap).
 
 - Repository: https://github.com/andyyaro/orkestra (public)
 - Default branch: `main`
-- Release: v0.1.0 — https://github.com/andyyaro/orkestra/releases/tag/v0.1.0
+- Releases: v0.1.0 (initial) · v0.1.1 (redaction hardening from the
+  dogfood self-review) · v0.1.2 (PyPI publication) —
+  https://github.com/andyyaro/orkestra/releases
+- PyPI: https://pypi.org/project/orkestra-runtime/ — published 2026-07-24
+  via Trusted Publishing (GitHub OIDC, protected `pypi` environment with
+  manual maintainer approval; no API tokens). Verified end-to-end:
+  `uv tool install orkestra-runtime` → `orkestra --version` (0.1.2) →
+  `orkestra doctor` (3 real agents ready).
 - History note: history was rewritten twice (once pre-publication, once
   ~1 hour after, before any forks/clones existed) to purge two
   fake-but-scanner-triggering redaction-test fixtures (a fake Slack
