@@ -29,7 +29,8 @@ def build_adapter(agent_name: str, config: AgentConfig) -> AgentAdapter:
     if adapter_id == "gemini-cli":
         return GeminiCliAdapter(model=config.model, autonomy=config.autonomy)
     if adapter_id == "fake":
-        return FakeAdapter(model=config.model, autonomy=config.autonomy)
+        return FakeAdapter(model=config.model, autonomy=config.autonomy,
+                           agent_name=agent_name)
     if adapter_id == "external":
         assert config.command is not None  # validated by AgentConfig
         return ExternalAdapter(command=config.command, name=agent_name)

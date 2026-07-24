@@ -14,6 +14,8 @@ Directives (one per line, anywhere in the instructions):
     FAKE:garbage                     print non-protocol garbage lines
     FAKE:silent                      produce no result event
     FAKE:reject[:reason]             review verdict approve=false
+    FAKE:reject_once[:reason]        reject on first review, approve after
+    FAKE:fail_if_agent:<name>        fail only when run as that agent
     FAKE:structured:<json>           emit this JSON as `structured`
     FAKE:text:<text>                 set the final text
 
@@ -42,6 +44,11 @@ def main(argv: list[str]) -> int:
     if "--orkestra-detect" in argv:
         emit({"protocol": PROTOCOL_VERSION, "version": FAKE_VERSION, "name": "fake"})
         return 0
+    agent_name = ""
+    if "--agent-name" in argv:
+        index = argv.index("--agent-name")
+        if index + 1 < len(argv):
+            agent_name = argv[index + 1]
 
     try:
         brief = json.loads(sys.stdin.read() or "{}")
@@ -95,6 +102,31 @@ def main(argv: list[str]) -> int:
             sys.stdout.flush()
         elif op == "silent":
             return 0
+        elif op == "fail_if_agent" and len(parts) > 1:
+            # Scoped to implementer-style attempts; review behavior is
+            # scripted separately via reject/reject_once/silent.
+            if agent_name == parts[1] and kind != "review":
+                status, error_kind = "error", "crash"
+                error_detail = f"scripted failure for agent {agent_name}"
+                break
+        elif op == "reject_once":
+            if kind != "review":
+                continue  # directive only affects the reviewer role
+            reason = parts[1] if len(parts) > 1 else "scripted first-pass rejection"
+            marker = cwd / ".fake-reject-done"
+            if marker.exists():
+                structured = {
+                    "schema_version": 1, "approve": True, "findings": [],
+                    "required_changes": [], "severity": "none",
+                }
+            else:
+                marker.write_text("rejected once\n", encoding="utf-8")
+                structured = {
+                    "schema_version": 1, "approve": False,
+                    "findings": [reason], "required_changes": [reason],
+                    "severity": "medium",
+                }
+            final_text = json.dumps(structured)
         elif op == "reject":
             reason = parts[1] if len(parts) > 1 else "scripted rejection"
             structured = {
