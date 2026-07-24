@@ -1,0 +1,35 @@
+# Example: five agents — two Claude profiles, Codex, Antigravity, and a
+# third-party agent speaking the orkestra-jsonl/1 protocol. There is no
+# fixed-three assumption anywhere; add as many agents as your quotas bear.
+version = 1
+
+[project]
+name = "example-many-agents"
+
+[agents.claude-lead]
+adapter = "claude-code"
+model = "opus"
+
+[agents.claude-fast]
+adapter = "claude-code"
+model = "haiku"
+
+[agents.codex]
+adapter = "codex-cli"
+
+[agents.antigravity]
+adapter = "antigravity-cli"
+
+[agents.inhouse]
+adapter = "external"
+command = ["/opt/agents/inhouse-agent", "--headless"]
+
+[director]
+agent = "claude-lead"
+
+[policy]
+max_concurrency = 3
+max_attempts_per_task = 4
+
+[verify]
+commands = ["pytest -q"]

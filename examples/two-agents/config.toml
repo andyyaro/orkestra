@@ -1,0 +1,14 @@
+# Example: minimal two-agent setup (copy to .orkestra/config.toml).
+version = 1
+
+[project]
+name = "example-two-agents"
+
+[agents.claude]
+adapter = "claude-code"
+
+[agents.codex]
+adapter = "codex-cli"
+
+[verify]
+commands = ["pytest -q"]
