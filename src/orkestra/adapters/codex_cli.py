@@ -149,9 +149,9 @@ def to_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
             return [walk(item) for item in node]
         return node
 
-    result = walk(schema)
-    assert isinstance(result, dict)  # noqa: S101 - input is a dict by signature
-    return result
+    from typing import cast
+
+    return cast("dict[str, Any]", walk(schema))
 
 
 class CodexCliAdapter(AgentAdapter):
