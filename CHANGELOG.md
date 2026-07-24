@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-24
+
+### Security
+
+- Redaction hardening, driven directly by Orkestra's own dogfood
+  self-review (`docs/development/SELF_REVIEW.md`):
+  - New provider patterns: AWS session tokens, GCP `privateKeyData`,
+    Azure `AccountKey`/`SharedAccessSignature`/SAS `sig=`, GitLab
+    `glpat-`/`glcbt-`, Slack `xapp-`, npm `npm_`/`.npmrc` `_authToken`,
+    PyPI `pypi-`, URL userinfo passwords (user/host preserved).
+  - Generic credential matcher now covers provider-prefixed and
+    quoted-JSON keys (`AWS_SESSION_TOKEN=`, `"password": "..."`, plain
+    `token=`, camelCase `apiKey`) while skipping benign values
+    (status words, `${VAR}` templates, absolute paths, masked values)
+    and no longer over-consumes past commas.
+  - New `redact_structure()` recursively redacts sensitive keys in
+    structured event data BEFORE JSON serialization; wired into event
+    persistence.
+  - Table-driven positive/negative regression suite covering every
+    verified miss and false positive from the review.
+
 ## [0.1.0] - 2026-07-24
 
 ### Added
