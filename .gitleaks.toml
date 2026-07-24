@@ -10,6 +10,7 @@ useDefault = true
 description = "Intentional fake credential shapes used to test redaction"
 paths = [
     '''tests/unit/test_ids_and_redact\.py''',
+    '''tests/unit/test_redact_v2\.py''',
     '''tests/unit/test_report\.py''',
     '''tests/unit/test_store\.py''',
     '''src/orkestra/redact\.py''',
