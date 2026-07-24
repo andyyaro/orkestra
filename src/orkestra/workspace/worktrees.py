@@ -12,6 +12,7 @@ integration branch, which the user merges deliberately.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +36,9 @@ class WorkspaceManager:
         self.repo = GitRepo(self.root)
         self.policy = policy
         self.worktrees_dir = self.root / ".orkestra" / "worktrees"
+        # The integration branch can host only one merge worktree at a time;
+        # concurrent task completions must take turns.
+        self._integration_lock = asyncio.Lock()
 
     # ---------------------------------------------------------- checks
 
@@ -111,18 +115,23 @@ class WorkspaceManager:
         inspection and replanning).
         """
         integration = integration_branch(run_id)
-        # Merge in a detached worktree of the integration branch to avoid
-        # touching the user's checkout.
-        merge_dir = self.worktrees_dir / f"integrate-{worktree_dirname(run_id, 'merge')}"
-        await self.repo.worktree_add_existing(merge_dir, integration)
-        try:
-            merge_repo = GitRepo(merge_dir)
-            return await merge_repo.merge_no_ff(
-                workspace.branch, f"orkestra: integrate {title} ({workspace.task_id})"
+        async with self._integration_lock:
+            # Merge in a worktree of the integration branch to avoid touching
+            # the user's checkout; serialized because a branch can host only
+            # one worktree at a time.
+            merge_dir = (
+                self.worktrees_dir / f"integrate-{worktree_dirname(run_id, 'merge')}"
             )
-        finally:
-            await self.repo.worktree_remove(merge_dir, force=True)
-            await self.repo.worktree_prune()
+            await self.repo.worktree_add_existing(merge_dir, integration)
+            try:
+                merge_repo = GitRepo(merge_dir)
+                return await merge_repo.merge_no_ff(
+                    workspace.branch,
+                    f"orkestra: integrate {title} ({workspace.task_id})",
+                )
+            finally:
+                await self.repo.worktree_remove(merge_dir, force=True)
+                await self.repo.worktree_prune()
 
     async def remove_workspace(self, workspace: Workspace, *, keep_branch: bool) -> None:
         if workspace.path.exists():

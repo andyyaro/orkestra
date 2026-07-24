@@ -135,12 +135,24 @@ async def run_invocation(
             timed_out = True
         elif cancel_waiter is not None and cancel_waiter in done and wait_proc not in done:
             cancelled = True
+    except asyncio.CancelledError:
+        # The kernel coroutine itself was cancelled: never leave an orphan
+        # agent process running.
+        if cancel_waiter is not None:
+            cancel_waiter.cancel()
+        await _terminate(proc)
+        wait_proc.cancel()
+        pumps.cancel()
+        with contextlib.suppress(Exception):
+            await pumps
+        raise
     finally:
         if cancel_waiter is not None:
             cancel_waiter.cancel()
         if timed_out or cancelled:
             await _terminate(proc)
-        await wait_proc
+        if not wait_proc.cancelled():
+            await wait_proc
         with contextlib.suppress(Exception):
             await asyncio.wait_for(pumps, timeout=10)
 
