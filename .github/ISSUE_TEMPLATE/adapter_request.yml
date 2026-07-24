@@ -1,0 +1,30 @@
+name: Adapter request / agent integration issue
+description: A coding-agent CLI you want supported, or an existing adapter misparsing its output
+labels: [adapter]
+body:
+  - type: input
+    id: agent
+    attributes:
+      label: Agent CLI and version
+      placeholder: e.g. somecli 2.3.1
+    validations:
+      required: true
+  - type: textarea
+    id: surface
+    attributes:
+      label: Headless surface
+      description: >
+        How is the CLI invoked non-interactively? Flags for JSON/JSONL
+        output, session resume, permission modes. Paste SANITIZED sample
+        output (fake ids, no tokens).
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What breaks / what's missing
+      description: >
+        For existing adapters: the normalized result you got vs. expected
+        (see docs/adapters/AUTHORING.md). For new agents: note that the
+        external `orkestra-jsonl/1` protocol may already work —
+        docs/adapters/PROTOCOL.md.
