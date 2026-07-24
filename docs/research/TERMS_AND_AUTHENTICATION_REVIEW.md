@@ -40,7 +40,28 @@ themselves ships for automation.
 - Limits: shared 5-hour window + weekly limits (credits overflow);
   per-token if API key.
 
-## Gemini CLI (Google)
+## Antigravity CLI (Google) — first-party Google adapter
+
+- Google migrated individual/Pro/Ultra consumer OAuth off the legacy
+  Gemini CLI (2026-06-18) to the Antigravity suite; `agy` is the
+  consumer-path CLI. Headless use (`agy -p`, print-mode OAuth, headless
+  settings enforcement) is clearly contemplated by Google's docs and
+  codelab.
+- **ToS gray area (disclosed to users):** Antigravity's terms prohibit
+  "using third party software, tools, or services to access the
+  Service (e.g. using OpenClaw with Antigravity OAuth)". The clear
+  target is harnesses consuming Antigravity OAuth/backends directly;
+  whether launching the unmodified official binary under the user's own
+  login is covered is unresolved, with no official ruling. Orkestra
+  documents this prominently (README + `orkestra doctor`) and never
+  touches OAuth material; see `ANTIGRAVITY_CLI_RESEARCH.md`.
+- Quotas: plan-based (free weekly; Pro/Ultra 5-hour + weekly), shared
+  across IDE + CLI, numbers unpublished → rate-limit errors are hard
+  backpressure.
+- agy is proprietary (binaries only); that does not affect Orkestra's
+  Apache-2.0 licensing (subprocess boundary).
+
+## Gemini CLI (Google) — non-default adapter
 
 - Headless mode is official with documented exit codes; automation
   tutorial covers CI use. Free personal OAuth: 1,000 requests/day
