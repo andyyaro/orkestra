@@ -74,6 +74,31 @@ jobs:
       - name: Enforce coverage floor
         run: uv run coverage report --fail-under=80
 
+  test-memory-extra:
+    name: Tests (memory extra, py3.12 / ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Sync dependencies with the memory extra
+        run: uv sync --locked --extra memory
+      - name: Configure git identity (worktree tests)
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+      - name: Run tests, with a missing extra treated as failure
+        # Without this job the memory suite skips silently everywhere: the
+        # matrix installs no extras, so the one module that drives the
+        # Provalume bridge against a real database never runs, and a green
+        # gate is indistinguishable from a gate that verified it. The env
+        # var turns that silent skip into a hard failure here.
+        env:
+          ORKESTRA_REQUIRE_MEMORY_EXTRA: "1"
+        run: uv run pytest
+
   install-smoke:
     name: Clean install smoke test
     runs-on: ubuntu-latest

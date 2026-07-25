@@ -20,8 +20,22 @@ from orkestra.schemas.config import (
     ProjectSection,
 )
 from orkestra.schemas.task import TaskKind, TaskSpec
+from tests.conftest import REQUIRE_MEMORY_EXTRA_ENV, missing_memory_extra_is_fatal
 
-provalume = pytest.importorskip("provalume", reason="the Provalume extra is not installed")
+try:
+    import provalume  # noqa: F401
+except ImportError as exc:  # pragma: no cover - depends on the installed extras
+    # Not `pytest.importorskip`: that skip is silent, and this module is the only
+    # place the bridge is exercised against a real database. A gate that installs
+    # no extras used to report green with every one of these assertions unrun.
+    if missing_memory_extra_is_fatal():
+        pytest.fail(
+            f"{REQUIRE_MEMORY_EXTRA_ENV} is set, but the Provalume extra is not "
+            f"installed, so the memory bridge would go unverified: {exc}. "
+            "Install it with `uv sync --extra memory`.",
+            pytrace=False,
+        )
+    pytest.skip("the Provalume extra is not installed", allow_module_level=True)
 
 
 @pytest.fixture
@@ -72,18 +86,17 @@ def test_memory_can_be_disabled_in_config(tmp_path: Path, config: ProjectConfig)
     assert memory_module.open_memory(tmp_path, disabled, run_id="r1") is None
 
 
-def test_a_zero_budget_disables_brief_injection_but_not_recording(
-    tmp_path: Path, config: ProjectConfig
-) -> None:
-    """Recording is the valuable half; a user may want it without the prompt
-    cost."""
-    quiet = config.model_copy(update={"memory": MemoryConfig(brief_budget_chars=0)})
-    assert quiet.memory.brief_budget_chars == 0
-    assert quiet.memory.enabled is True
+# `brief_budget_chars = 0` — "recording on, injection off" — is a *kernel*
+# behaviour, and the version of this assertion that lived here only restated the
+# constructor arguments it had just passed. It is asserted where it happens, in
+# tests/e2e/test_memory_kernel.py::test_a_zero_budget_disables_injection_but_not_recording.
 
 
-def test_availability_is_reported_with_a_reason() -> None:
+def test_availability_is_reported_with_a_reason(tmp_path: Path, config: ProjectConfig) -> None:
     assert memory_module.is_available()
+    memory = memory_module.open_memory(tmp_path, config, run_id="r0")
+    assert memory is not None
+    memory.close()
     assert memory_module.unavailable_reason() == ""
 
 
@@ -99,6 +112,35 @@ def test_open_memory_returns_none_when_the_database_cannot_open(
 
     monkeypatch.setattr(provalume.Provalume, "open", staticmethod(explode))
     assert memory_module.open_memory(tmp_path, config, run_id="r1") is None
+
+
+def test_a_database_that_will_not_open_says_why(
+    tmp_path: Path, config: ProjectConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the open failure was swallowed with no reason recorded.
+
+    A corrupt or locked database produced a run that recorded nothing and
+    injected nothing, while every other signal reported healthy — the one
+    failure mode indistinguishable from success.
+    """
+    import provalume
+
+    def explode(*args: object, **kwargs: object) -> None:
+        msg = "database is locked"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(provalume.Provalume, "open", staticmethod(explode))
+    assert memory_module.open_memory(tmp_path, config, run_id="r1") is None
+
+    reason = memory_module.unavailable_reason()
+    assert "database is locked" in reason, f"the open failure left no trace: {reason!r}"
+
+    # And a later healthy open clears it, so the reason describes now, not once.
+    monkeypatch.undo()
+    memory = memory_module.open_memory(tmp_path, config, run_id="r2")
+    assert memory is not None
+    memory.close()
+    assert memory_module.unavailable_reason() == ""
 
 
 # --- Writes are best-effort -------------------------------------------------
@@ -191,16 +233,56 @@ def test_the_preflight_gate_warns_on_a_repeat(live_memory: Any, spec_factory: An
         task_id="t1",
     )
     spec = spec_factory(acceptance=["pytest -n auto"])
-    warning = live_memory.preflight_warning(spec=spec)
+    warning = live_memory.preflight_warning(commands=spec.acceptance)
     assert "failed previously" in warning
     assert "warning, not a block" in warning
+
+
+def test_the_gate_asks_about_every_acceptance_command(live_memory: Any, spec_factory: Any) -> None:
+    """Regression: only ``acceptance[0]`` was ever looked up.
+
+    Verification records one result per command, so a task whose acceptance is
+    ``["ruff check src", "pytest -q"]`` writes its gotcha against the command
+    that failed — usually not the first one. A gate that only asked about the
+    first held the record and declined to surface it.
+    """
+    live_memory.record_verification(
+        command="pytest -q",
+        passed=False,
+        excerpt="E ImportError: no module named widget",
+        task_id="t1",
+    )
+    spec = spec_factory(acceptance=["ruff check src", "pytest -q"])
+    warning = live_memory.preflight_warning(commands=spec.acceptance)
+    assert "failed previously" in warning, (
+        "the gate never asked about the command that actually failed"
+    )
+    assert "ImportError" in warning
+
+
+def test_the_gate_reports_the_strongest_match_across_commands(live_memory: Any) -> None:
+    """Two failing acceptance commands produce one warning, not two.
+
+    The highest-confidence match leads; the rest are counted, so a brief carries
+    one readable warning rather than a stack of them.
+    """
+    for command in ("ruff check src", "pytest -q"):
+        live_memory.record_verification(
+            command=command, passed=False, excerpt=f"E boom in {command}", task_id="t1"
+        )
+    warning = live_memory.preflight_warning(commands=["ruff check src", "pytest -q"])
+    assert warning.count("A similar approach failed previously") == 1, (
+        f"more than one warning was rendered: {warning}"
+    )
+    assert "further related record(s) matched another acceptance command" in warning
 
 
 def test_the_gate_is_quiet_on_an_unrelated_action(live_memory: Any, spec_factory: Any) -> None:
     live_memory.record_verification(
         command="pytest -n auto", passed=False, excerpt="E boom", task_id="t1"
     )
-    assert live_memory.preflight_warning(spec=spec_factory(acceptance=["npm run lint"])) == ""
+    spec = spec_factory(acceptance=["npm run lint"])
+    assert live_memory.preflight_warning(commands=spec.acceptance) == ""
 
 
 def test_the_gate_does_not_match_a_gotcha_on_the_task_kind(
@@ -217,7 +299,7 @@ def test_the_gate_does_not_match_a_gotcha_on_the_task_kind(
         command="pytest -n auto", passed=False, excerpt="E boom", task_id="t1"
     )
     spec = spec_factory(key="test", kind=TaskKind.TEST, acceptance=["npm run lint"])
-    assert live_memory.preflight_warning(spec=spec) == ""
+    assert live_memory.preflight_warning(commands=spec.acceptance) == ""
 
 
 def test_performance_memory_reports_the_attempts_that_happened(live_memory: Any) -> None:
@@ -269,6 +351,93 @@ def test_a_decision_records_its_rejected_alternatives(live_memory: Any) -> None:
         selected="run serially",
         rejected=("pytest-xdist",),
         note="the db fixture is not parallel-safe",
+        task_id="t1",
     )
     context = live_memory.brief_context(title="test parallelism", task_id="t1")
     assert "serially" in context
+
+
+def test_a_rejected_alternative_reaches_the_gate(live_memory: Any) -> None:
+    """The rejected-alternative tier is the point of recording ``rejected``.
+
+    Without a DECISION record the tier is dead: it filters for decision memories
+    and always finds none, so nothing stops an agent re-proposing exactly what a
+    human just turned down.
+    """
+    live_memory.record_decision(
+        question="test parallelism",
+        selected="run serially",
+        rejected=("pytest-xdist",),
+        note="the db fixture is not parallel-safe",
+        task_id="t1",
+    )
+    warning = live_memory.preflight_warning(commands=["pytest-xdist -n auto tests"])
+    assert "already rejected" in warning, f"the gate never saw the decision: {warning!r}"
+    assert "pytest-xdist" in warning
+
+
+# --- Budget --------------------------------------------------------------
+
+
+def test_a_budget_too_small_for_the_banner_says_so(live_memory: Any) -> None:
+    """Regression: 1..263 silently disabled injection while 0 was documented.
+
+    Provalume refuses any budget that cannot hold its mandatory untrusted-data
+    banner, and the safe wrapper swallowed the refusal along with genuine
+    outages — so a user tightening prompt cost to 200 got memory injection
+    switched off with every other signal reporting healthy.
+    """
+    live_memory.record_verification(
+        command="pytest -q", passed=False, excerpt="E boom", task_id="t1"
+    )
+
+    text, reason = live_memory.brief_context_detail(title="pytest", task_id="t2", budget=100)
+    assert text == "", "a digest was produced under an impossible budget"
+    assert "banner" in reason, f"a configuration error was reported as an outage: {reason!r}"
+
+    # A genuine retrieval outage stays quiet: fail open, say nothing.
+    broken = memory_module.Memory(Exploding(), Exploding())
+    assert broken.brief_context_detail(title="pytest", task_id="t2") == ("", "")
+
+    # And a workable budget still produces context, with no reason attached.
+    text, reason = live_memory.brief_context_detail(title="pytest", task_id="t2", budget=2000)
+    assert "boom" in text
+    assert reason == ""
+
+
+# --- Resolution across runs -------------------------------------------------
+
+
+def test_a_later_run_resolves_an_earlier_runs_failure(
+    tmp_path: Path, config: ProjectConfig
+) -> None:
+    """Orkestra's recovery path spans runs, so resolution linking must too.
+
+    A failure blocks a task, a human unblocks it, and the fix lands in a *later*
+    run. Nothing else links the two: without ``resolves_signature`` the gate goes
+    on warning about a trap that was fixed weeks ago. Provalume's own suite
+    passes that field by hand, so it pins the writer, not the bridge that has to
+    supply it.
+    """
+    command = "pytest -q tests/integration"
+
+    first = memory_module.open_memory(tmp_path, config, run_id="run-1", branch="main")
+    assert first is not None
+    first.record_verification(
+        command=command,
+        passed=False,
+        excerpt="E TimeoutError: deadlock in db fixture",
+        task_id="task-A",
+    )
+    first.close()
+
+    second = memory_module.open_memory(tmp_path, config, run_id="run-2", branch="main")
+    assert second is not None
+    second.record_verification(command=command, passed=True, excerpt="", task_id="task-B")
+    warning = second.preflight_warning(commands=[command])
+    second.close()
+
+    assert warning, "the gate lost the earlier failure entirely"
+    assert "was later resolved" in warning, (
+        f"the fix was never linked to the failure it resolved: {warning!r}"
+    )
