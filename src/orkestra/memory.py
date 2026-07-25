@@ -84,7 +84,12 @@ class Memory:
             digest = safe_digest(self._adapter, query=title, char_budget=budget, task_id=task_id)
             if digest is None or not digest.items:
                 return ""
-            return splice_digest("", digest).strip()
+            # Annotated rather than returned directly: Provalume is an optional
+            # extra, so under a type-check without it installed everything
+            # crossing this boundary is `Any`. Naming the type here is what keeps
+            # the rest of the module strict.
+            spliced: str = splice_digest("", digest)
+            return spliced.strip()
         except Exception:
             return ""
 
@@ -101,7 +106,8 @@ class Memory:
             result = safe_preflight(self._adapter, command=command, subsystem=spec.kind.value)
             if result is None or not result.matched:
                 return ""
-            return result.summary
+            summary: str = result.summary
+            return summary
         except Exception:
             return ""
 
