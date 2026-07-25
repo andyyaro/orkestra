@@ -39,8 +39,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from orkestra.adapters.base import AgentAdapter
-    from orkestra.kernel.quota import QuotaTracker
     from orkestra.adapters.runner import EventCallback
+    from orkestra.kernel.quota import QuotaTracker
     from orkestra.policy import PolicyEngine
     from orkestra.schemas.config import ProjectConfig
     from orkestra.store import Store
