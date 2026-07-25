@@ -39,6 +39,14 @@ class AgentConfig(BaseModel):
     real capabilities (schemas/effort.py) — unsupported levels are rejected,
     never silently ignored. None == "auto" == adapter default."""
     autonomy: Literal["safe", "unsafe-full"] = "safe"
+    run_commands: bool = False
+    """Let this agent run shell commands inside its isolated worktree.
+
+    Off by default: Orkestra runs your `[verify]` commands itself, so
+    agents don't need to. Turning it on lets an agent self-check before
+    handing work back (fewer repair cycles, more trust in the agent),
+    at the cost of letting it execute code in the worktree.
+    """
     timeout_s: int = Field(default=1800, ge=30, le=24 * 3600)
     token_budget: int | None = Field(default=None, ge=1000)
     """Max input+output tokens this agent may spend per run (None = unlimited)."""
