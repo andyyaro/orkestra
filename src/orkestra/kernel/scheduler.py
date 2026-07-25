@@ -46,11 +46,28 @@ if TYPE_CHECKING:
     from orkestra.schemas.config import ProjectConfig
     from orkestra.store import Store
     from orkestra.store.repo import TaskRow
+    from orkestra.verify.runner import CommandResult
     from orkestra.workspace import WorkspaceManager
 
 MUTATING_KINDS = frozenset(
     {TaskKind.IMPLEMENT, TaskKind.TEST, TaskKind.DEBUG, TaskKind.DOCUMENT, TaskKind.INTEGRATE}
 )
+
+
+def _failure_excerpt(result: CommandResult) -> str:
+    """The captured output a failure signature can actually be built from.
+
+    `VerificationOutcome.summary` is a one-line headline per command — it repeats
+    the command and its exit code and contains none of the error. Fingerprinting
+    that yields the same signature for every failure of the same command, however
+    unrelated, so the pre-action gate would warn about a failure that never
+    happened.
+
+    Both streams are kept: pytest puts the traceback on stdout while many tools
+    put it on stderr, and guessing wrong loses the only part that matters.
+    """
+    parts = [part.strip() for part in (result.stderr_tail, result.stdout_tail) if part.strip()]
+    return "\n".join(parts)
 
 
 class Orchestrator:
@@ -868,11 +885,19 @@ class Orchestrator:
                 # The evidence everything else rests on. A failure becomes a
                 # gotcha keyed on a deterministic signature; a success becomes a
                 # procedural candidate keyed on the exact command.
-                for command in commands:
+                #
+                # Iterates `outcome.results`, not `commands`. Those are different
+                # lists: verification stops at the first failure, so a later
+                # command may never have run, and each command has its own exit
+                # code. Attributing the whole-run verdict to every requested
+                # command records passing and unrun commands as failures, which
+                # manufactures gotchas and then false preflight warnings.
+                for result in outcome.results:
                     mem.record_verification(
-                        command=command,
-                        passed=outcome.passed,
-                        excerpt=outcome.summary,
+                        command=result.command,
+                        passed=result.passed,
+                        exit_code=result.exit_code,
+                        excerpt=_failure_excerpt(result),
                         task_id=task.task_id,
                         agent=agent,
                     )
