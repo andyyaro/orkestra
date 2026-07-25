@@ -9,7 +9,7 @@ commands own execution. Textual is an optional dependency
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import App as TextualApp
 from textual.app import ComposeResult
@@ -43,7 +43,7 @@ class WatchApp(TextualApp[None]):
                  background: $surface; color: $warning; }
     #events { height: 12; border-top: solid $primary; }
     """
-    BINDINGS = [
+    BINDINGS: ClassVar = [
         Binding("q", "quit", "Quit"),
         Binding("p", "pause", "Request pause"),
         Binding("c", "cancel", "Request cancel"),
