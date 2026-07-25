@@ -35,6 +35,10 @@ Re-running it on an existing project reconfigures without destroying
 your spec. Presets tune models, effort, probes, concurrency — never
 verification or independent review.
 
+`orkestra status` shows run timing in local time, flags a run with no
+recent activity (an interrupted orchestrator looks identical to a busy
+one otherwise), and reports attempt counts from real history.
+
 ### `orkestra models`
 
 Your lineup at a glance: profile, adapter, model, effort, availability,

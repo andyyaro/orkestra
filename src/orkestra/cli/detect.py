@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from pathlib import Path
 
 
@@ -23,11 +24,22 @@ def detect_verify_commands(root: Path) -> list[str]:
     if python_markers or tests_dir:
         pyproject = root / "pyproject.toml"
         text = pyproject.read_text(encoding="utf-8") if pyproject.exists() else ""
-        if "pytest" in text or has("pytest.ini") or tests_dir:
-            if (root / "uv.lock").exists():
-                commands.append("uv run pytest -q")
-            else:
-                commands.append("pytest -q")
+        # Look at what the tests actually import: recommending `pytest -q`
+        # for a stdlib-unittest project produces a gate that cannot run.
+        sources = [p for name in ("tests", "test") for p in (root / name).rglob("test_*.py")][:20]
+        bodies = []
+        for path in sources:
+            try:
+                bodies.append(path.read_text(encoding="utf-8", errors="ignore")[:4000])
+            except OSError:  # pragma: no cover - unreadable file
+                continue
+        joined = "\n".join(bodies)
+        uses_pytest = "pytest" in text or has("pytest.ini") or "import pytest" in joined
+        uses_unittest = "import unittest" in joined or "from unittest" in joined
+        if uses_pytest and (shutil.which("pytest") or (root / "uv.lock").exists()):
+            commands.append("uv run pytest -q" if (root / "uv.lock").exists() else "pytest -q")
+        elif uses_unittest or (tests_dir and sources):
+            commands.append("python3 -m unittest discover -q")
 
     package_json = root / "package.json"
     if package_json.exists():

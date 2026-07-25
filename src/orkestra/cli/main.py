@@ -202,7 +202,11 @@ def _print_completion(application: App, run_id: str) -> None:
     if cost:
         line += f" · ${cost:.2f} (agents that report cost)"
     console.print(line)
-    console.print("\nNext:\n  [bold]orkestra review[/bold]\n  [bold]orkestra accept[/bold]")
+    console.print(
+        "\nYour result is held outside your branches until you accept it."
+        "\nNext:\n  [bold]orkestra review[/bold]   see exactly what changed"
+        "\n  [bold]orkestra accept[/bold]   bring it into your branch"
+    )
 
 
 def _print_event(_run_id: str, event: AgentEvent) -> None:
@@ -290,7 +294,7 @@ def init(
         )
         if verify_commands:
             console.print(
-                "detected test culture — pre-filled \\[verify] commands: "
+                "found tests — pre-filled \\[verify] commands (check they run): "
                 + ", ".join(f"`{c}`" for c in verify_commands)
             )
         else:
@@ -982,30 +986,57 @@ def _execute_with_watch(root: Path, run_id: str, *, offline: bool) -> RunState:
 # ------------------------------------------------------------ status/logs
 
 
-def _run_timing(application: App, run_id: str) -> str:
-    """'started 12:01:10 · 3m20s elapsed' from the event trail."""
-    from datetime import datetime
+#: A run in an active state with no events for this long is presumed
+#: stalled or dead (a hard kill leaves the state mid-flight).
+_STALE_AFTER_S = 300
+
+
+def _run_timing(application: App, run_id: str) -> tuple[str, str]:
+    """(timing line, staleness warning) derived from the event trail."""
+    from datetime import UTC, datetime
 
     events = application.store.events_for_run(run_id, limit=1_000_000)
     stamps = [str(e["ts"]) for e in events if e.get("ts")]
     if not stamps:
-        return ""
+        return "", ""
     try:
         first = datetime.fromisoformat(min(stamps))
         last = datetime.fromisoformat(max(stamps))
     except ValueError:  # pragma: no cover - defensive
-        return ""
+        return "", ""
     seconds = int((last - first).total_seconds())
     span = f"{seconds // 60}m{seconds % 60:02d}s" if seconds >= 60 else f"{seconds}s"
-    return f"started {first.strftime('%H:%M:%S')} · {span} of activity"
+    local_start = first.astimezone()
+    idle = int((datetime.now(UTC) - last.astimezone(UTC)).total_seconds())
+    idle_text = f"{idle // 60}m{idle % 60:02d}s" if idle >= 60 else f"{idle}s"
+    line = (
+        f"started {local_start.strftime('%H:%M:%S %Z')} · {span} of activity "
+        f"· last event {idle_text} ago"
+    )
+    warning = ""
+    active = application.store.get_run(run_id).state.value in (
+        "created",
+        "analyzing",
+        "probing",
+        "planning",
+        "running",
+    )
+    if active and idle > _STALE_AFTER_S:
+        warning = (
+            f"[yellow]no activity for {idle_text}[/yellow] — if no `orkestra run` "
+            "is executing, this run was interrupted: `orkestra resume` continues it"
+        )
+    return line, warning
 
 
 def _show_status(application: App, run_id: str) -> None:
     run = application.store.get_run(run_id)
     console.print(f"\n[bold]run {run.run_id}[/bold] — state: {run.state.value}")
-    timing = _run_timing(application, run_id)
+    timing, staleness = _run_timing(application, run_id)
     if timing:
         console.print(f"[dim]{timing}[/dim]")
+    if staleness:
+        console.print(f"  {staleness}")
     if run.state.value in ("created", "analyzing", "probing", "planning"):
         console.print(
             "[dim]still preparing (analysis → capability probes → plan → "
@@ -1033,7 +1064,15 @@ def _show_status(application: App, run_id: str) -> None:
             state_text,
             assignment.primary if assignment else "—",
             ", ".join(assignment.reviewers) if assignment else "—",
-            str(task.attempt_count),
+            # real history, matching `orkestra report` (the row counter is a
+            # budget window that a human "retry" resets)
+            str(
+                sum(
+                    1
+                    for a in application.store.attempts_for_task(task.task_id)
+                    if a.role == "primary"
+                )
+            ),
         )
     console.print(table)
 
@@ -1270,6 +1309,8 @@ class _RunSummary:
     shortstat: str = ""
     open_decisions: int = 0
     reviews_required: bool = True
+    reviews_skipped: int = 0
+    dropped_checks: int = 0
 
 
 async def _gather_run_summary(application: App, resolved: str) -> _RunSummary:
@@ -1297,6 +1338,9 @@ async def _gather_run_summary(application: App, resolved: str) -> _RunSummary:
             "diff", "--shortstat", f"{run.base_commit}..{run.integration_branch}", check=False
         )
     open_decisions = application.store.decisions_for_run(resolved, unresolved_only=True)
+    events = application.store.events_for_run(resolved, limit=1_000_000)
+    reviews_skipped = sum(1 for e in events if "independent review skipped" in str(e["text"]))
+    dropped_checks = sum(1 for e in events if "ignoring plan acceptance entry" in str(e["text"]))
     return _RunSummary(
         run=run,
         by_state=by_state,
@@ -1308,6 +1352,8 @@ async def _gather_run_summary(application: App, resolved: str) -> _RunSummary:
         shortstat=shortstat.strip(),
         open_decisions=len(open_decisions),
         reviews_required=application.config.policy.require_review,
+        reviews_skipped=reviews_skipped,
+        dropped_checks=dropped_checks,
     )
 
 
@@ -1350,9 +1396,20 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
                 ".orkestra/config.toml)"
             )
         if summary.reviews_required:
+            note = (
+                f" ({summary.reviews_skipped} task(s) had no changes to review)"
+                if summary.reviews_skipped
+                else ""
+            )
             console.print(
                 "  independent review: every change was approved by a "
-                "different agent than the one that wrote it"
+                f"different agent than the one that wrote it{note}"
+            )
+        if summary.dropped_checks:
+            console.print(
+                f"  [dim]note: {summary.dropped_checks} plan-proposed extra check(s) "
+                "were not runnable commands and were skipped — `orkestra logs` "
+                "shows them[/dim]"
             )
     if summary.open_decisions:
         console.print(

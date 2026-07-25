@@ -174,9 +174,12 @@ class ClaudeCodeAdapter(AgentAdapter):
     adapter_id = "claude-code"
     executable = "claude"
 
-    def __init__(self, model: str | None = None, autonomy: str = "safe") -> None:
+    def __init__(
+        self, model: str | None = None, autonomy: str = "safe", run_commands: bool = False
+    ) -> None:
         self.model = model
         self.autonomy = autonomy
+        self.run_commands = run_commands
 
     async def detect(self) -> AdapterInfo:
         path = self.which()
@@ -227,6 +230,10 @@ class ClaudeCodeAdapter(AgentAdapter):
             argv += ["--permission-mode", "bypassPermissions"]
         else:
             argv += ["--permission-mode", "acceptEdits"]
+            if self.run_commands:
+                # Opt-in: let the agent run its own checks inside the
+                # isolated worktree. Orkestra still runs the real gate.
+                argv += ["--allowedTools", "Bash"]
         if self.model:
             argv += ["--model", self.model]
         if brief.json_schema is not None:
