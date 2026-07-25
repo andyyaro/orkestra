@@ -194,10 +194,14 @@ def init(
         _fail(f"{config_path} already exists — refusing to overwrite")
 
     async def _setup() -> None:
+        from orkestra.cli.start import _guard_not_nested
+
         repo = GitRepo(root)
         if not await repo.is_repo():
             await repo.init()
             console.print("initialized Git repository")
+        else:
+            _guard_not_nested(root, await repo.toplevel())
         gitignore = root / ".gitignore"
         marker = ".orkestra/"
         existing = gitignore.read_text() if gitignore.exists() else ""

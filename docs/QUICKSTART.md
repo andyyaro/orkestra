@@ -58,7 +58,7 @@ orkestra agents set claude --model sonnet
 orkestra agents set antigravity --effort high
 ```
 
-Commit your spec (Orkestra refuses to run on a dirty repo):
+Commit your spec (Orkestra refuses to run while tracked files have uncommitted edits (untracked files don't block)):
 
 ```bash
 git add -A && git commit -m "spec"

@@ -11,6 +11,13 @@ Sign in with the vendor's own flow, then re-run doctor:
 - Gemini CLI: export `GEMINI_API_KEY` (consumer Google OAuth is no
   longer served by this CLI — use the Antigravity agent instead).
 
+## "this folder is inside an existing Git repository"
+
+`orkestra start`/`init` set up a project with its own repository; in a
+subdirectory of an existing repo, git would resolve everything to the
+parent project. Run the command at that repository's root, or create
+the project outside it. Nothing was changed.
+
 ## "repository has uncommitted changes"
 
 Orkestra refuses to start runs while tracked files have uncommitted
@@ -77,5 +84,6 @@ settings.json` (`permissions.allow`), or accept edit-only autonomy.
 
 ## Reporting bugs
 
-`orkestra report --out report.md --json-out report.json` produces
-redacted artifacts safe to attach to an issue.
+`orkestra report --save` writes redacted markdown + JSON under
+`.orkestra/reports/` (git-ignored), safe to attach to an issue;
+`--out`/`--json-out` write to explicit paths instead.

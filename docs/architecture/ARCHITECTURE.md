@@ -1,6 +1,8 @@
 # Orkestra Architecture
 
-Status: authoritative design, v0.1. See `adr/` for individual decisions.
+Status: authoritative design (written at v0.1; adapters and CLI
+surface have since grown — the adapter table below and docs/CLI.md are
+kept current). See `adr/` for individual decisions.
 
 ## Overview
 
@@ -33,8 +35,9 @@ flowchart TB
     subgraph Adapters
         A1[claude-code]
         A2[codex-cli]
-        A3[gemini-cli]
-        A4[fake / third-party...]
+        A3[antigravity-cli]
+        A4[gemini-cli]
+        A5[fake / third-party...]
     end
     subgraph Workspaces
         W1[Git worktree task-1]
@@ -124,8 +127,8 @@ normalized event stream → structured `AgentResult`. The contract (see
 `adapters/base.py`) covers detection, version, auth readiness, feature
 flags, invocation, streaming, cancellation, timeout, session resumption,
 usage metadata, and error normalization into a closed error taxonomy
-(`auth`, `rate_limit`, `timeout`, `crash`, `invalid_output`, `policy`,
-`unknown`).
+(`none`, `auth`, `rate_limit`, `timeout`, `cancelled`, `crash`,
+`invalid_output`, `policy`, `unavailable`, `unknown`).
 
 First-party adapters and their invocation surfaces (verified against
 installed CLIs, 2026-07-24):
@@ -215,9 +218,10 @@ runner, not trusted to agents.
 
 - Agents run with their own safety systems in workspace-scoped modes
   (Claude: `--permission-mode acceptEdits` + `--add-dir` confinement;
-  Codex: `--sandbox workspace-write`; Gemini: `--approval-mode auto_edit`).
+  Codex: `--sandbox workspace-write`; Antigravity: `--mode accept-edits`;
+  Gemini: `--approval-mode auto_edit`).
 - Full-autonomy per-agent modes are opt-in via explicitly named
-  `agent_autonomy = "unsafe-full"` config, logged loudly.
+  `agents.<name>.autonomy = "unsafe-full"` config, logged loudly.
 - No pushes, no deployment, no network changes by Orkestra itself.
 - Policy engine evaluates every dispatch and every integration.
 

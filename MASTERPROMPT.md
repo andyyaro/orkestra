@@ -1,3 +1,7 @@
+> **Historical document** — the original build prompt that kicked off
+> this project. Kept for provenance; not user documentation. Current
+> state lives in BUILD_STATUS.md.
+
 # ORKESTRA — AUTONOMOUS TOP-TO-BOTTOM BUILD MASTERPROMPT
 
 ## 0. EXECUTION DIRECTIVE

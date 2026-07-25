@@ -8,6 +8,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-07-25
+
+### Fixed
+- `orkestra start` and `orkestra init` refuse to set up a project in a
+  subdirectory of an existing Git repository (git would resolve every
+  command to the parent repo); clear guidance, zero mutation.
+- `--agents` is validated before any file or repository mutation — a bad
+  value no longer leaves a half-initialized directory.
+- Documentation staleness sweep (full audit of every doc file): restored
+  the missing 0.4.2/0.4.3 changelog entries; refreshed BUILD_STATUS,
+  README test count, SECURITY.md supported versions; corrected
+  CONTRIBUTING's contract-test command, THREAT_MODEL's elevated-mode
+  flags and hooksPath detail, ARCHITECTURE's autonomy config key, error
+  taxonomy, and adapter diagram; documented the nested-repo guard in
+  CLI.md and TROUBLESHOOTING; QUICKSTART dirty-repo wording made
+  precise; PROTOCOL.md brief example now includes `effort`.
+
+## [0.4.3] - 2026-07-25
+
+### Added
+- `orkestra start --agents claude,codex`: restrict setup to the named
+  agents instead of enabling every signed-in CLI (aliases: claude,
+  codex, antigravity/agy, gemini; at least two required; an agent that
+  isn't signed in stops setup with plain guidance — never a silent
+  fallback to practice mode).
+- `orkestra report --save`: writes markdown + JSON under
+  `.orkestra/reports/` (git-ignored).
+
+### Fixed
+- `report --out` into the repository now notes the file is untracked
+  and points at `--save`.
+- Practice runs are honest: run completion and `orkestra review` state
+  that the built-in practice agents produce placeholder files and do
+  not implement SPEC.md.
+
+## [0.4.2] - 2026-07-25
+
+### Fixed
+- Interactive `orkestra start`: blank spec answers explain themselves;
+  input ending mid-wizard fails with clear guidance instead of a bare
+  "Aborted."
+- `run`/`review`/`accept` no longer claim verification "passed" when no
+  test commands are configured.
+- `orkestra accept` re-run on an already-accepted run is a friendly
+  no-op instead of a duplicate success or a raw traceback; a results
+  branch deleted without acceptance gets a plain error; missing-terminal
+  confirmation now suggests `--yes`.
+- `--preset custom --non-interactive` is rejected with an explanation
+  (was silently balanced).
+- Rich markup no longer eats `[verify]`/`[tui]` from messages and help.
+- Unknown `--run` ids error cleanly in status/report/logs/review/cancel;
+  `pause`/`cancel` refuse on finished runs instead of reporting fake
+  success; config validation errors are plain language.
+- Docs: untracked files never block runs; full effort scale documented;
+  SPEC.md-edit commit hint after start.
+
+
 ## [0.4.1] - 2026-07-25
 
 Corrective follow-up to v0.4.0: git safety, a coherent review→accept

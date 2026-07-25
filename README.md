@@ -181,7 +181,7 @@ More diagrams (lifecycle, capability discovery, human gates):
 
 ## Verified vs. experimental
 
-**Verified** — 385 tests plus live cross-vendor runs with real Claude
+**Verified** — 421 tests plus live cross-vendor runs with real Claude
 Code / Codex / Antigravity CLIs (including a gate-caught silent failure,
 automatic fallback repair, and cross-vendor review approvals), and
 dogfooding: Orkestra reviewed its own code, and that review's findings
