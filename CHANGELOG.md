@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-25
+
+Progressive-disclosure configuration: `orkestra start → run/watch →
+review → accept` is now one coherent journey. Nothing in the normal
+path requires TOML, branch names, or knowing what a probe is.
+
+### Added
+
+- `orkestra start`: guided setup — Git init, live agent detection,
+  presets (**Faster / Balanced / Maximum quality / Custom**), per-agent
+  model choice from discovered or documented lists (custom entry under
+  Advanced), effort selection only where genuinely supported,
+  verification-command confirmation, spec assistance, and an optional
+  immediate run. `--non-interactive --preset …` for automation.
+  **Practice mode**: with fewer than two signed-in agents, start
+  configures built-in fake agents so the full journey works anywhere,
+  free.
+- Provider-neutral effort `auto | low | medium | high | max`, mapped
+  explicitly per adapter (agy `--effort`, codex
+  `model_reasoning_effort`) and hard-validated: unsupported levels are
+  rejected with a plain-language explanation — never silently ignored.
+- Model discovery with provenance: live `agy models` (cached by adapter
+  version), documented aliases labeled as such elsewhere, manual entry
+  always available; stale values surface as `manual` instead of hiding.
+- Multi-profile presets: Maximum quality fields `claude-deep` (opus) +
+  `claude-fast` (haiku) alongside codex/antigravity at high effort; the
+  director delegates across profiles like any other agents.
+- `orkestra models`: friendly settings screen (profile, adapter, model,
+  effort, availability, provenance).
+- Presets adjust models/effort/probes/concurrency only — deterministic
+  verification and independent review are not preferences.
+
+### Compatibility
+
+- v0.2/v0.3 configs load unchanged (covered by migration tests); safe
+  defaults are unmoved.
+
 ## [0.3.0] - 2026-07-25
 
 The usability release — everything here came out of a serious "is this

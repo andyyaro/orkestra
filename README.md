@@ -37,12 +37,27 @@ kernel keeps score, and you only see verified results.
 
 ## Use it on your project
 
+One guided command sets up everything — your agents, a quality preset,
+models and effort, the verification gate, even your spec:
+
 ```bash
 cd my-project
-orkestra init .        # detects your agents AND your test commands
-$EDITOR SPEC.md        # describe what you want built (you'll get hints if it's vague)
-orkestra doctor        # green = ready
-orkestra run           # or: orkestra run --watch  (live TUI attached)
+orkestra start         # answers a few questions, then (optionally) runs
+```
+
+Pick a preset — **Faster**, **Balanced (recommended)**, **Maximum
+quality** (which fields two Claude profiles, `claude-deep` + a fast
+sidekick, alongside Codex and Antigravity at high effort) — or go Custom
+and choose models per agent from live-discovered lists. If fewer than
+two agent CLIs are signed in, `start` sets up **practice mode** with
+built-in fake agents so the journey works on any machine, free.
+
+Prefer the granular commands? They all still exist:
+
+```bash
+orkestra init . && orkestra doctor && orkestra run --watch
+orkestra models                       # your lineup: model, effort, provenance
+orkestra agents set claude --model sonnet --effort auto
 ```
 
 While it runs: `orkestra watch` (live dashboard from any terminal),
@@ -65,13 +80,9 @@ orkestra approve       # picks the open decision, prompts you, done
 orkestra resume
 ```
 
-Pick models and effort per agent without touching TOML:
-
-```bash
-orkestra agents models                       # what you can choose
-orkestra agents set claude --model sonnet
-orkestra agents set antigravity --effort high
-```
+Effort is provider-neutral (`auto | low | medium | high | max`) and
+validated against what each CLI genuinely supports — unsupported levels
+are rejected with an explanation, never silently ignored.
 
 ## Supported agents
 
