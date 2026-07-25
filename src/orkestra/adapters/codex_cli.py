@@ -210,8 +210,12 @@ class CodexCliAdapter(AgentAdapter):
             argv += ["--sandbox", "workspace-write"]
         if self.model:
             argv += ["--model", self.model]
-        if self.effort:
-            argv += ["-c", f'model_reasoning_effort="{self.effort}"']
+        if self.effort and self.effort != "auto":
+            from orkestra.schemas.effort import ADAPTER_EFFORT
+
+            cli_value = ADAPTER_EFFORT["codex-cli"].cli_value(self.effort)
+            if cli_value:
+                argv += ["-c", f'model_reasoning_effort="{cli_value}"']
         if brief.json_schema is not None:
             schema_file = self._schema_dir / f"orkestra-schema-{brief.task_id}.json"
             schema_file.write_text(
