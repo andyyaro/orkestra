@@ -146,6 +146,17 @@ class TestInteractiveStart:
         (root / "SPEC.md").write_text(
             "# Mine\n\nA real spec I wrote (must pass tests).\nDo not touch docs.\n" * 4
         )
+        # Uncommitted edits now (correctly) block start; commit like the
+        # guidance says, then reconfigure.
+        import subprocess
+
+        subprocess.run(["git", "add", "SPEC.md"], cwd=root, check=True,
+                       capture_output=True)
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid",
+             "commit", "-q", "-m", "my spec"],
+            cwd=root, check=True, capture_output=True,
+        )
         result = runner.invoke(
             app,
             ["start", str(root), "--non-interactive", "--preset", "balanced", "--no-run"],
