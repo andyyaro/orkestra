@@ -203,6 +203,49 @@ def init(
 
 
 @app.command()
+def start(
+    path: Annotated[Path, typer.Argument(help="Project directory.")] = Path(),
+    preset: Annotated[
+        str | None,
+        typer.Option("--preset", help="faster | balanced | max-quality | custom"),
+    ] = None,
+    non_interactive: Annotated[
+        bool, typer.Option("--non-interactive", help="No prompts; sensible defaults.")
+    ] = False,
+    run_now: Annotated[
+        bool | None,
+        typer.Option("--run/--no-run", help="Run immediately after setup."),
+    ] = None,
+) -> None:
+    """Guided setup: agents, preset, models, gates, spec — then run."""
+    from orkestra.cli.start import start_flow
+
+    try:
+        should_run, practice_mode = asyncio.run(
+            start_flow(
+                path,
+                interactive=not non_interactive,
+                preset_key=preset,
+                run_after=run_now,
+            )
+        )
+    except ConfigError as exc:
+        _fail(str(exc))
+        return
+    if should_run:
+        import os
+
+        os.chdir(path.resolve())
+        # Practice mode uses fake agents: plan heuristically, spend nothing.
+        run(spec=None, offline=practice_mode, watch=False)
+    else:
+        console.print(
+            "next: [bold]orkestra run[/bold] (add --watch for the live view) · "
+            "then [bold]orkestra diff[/bold] and [bold]orkestra merge[/bold]"
+        )
+
+
+@app.command()
 def demo(
     path: Annotated[
         Path | None,
@@ -527,6 +570,46 @@ def agents_models() -> None:
                 console.print("  aliases: auto | pro | flash | flash-lite")
             else:
                 console.print("  [dim]model selection is up to your external agent[/dim]")
+
+    asyncio.run(_run())
+    application.close()
+
+
+@app.command()
+def models() -> None:
+    """Your agent lineup: profile, model, effort, availability, provenance."""
+    application = _load_app()
+
+    async def _run() -> None:
+        from orkestra.adapters.models import discover_models, model_provenance
+
+        table = Table(title="agent profiles")
+        for column in ("Profile", "Adapter", "Model", "Effort", "Available", "Model source"):
+            table.add_column(column, overflow="fold", max_width=40)
+        for name, agent_config in application.config.enabled_agents.items():
+            adapter = application.adapters[name]
+            info = await adapter.detect()
+            auth = await adapter.check_auth()
+            catalog = await discover_models(adapter, application.root)
+            provenance = model_provenance(agent_config.model, catalog)
+            available = (
+                "[green]ready[/green]"
+                if info.available and auth.ready
+                else "[yellow]not ready[/yellow]"
+            )
+            table.add_row(
+                name,
+                agent_config.adapter,
+                agent_config.model or "[dim]adapter default[/dim]",
+                agent_config.effort or "[dim]auto[/dim]",
+                available,
+                provenance,
+            )
+        console.print(table)
+        console.print(
+            "[dim]change with: orkestra agents set <profile> --model … --effort … · "
+            "options: orkestra agents models[/dim]"
+        )
 
     asyncio.run(_run())
     application.close()

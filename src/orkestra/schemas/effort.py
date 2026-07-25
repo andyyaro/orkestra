@@ -86,10 +86,7 @@ def validate_effort(adapter: str, effort: str | None) -> str | None:
     if effort is None or effort == "auto":
         return None
     if effort not in EFFORT_LEVELS:
-        return (
-            f"effort {effort!r} is not a valid level — use one of: "
-            + " | ".join(EFFORT_LEVELS)
-        )
+        return f"effort {effort!r} is not a valid level — use one of: " + " | ".join(EFFORT_LEVELS)
     support = ADAPTER_EFFORT.get(adapter)
     if support is None:
         return None  # unknown adapter slugs fail elsewhere (registry)

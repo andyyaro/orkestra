@@ -11,8 +11,15 @@ from orkestra.schemas.task import TaskBrief
 
 
 def brief() -> TaskBrief:
-    return TaskBrief(task_id="t", run_id="r", title="x", kind=TaskKind.IMPLEMENT,
-                     instructions="do", cwd="/tmp", timeout_s=60)
+    return TaskBrief(
+        task_id="t",
+        run_id="r",
+        title="x",
+        kind=TaskKind.IMPLEMENT,
+        instructions="do",
+        cwd="/tmp",
+        timeout_s=60,
+    )
 
 
 def config_with(adapter: str, effort: str) -> dict:  # type: ignore[type-arg]
@@ -20,8 +27,11 @@ def config_with(adapter: str, effort: str) -> dict:  # type: ignore[type-arg]
         "version": 1,
         "project": {"name": "e"},
         "agents": {
-            "one": {"adapter": adapter, "effort": effort,
-                    **({"command": ["/x"]} if adapter == "external" else {})},
+            "one": {
+                "adapter": adapter,
+                "effort": effort,
+                **({"command": ["/x"]} if adapter == "external" else {}),
+            },
             "two": {"adapter": "fake"},
         },
         "director": {"agent": "two"},
@@ -70,26 +80,27 @@ class TestValidation:
 class TestExactCommandConstruction:
     """Every supported (adapter, level) pair produces exactly the right argv."""
 
-    @pytest.mark.parametrize("level,cli", [("low", "low"), ("medium", "medium"),
-                                           ("high", "high")])
+    @pytest.mark.parametrize("level,cli", [("low", "low"), ("medium", "medium"), ("high", "high")])
     def test_antigravity(self, level: str, cli: str) -> None:
         from orkestra.adapters.antigravity_cli import AntigravityCliAdapter
 
         argv = AntigravityCliAdapter(effort=level).build_invocation(brief()).argv
         assert argv[argv.index("--effort") + 1] == cli
 
-    @pytest.mark.parametrize("level,cli", [("low", "low"), ("medium", "medium"),
-                                           ("high", "high")])
+    @pytest.mark.parametrize("level,cli", [("low", "low"), ("medium", "medium"), ("high", "high")])
     def test_codex(self, level: str, cli: str) -> None:
         from orkestra.adapters.codex_cli import CodexCliAdapter
 
         argv = CodexCliAdapter(effort=level).build_invocation(brief()).argv
         assert f'model_reasoning_effort="{cli}"' in argv
 
-    @pytest.mark.parametrize("adapter_module,cls", [
-        ("orkestra.adapters.antigravity_cli", "AntigravityCliAdapter"),
-        ("orkestra.adapters.codex_cli", "CodexCliAdapter"),
-    ])
+    @pytest.mark.parametrize(
+        "adapter_module,cls",
+        [
+            ("orkestra.adapters.antigravity_cli", "AntigravityCliAdapter"),
+            ("orkestra.adapters.codex_cli", "CodexCliAdapter"),
+        ],
+    )
     def test_auto_emits_nothing(self, adapter_module: str, cls: str) -> None:
         import importlib
 
