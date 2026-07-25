@@ -99,9 +99,7 @@ class GitRepo:
         """Paths with staged (index) changes."""
         _, out, _ = await self._git("status", "--porcelain")
         return [
-            line[3:]
-            for line in out.splitlines()
-            if line[:1] not in (" ", "?", "") and line.strip()
+            line[3:] for line in out.splitlines() if line[:1] not in (" ", "?", "") and line.strip()
         ]
 
     async def current_branch(self) -> str:
@@ -144,9 +142,7 @@ class GitRepo:
 
     async def commit_files_in(self, ref: str = "HEAD") -> list[str]:
         """Files contained in a commit (for allowlist verification)."""
-        _, out, _ = await self._git(
-            "show", "--name-only", "--format=", ref
-        )
+        _, out, _ = await self._git("show", "--name-only", "--format=", ref)
         return [line for line in out.splitlines() if line.strip()]
 
     async def add_all_and_commit(self, message: str) -> str | None:

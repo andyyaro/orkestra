@@ -68,7 +68,8 @@ settings.json` (`permissions.allow`), or accept edit-only autonomy.
 
 - State DB: `.orkestra/orkestra.db` (SQLite; delete to reset project)
 - Worktrees: `.orkestra/worktrees/` (auto-cleaned; preserved on failure)
-- Run branches: `git branch --list 'ork/*'`
+- Run branches (advanced): `git branch --list 'ork/*'` — normally you
+  only need `orkestra review` / `orkestra accept`
 - Events/log: `orkestra logs`; full export: `orkestra report --json-out`
 
 ## Reporting bugs

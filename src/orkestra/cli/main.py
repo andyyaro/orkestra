@@ -6,6 +6,8 @@ import asyncio
 import shutil
 import subprocess  # nosec B404 - argv-only execution, no shell
 from collections.abc import Callable
+from dataclasses import dataclass as _dataclass
+from dataclasses import field as _field
 from pathlib import Path
 from typing import Annotated
 
@@ -105,6 +107,26 @@ def _progress_callback(application: App) -> Callable[[str, AgentEvent], None]:
     return callback
 
 
+def _print_completion(application: App, run_id: str) -> None:
+    """Friendly end-of-run message: outcomes, not internals."""
+    summary = asyncio.run(_gather_run_summary(application, run_id))
+    console.print("\n[green bold]Run complete — your verified result is ready.[/green bold]")
+    console.print(f"  tasks: {summary.done}/{summary.total} finished")
+    console.print("  verification: passed (your acceptance commands, run by Orkestra)")
+    if summary.reviews_required:
+        console.print("  review: every change approved by an independent agent")
+    if summary.open_decisions:
+        console.print("  decisions you resolved along the way: see `orkestra decisions --all`")
+    usage = application.store.usage_summary(run_id)
+    tokens = sum((row["input_tokens"] or 0) + (row["output_tokens"] or 0) for row in usage)
+    cost = sum(row["total_cost_usd"] or 0 for row in usage)
+    line = f"  usage: {tokens / 1000:.0f}k tokens"
+    if cost:
+        line += f" · ${cost:.2f} (agents that report cost)"
+    console.print(line)
+    console.print("\nNext:\n  [bold]orkestra review[/bold]\n  [bold]orkestra accept[/bold]")
+
+
 def _print_event(_run_id: str, event: AgentEvent) -> None:
     styles = {
         EventKind.ERROR: "red",
@@ -189,11 +211,12 @@ def init(
         if not spec_path.exists():
             spec_path.write_text(SPEC_TEMPLATE.format(name=root.name))
             console.print(f"created {spec_path.name} — describe your project there")
-        if not await repo.has_commits():
-            # Allowlist-scoped: only files Orkestra itself writes. Any
-            # pre-existing user files stay exactly as they were.
-            if await repo.commit_paths([".gitignore", "SPEC.md"], "orkestra init"):
-                console.print("created initial commit (Orkestra setup files only)")
+        # Allowlist-scoped: only files Orkestra itself writes. Any
+        # pre-existing user files stay exactly as they were.
+        if not await repo.has_commits() and await repo.commit_paths(
+            [".gitignore", "SPEC.md"], "orkestra init"
+        ):
+            console.print("created initial commit (Orkestra setup files only)")
         console.print(f"[green]✓[/green] project initialized at {root}")
         found = [name for name, ok in detected.items() if ok]
         console.print(
@@ -243,7 +266,7 @@ def start(
     else:
         console.print(
             "next: [bold]orkestra run[/bold] (add --watch for the live view) · "
-            "then [bold]orkestra diff[/bold] and [bold]orkestra merge[/bold]"
+            "then [bold]orkestra review[/bold] and [bold]orkestra accept[/bold]"
         )
 
 
@@ -759,10 +782,11 @@ def run(
     _show_status(application, latest.run_id)
     application.close()
     if state is RunState.COMPLETE:
-        console.print(
-            f"\n[green]run complete[/green] — verified results are on branch "
-            f"[bold]{latest.integration_branch}[/bold]; merge when satisfied."
-        )
+        reopened = build_app(root=None)
+        try:
+            _print_completion(reopened, latest.run_id)
+        finally:
+            reopened.close()
     elif state is RunState.WAITING_HUMAN:
         console.print(
             "\n[yellow]run is waiting on your decision[/yellow] — "
@@ -1027,10 +1051,6 @@ def resume(
 # ------------------------------------------------------------ diff/merge
 
 
-from dataclasses import dataclass as _dataclass
-from dataclasses import field as _field
-
-
 @_dataclass
 class _RunSummary:
     run: object
@@ -1281,9 +1301,7 @@ def _accept_impl(
             + ("approved" if summary.reviews_required else "not required by policy")
         )
     if summary.open_decisions:
-        console.print(
-            f"  [yellow]note: {summary.open_decisions} decision(s) still open[/yellow]"
-        )
+        console.print(f"  [yellow]note: {summary.open_decisions} decision(s) still open[/yellow]")
     console.print("  working tree: clean")
     if branch_moved:
         console.print(

@@ -123,7 +123,10 @@ class TestAcceptSafety:
     def test_refuses_from_internal_branch(self, finished: Path) -> None:
         integration = subprocess.run(
             ["git", "branch", "--list", "ork/*/integration"],
-            cwd=finished, capture_output=True, text=True, check=True,
+            cwd=finished,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.split()[-1]
         subprocess.run(["git", "checkout", "-q", integration], cwd=finished, check=True)
         result = runner.invoke(app, ["accept", "--yes"])
@@ -132,14 +135,8 @@ class TestAcceptSafety:
         assert "git checkout main" in result.output
 
     def test_untracked_collision_refused(self, finished: Path) -> None:
-        # Create an untracked file that the run's result would overwrite.
-        marker_name = subprocess.run(
-            ["git", "show", "--name-only", "--format=",
-             "$(git rev-parse ork/$(ls .orkestra/worktrees 2>/dev/null | head -1))"],
-            cwd=finished, capture_output=True, text=True, check=False,
-        )
-        # simpler: derive from review --full? Instead: known fake marker files
-        # exist in the run result; recreate one as untracked user file.
+        # An untracked user file colliding with a file the run created:
+        # find one of the run's files from the review output.
         review = runner.invoke(app, ["review"]).output
         import re
 
@@ -156,7 +153,10 @@ class TestAcceptSafety:
         assert "tidied up" not in result.output
         branches = subprocess.run(
             ["git", "branch", "--list", "ork/*"],
-            cwd=finished, capture_output=True, text=True, check=True,
+            cwd=finished,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
         assert branches != ""  # everything still there
         # Successful acceptance cleans up.

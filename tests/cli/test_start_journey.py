@@ -42,7 +42,7 @@ class TestPracticeModeJourney:
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--run"])
         assert result.exit_code == 0, result.output
         assert "practice mode" in result.output
-        assert "run complete" in result.output
+        assert "Run complete" in result.output
         # Journey continues with the same friendly commands.
         monkeypatch.chdir(root)
         result = runner.invoke(app, ["review"])
@@ -150,12 +150,22 @@ class TestInteractiveStart:
         # guidance says, then reconfigure.
         import subprocess
 
-        subprocess.run(["git", "add", "SPEC.md"], cwd=root, check=True,
-                       capture_output=True)
+        subprocess.run(["git", "add", "SPEC.md"], cwd=root, check=True, capture_output=True)
         subprocess.run(
-            ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid",
-             "commit", "-q", "-m", "my spec"],
-            cwd=root, check=True, capture_output=True,
+            [
+                "git",
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@e.invalid",
+                "commit",
+                "-q",
+                "-m",
+                "my spec",
+            ],
+            cwd=root,
+            check=True,
+            capture_output=True,
         )
         result = runner.invoke(
             app,
