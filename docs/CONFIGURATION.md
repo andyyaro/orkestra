@@ -24,6 +24,7 @@ version = 1                      # config schema version (required)
 | `model` | adapter default | Model override passed to the CLI |
 | `autonomy` | `"safe"` | `safe` = workspace-scoped edit autonomy via the CLI's own safety system; `unsafe-full` = the CLI's bypass mode (explicit opt-in, logged) |
 | `timeout_s` | `1800` | Per-attempt wall clock (30–86400) |
+| `token_budget` | unlimited | Max input+output tokens this agent may spend per run (≥1000). Once exceeded, the kernel stops dispatching new work to it (reviews still allowed) and uses fallbacks |
 | `command` | — | **external adapter only**: argv of your agent binary |
 
 Multiple profiles of the same adapter are valid (e.g. two `claude-code`

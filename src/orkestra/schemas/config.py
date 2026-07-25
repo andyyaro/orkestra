@@ -29,6 +29,8 @@ class AgentConfig(BaseModel):
     model: str | None = None
     autonomy: Literal["safe", "unsafe-full"] = "safe"
     timeout_s: int = Field(default=1800, ge=30, le=24 * 3600)
+    token_budget: int | None = Field(default=None, ge=1000)
+    """Max input+output tokens this agent may spend per run (None = unlimited)."""
     # external-command adapters only:
     command: list[str] | None = None
 

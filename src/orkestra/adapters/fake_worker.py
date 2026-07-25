@@ -9,6 +9,7 @@ Directives (one per line, anywhere in the instructions):
 
     FAKE:write:<relpath>:<content>   write a file into the workspace
     FAKE:fail[:detail]               emit an error result
+    FAKE:rate_limit[:agent]          emit a rate_limit error (optionally only as <agent>)
     FAKE:exit:<code>                 exit with a raw code (crash simulation)
     FAKE:sleep:<seconds>             sleep (timeout/cancel testing)
     FAKE:garbage                     print non-protocol garbage lines
@@ -97,6 +98,13 @@ def main(argv: list[str]) -> int:
             target.write_text(parts[2] + "\n", encoding="utf-8")
             emit({"type": "tool", "name": f"write:{parts[1]}"})
             wrote_something = True
+        elif op == "rate_limit":
+            # Optional arg scopes to one agent; reviews are never limited
+            # (review behavior is scripted via reject/silent instead).
+            if kind == "review" or (len(parts) > 1 and parts[1] != agent_name):
+                continue
+            status, error_kind = "error", "rate_limit"
+            error_detail = "scripted rate limit"
         elif op == "fail":
             status, error_kind = "error", "unknown"
             error_detail = parts[1] if len(parts) > 1 else "scripted failure"

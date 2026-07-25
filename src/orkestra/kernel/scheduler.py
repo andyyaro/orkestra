@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from orkestra.adapters.base import AgentAdapter
+    from orkestra.kernel.quota import QuotaTracker
     from orkestra.adapters.runner import EventCallback
     from orkestra.policy import PolicyEngine
     from orkestra.schemas.config import ProjectConfig
@@ -77,6 +78,7 @@ class Orchestrator:
         self._cancel_flags: dict[str, asyncio.Event] = {}
         self._agent_versions: dict[str, str] = {}
         self.director_service: object | None = None  # DirectorService, wired by app
+        self._quota: QuotaTracker | None = None  # created per execute()
 
     # ------------------------------------------------------------ events
 
@@ -149,6 +151,14 @@ class Orchestrator:
             )
             return RunState.FAILED
         self.store.set_run_state(run_id, RunState.RUNNING)
+        from orkestra.kernel.quota import QuotaTracker
+
+        self._quota = QuotaTracker(
+            config=self.config,
+            store=self.store,
+            run_id=run_id,
+            cooldown_base_s=self.backoff.rate_limit_base_s,
+        )
         dag = TaskDag(deps=self.store.deps_for_run(run_id), all_keys=list(tasks.keys()))
         semaphore = asyncio.Semaphore(self.config.policy.max_concurrency)
         in_flight: dict[str, asyncio.Task[None]] = {}
@@ -391,10 +401,31 @@ class Orchestrator:
 
         while True:
             budget = self.policy.check_attempt_budget(task.attempt_count + attempt_index)
-            agent = next_agent(failed_agents, assignment.primary, assignment.fallbacks)
+            quota = self._quota
+            if quota is None:  # pragma: no cover - execute() always sets it
+                msg = "quota tracker missing; _run_task outside execute()"
+                raise RuntimeError(msg)
+            agent, wait_s = quota.pick(failed_agents, assignment.primary, assignment.fallbacks)
             if not budget.allowed or agent is None:
-                await self._exhausted(run_id, task, failed_agents)
+                await self._exhausted(
+                    run_id,
+                    task,
+                    failed_agents,
+                    reason=(
+                        "attempt budget exhausted"
+                        if not budget.allowed
+                        else "all candidate agents failed or exceeded token budgets"
+                    ),
+                )
                 return
+            if wait_s > 0:
+                self.emit(
+                    run_id,
+                    EventKind.WARNING,
+                    f"all eligible agents rate-limited; waiting {wait_s:.0f}s for {agent}",
+                    task_id=task.task_id,
+                )
+                await asyncio.sleep(wait_s)
 
             self.store.set_task_state(
                 task.task_id,
@@ -443,6 +474,21 @@ class Orchestrator:
                 if result.error_kind is ErrorKind.CANCELLED:
                     self.store.set_task_state(task.task_id, TaskState.CANCELLED)
                     return
+                if result.error_kind is ErrorKind.RATE_LIMIT:
+                    delay = quota.note_rate_limit(agent)
+                    self.emit(
+                        run_id,
+                        EventKind.WARNING,
+                        f"agent {agent} rate-limited; cooling down {delay:.0f}s "
+                        "(alternatives dispatch immediately)",
+                        task_id=task.task_id,
+                    )
+                    self.store.set_task_state(
+                        task.task_id,
+                        TaskState.READY,
+                        expected=(TaskState.RUNNING,),
+                    )
+                    continue
                 if result.error_kind in FALLBACK_IMMEDIATELY:
                     failed_agents.append(agent)
                     self.emit(
@@ -470,6 +516,7 @@ class Orchestrator:
                 continue
 
             # Agent finished; deterministic pipeline takes over.
+            quota.note_success(agent)
             self.store.finish_attempt(attempt_id, AttemptState.SUCCEEDED, result)
             mutating = task.spec.mutates_repo and task.spec.kind in MUTATING_KINDS
             commit = None
