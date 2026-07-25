@@ -22,6 +22,8 @@ install):
 
 ```bash
 uv tool install orkestra-runtime
+# with the optional live TUI (orkestra watch):
+uv tool install 'orkestra-runtime[tui]'
 ```
 
 With pip:

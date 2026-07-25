@@ -71,6 +71,15 @@ Redacted event log (agent output, gate results, warnings).
 Full run report: agents, analysis, tasks, attempts, decisions, usage,
 agent performance ledger. Redacted; suitable as a support bundle.
 
+### `orkestra watch [--run ID]`
+
+Live TUI monitor (optional `[tui]` extra: `uv tool install
+'orkestra-runtime[tui]'`). Shows the run header, task table, open
+decisions, and a streaming event tail over the same state database the
+kernel writes — safe to run alongside `orkestra run` in another
+terminal. Keys: `p` request pause, `c` request cancel, `q` quit. It
+never dispatches work; execution stays with `run`/`resume`.
+
 ## Human gates
 
 ### `orkestra decisions [--run ID] [--all]`

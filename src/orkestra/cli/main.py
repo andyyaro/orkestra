@@ -692,6 +692,28 @@ def report(
     application.close()
 
 
+@app.command()
+def watch(
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+) -> None:
+    """Live TUI monitor for a run (requires the [tui] extra)."""
+    try:
+        from orkestra.cli.watch import WatchApp
+    except ModuleNotFoundError:
+        _fail(
+            "the TUI needs Textual — install with: "
+            "uv tool install 'orkestra-runtime[tui]'  "
+            "(or: pip install 'orkestra-runtime[tui]')"
+        )
+        return
+    application = _load_app()
+    resolved = _pick_run(application, run_id)
+    try:
+        WatchApp(application, resolved).run()
+    finally:
+        application.close()
+
+
 def main() -> None:  # console-script shim used by some packagers
     app()
 
