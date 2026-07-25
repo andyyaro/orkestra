@@ -367,6 +367,9 @@ class Orchestrator:
         options: list[DecisionOption],
         recommendation: str,
     ) -> str:
+        from orkestra.kernel.explain import explain_block
+
+        attempts = self.store.attempts_for_task(task_id) if task_id else []
         decision = HumanDecision(
             decision_id=new_id("dec"),
             run_id=run_id,
@@ -375,6 +378,7 @@ class Orchestrator:
             why_blocked=why,
             options=options,
             recommendation=recommendation,
+            plain=explain_block(why, attempts),
             unblocked_work="independent tasks continue; resume after deciding",
         )
         self.store.add_decision(decision)
