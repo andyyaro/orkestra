@@ -13,6 +13,8 @@ integration branch, which the user merges deliberately.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -89,11 +91,25 @@ class WorkspaceManager:
             raise WorkspaceError(msg)
         base = await self.repo.rev_parse(integration)
         branch = branch_name(run_id, task_id)
-        if await self.repo.branch_exists(branch):
-            # A previous interrupted attempt left the branch; make a fresh one.
-            await self.repo.delete_branch(branch, force=True)
         self.worktrees_dir.mkdir(parents=True, exist_ok=True)
         path = self.worktrees_dir / worktree_dirname(run_id, task_id)
+        if await self.repo.branch_exists(branch):
+            # A previous attempt left the branch. Its worktree (if any) must
+            # be removed FIRST: git refuses to delete a branch a worktree
+            # still holds, which would dead-end the retry path.
+            prefix = f"{run_id}-{task_id}-"
+            for existing in await self.repo.worktree_list():
+                candidate = Path(existing)
+                if candidate.name.startswith(prefix):
+                    with contextlib.suppress(WorkspaceError):
+                        await self.repo.worktree_remove(candidate, force=True)
+            await self.repo.worktree_prune()
+            with contextlib.suppress(WorkspaceError):
+                await self.repo.delete_branch(branch, force=True)
+            if await self.repo.branch_exists(branch):
+                # Still held (e.g. by a worktree outside our directory):
+                # use a fresh name rather than dead-ending the retry.
+                branch = f"{branch}-{secrets.token_hex(3)}"
         await self.repo.worktree_add(path, branch, base)
         return Workspace(path=path, branch=branch, base_commit=base, task_id=task_id)
 

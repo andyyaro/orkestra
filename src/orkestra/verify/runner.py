@@ -61,13 +61,23 @@ def gate_command_problem(command: str, *, strict: bool = True) -> str | None:
     if strict:
         bad = sorted({c for c in stripped if c in _GATE_FORBIDDEN})
         if bad:
-            return f"contains shell/prose syntax ({' '.join(bad)}) — commands run without a shell"
+            rendered = " ".join(repr(c) if c.isspace() else c for c in bad)
+            return f"contains shell/prose syntax ({rendered}) — commands run without a shell"
+        # Prose that merely *starts* with a real binary ("python3 -m pytest,
+        # run from the repo root, exits 0") passes a naive check; commas and
+        # sentence length are the reliable tells.
+        if "," in stripped:
+            return "reads as prose (contains a comma), not a command"
+        if len(stripped) > 160:
+            return "too long to be a command — reads as prose"
     try:
         argv = shlex.split(stripped)
     except ValueError as exc:
         return f"cannot be parsed as a command ({exc})"
     if not argv:
         return "empty"
+    if strict and len(argv) > 12:
+        return "too many words to be a command — reads as prose"
     if _shutil.which(argv[0]) is None:
         return f"{argv[0]!r} is not an executable on PATH"
     return None

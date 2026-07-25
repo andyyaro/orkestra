@@ -675,7 +675,24 @@ class Orchestrator:
                     continue
                 await self.workspaces.remove_workspace(workspace, keep_branch=True)
             else:
-                # Non-mutating task: nothing to integrate; discard workspace.
+                # Non-mutating task: nothing to integrate. If the agent wrote
+                # files anyway, say so — silently discarding work looks like
+                # success and is indistinguishable from data loss.
+                from orkestra.workspace.git import GitRepo
+
+                _, dirty, _ = await GitRepo(workspace.path)._git(
+                    "status", "--porcelain", check=False
+                )
+                discarded = [line[3:] for line in dirty.splitlines() if line.strip()]
+                if discarded:
+                    self.emit(
+                        run_id,
+                        EventKind.WARNING,
+                        f"task {task.key} is a {task.spec.kind.value} task, so its "
+                        f"file changes are not kept: {', '.join(discarded[:8])}"
+                        + (" …" if len(discarded) > 8 else ""),
+                        task_id=task.task_id,
+                    )
                 await self.workspaces.remove_workspace(workspace, keep_branch=False)
 
             record_task_outcome(
