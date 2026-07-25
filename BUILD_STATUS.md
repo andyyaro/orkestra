@@ -1,59 +1,52 @@
-# Orkestra Build Status
+# Orkestra Status
 
-**Status:** COMPLETE
-**Phase:** Released and published (v0.2.0 on PyPI)
-**Last updated:** 2026-07-24
+**This is a current-state document.** Historical build evidence from the
+original autonomous build lives in `FINAL_BUILD_REPORT.md` (labeled
+historical) and `docs/development/evidence/`.
 
-## Phase checklist
+## Current state (2026-07-25)
 
-- [x] Phase 0 — Bootstrap and environment inventory
-- [x] Phase 1 — Research and architecture decision (docs/research/*, ADRs)
-- [x] Phase 2 — Repository and quality foundation
-- [x] Phase 3 — Core kernel and persistence
-- [x] Phase 4 — Adapter layer (claude-code, codex-cli, antigravity-cli,
-      gemini-cli, fake, external + contract kit)
-- [x] Phase 5 — Git workspace and integration engine
-- [x] Phase 6 — Director and capability system
-- [x] Phase 7 — CLI and operator experience
-- [x] Phase 8 — Policy, human gates, redaction (docker sandbox deferred
-      honestly to v0.2 — refused with explanation, see ROADMAP)
-- [ ] Phase 9 — E2E validation and dogfooding
-  - [x] 15-scenario fake-agent E2E suite (2/3/5-agent runs, fallback,
-        review rejection/repair, gate veto, decisions, interruption/
-        resume, cancellation, merge-conflict recovery)
-  - [x] Live smoke iterations 1–3 with real claude/codex/agy: director
-        analysis, live probes, plan challenges verified; three kernel
-        defects found and fixed (dirty-repo fail-fast, orphaned
-        PLANNING runs, prose acceptance commands crashing the pipeline)
-  - [x] Full live run to COMPLETE (run_7ccfb487: gate-caught failure,
-        fallback repair, Codex structured review approval, human gate,
-        integration branch verified — evidence/LIVE_SMOKE_REPORT.md)
-  - [x] Controlled self-review dogfood (run_cb25ff11: codex analysis
-        integrated after independent claude review; second task skipped
-        at the human gate after bounded review cycles — evidence in
-        docs/development/SELF_REVIEW.md)
-- [x] Phase 10 — Documentation, packaging, GitHub publication,
-      v0.1.0 tag + release, FINAL_BUILD_REPORT.md
+- **Version:** 0.4.1 (in release) · latest published: **0.4.0** on
+  [PyPI](https://pypi.org/project/orkestra-runtime/) and
+  [GitHub releases](https://github.com/andyyaro/orkestra/releases)
+- **Repository:** https://github.com/andyyaro/orkestra · default branch
+  `main` · protected (7 required CI checks, no force pushes)
+- **Quality gates (verified this date):** 385 tests passing · ruff
+  format/lint clean · mypy `--strict` clean · bandit 0 findings ·
+  pip-audit no known vulnerabilities · gitleaks clean in CI ·
+  `twine check --strict` passing
+- **User journey:** `orkestra start → run [--watch] → review → accept`
+  (`init`/`diff`/`merge` remain as advanced/back-compat commands)
 
-## Final quality gates
+## Release history
 
-- 211 tests passing (unit, integration, E2E, CLI)
-- Coverage 81% (floor 80); ruff / mypy --strict / bandit / pip-audit /
-  gitleaks clean; CI green on GitHub
-- Live cross-vendor orchestration + dogfood evidence in
-  docs/development/evidence/
+| Version | Date | Theme |
+|---|---|---|
+| 0.4.1 | 2026-07-25 | Git-safety + review/accept UX correction |
+| 0.4.0 | 2026-07-25 | Progressive-disclosure configuration (`orkestra start`, presets, neutral effort, model discovery) |
+| 0.3.0 | 2026-07-25 | Usability (demo, diff/merge, plain-language gates, progress line) |
+| 0.2.0 | 2026-07-25 | Quota-aware scheduling, Docker sandbox (external agents), TUI, session reuse |
+| 0.1.2 | 2026-07-24 | PyPI Trusted Publishing |
+| 0.1.1 | 2026-07-24 | Redaction hardening (from Orkestra's own dogfood review) |
+| 0.1.0 | 2026-07-24 | Initial release: kernel, adapters, worktrees, director, gates |
 
-## Post-release (same day)
+## Verified claims (with where the evidence lives)
 
-- v0.1.1: redaction hardening implementing all five improvements from
-  Orkestra's own dogfood self-review, with a table-driven regression
-  suite.
-- v0.1.2: published to PyPI as `orkestra-runtime` via Trusted
-  Publishing (OIDC, approval-gated `pypi` environment, no tokens);
-  install verified from PyPI (`uv tool install orkestra-runtime`).
-- v0.2.0: session reuse on fix cycles; quota-aware scheduling (token
-  budgets + rate-limit cooldowns); Docker sandbox for external/fake
-  agents (ADR-0009, live-container verified); `orkestra watch` TUI
-  ([tui] extra). 285 tests; published to PyPI and install-verified.
+- Live cross-vendor orchestration with real Claude Code, Codex CLI, and
+  Antigravity CLI, including gate-caught silent failure, fallback
+  repair, and cross-vendor review approval —
+  `docs/development/evidence/LIVE_SMOKE_REPORT.md` (historical,
+  2026-07-24)
+- Self-review dogfood whose findings shipped as v0.1.1 —
+  `docs/development/SELF_REVIEW.md`
+- v0.4.1 git-safety and journey verification —
+  `docs/development/UX_FOLLOWUP_RELEASE_REPORT.md` and
+  `docs/development/UX_FOLLOWUP_RELEASE_TRACKER.md`
 
-See FINAL_BUILD_REPORT.md for the complete evidence trail.
+## Known limitations (current)
+
+- Antigravity headless mode can silently skip writes under its default
+  permission policy (gates catch it; see TROUBLESHOOTING).
+- Gemini CLI adapter requires API-key/Vertex/Enterprise auth.
+- Docker sandbox covers external/fake agents only (ADR-0009).
+- Windows untested. See `ROADMAP.md`.

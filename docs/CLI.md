@@ -95,18 +95,30 @@ table; the prepared run executes later with `orkestra run`.
 
 Execute the latest prepared run, or prepare-and-execute in one go.
 Streams events with a per-task progress/cost line; `--watch` attaches the live TUI while executing (needs the `[tui]` extra and a real terminal). Ends in `complete` (exit 0), `waiting on decision`
-(exit 2), or failure (exit 1). Results land on
-`ork/<run>/integration` — merging into your branch is always your call.
+(exit 2), or failure (exit 1). On success it
+summarizes outcomes and points to `orkestra review` / `orkestra accept`.
 
-### `orkestra diff [--run ID] [--full]`
+### `orkestra review [--run ID] [--full]`
 
-What a run built: its commits and file stats against the base it
-started from (`--full` for the patch). No `ork/*` branch names needed.
+What a run built, in plain language: status, tasks finished,
+verification and independent-review outcomes, the starting point,
+commits and file statistics (`--full` for the whole patch). Incomplete
+runs are clearly flagged as partial.
 
-### `orkestra merge [--run ID] [--cleanup]`
+### `orkestra accept [--run ID] [--cleanup] [--yes] [--allow-partial]`
 
-Accept a run's verified results into your current branch (refuses dirty
-trees and `ork/*` checkouts; `--cleanup` deletes the run's branches).
+Bring a **completed** run's verified result into your current branch.
+Shows a preflight summary and asks for confirmation (default **No**;
+`--yes` for automation). Refuses: incomplete runs (unless the advanced,
+risky `--allow-partial` is given — which warns and still confirms),
+dirty working trees, untracked files the result would overwrite, and
+`ork/*` checkouts. Conflicts are aborted cleanly with exact next steps.
+`--cleanup` tidies internal branches only after a successful acceptance.
+
+### `orkestra diff` / `orkestra merge`
+
+Backward-compatible aliases of `review` / `accept` (same behavior and
+rules) for scripts and long-time users.
 
 ## Observability
 

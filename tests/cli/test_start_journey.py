@@ -42,14 +42,14 @@ class TestPracticeModeJourney:
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--run"])
         assert result.exit_code == 0, result.output
         assert "practice mode" in result.output
-        assert "run complete" in result.output
+        assert "Run complete" in result.output
         # Journey continues with the same friendly commands.
         monkeypatch.chdir(root)
-        result = runner.invoke(app, ["diff"])
+        result = runner.invoke(app, ["review"])
         assert result.exit_code == 0, result.output
-        result = runner.invoke(app, ["merge", "--cleanup"])
+        result = runner.invoke(app, ["accept", "--cleanup", "--yes"])
         assert result.exit_code == 0, result.output
-        assert "merged" in result.output
+        assert "accepted" in result.output
 
     def test_no_toml_knowledge_needed(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -145,6 +145,27 @@ class TestInteractiveStart:
         runner.invoke(app, ["start", str(root), "--non-interactive", "--no-run"])
         (root / "SPEC.md").write_text(
             "# Mine\n\nA real spec I wrote (must pass tests).\nDo not touch docs.\n" * 4
+        )
+        # Uncommitted edits now (correctly) block start; commit like the
+        # guidance says, then reconfigure.
+        import subprocess
+
+        subprocess.run(["git", "add", "SPEC.md"], cwd=root, check=True, capture_output=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@e.invalid",
+                "commit",
+                "-q",
+                "-m",
+                "my spec",
+            ],
+            cwd=root,
+            check=True,
+            capture_output=True,
         )
         result = runner.invoke(
             app,

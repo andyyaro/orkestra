@@ -148,8 +148,8 @@ async def _run_demo(root: Path) -> bool:
             f"cross-reviewed, and integrated\n"
             f"  • {review_cycles} review rejection triggered a repair loop "
             "(bounded — it can never spin forever)\n"
-            f"  • results merged commit-by-commit onto "
-            f"[bold]{integration}[/bold]; the demo's 'main' was never touched"
+            "  • every result was integrated commit-by-commit into a holding "
+            "area; the demo's own 'main' was never touched"
         )
         _, files, _ = await repo._git("ls-tree", "-r", "--name-only", integration)
         built = [
@@ -161,7 +161,7 @@ async def _run_demo(root: Path) -> bool:
         _narrate(
             "On a real project the agents are Claude Code / Codex / "
             "Antigravity and the gates are YOUR test commands. "
-            "Next: `orkestra init .` in a repo of yours."
+            "Next: `orkestra start` in a repo of yours."
         )
         return True
     finally:

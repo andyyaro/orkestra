@@ -177,19 +177,21 @@ def _write_config(
     load_config(config_path)  # raises with a precise message if invalid
 
 
-def _spec_assist(root: Path, interactive: bool) -> None:
+def _spec_assist(root: Path, interactive: bool) -> bool:
+    """Returns True when Orkestra wrote/updated SPEC.md this invocation."""
     spec_path = root / "SPEC.md"
     existing = spec_path.read_text(encoding="utf-8") if spec_path.exists() else ""
     looks_empty = not existing.strip() or "- ..." in existing
     if not looks_empty:
-        return
+        return False
     if not interactive:
         if not existing:
             spec_path.write_text(
                 f"# {root.name}\n\nDescribe what the agents should build.\n\n"
                 "## Goals\n\n## Constraints\n\n## Acceptance\n"
             )
-        return
+            return True
+        return False
     console.print(
         "\n[bold]Describe the work[/bold] [dim](plain sentences; you can edit "
         "SPEC.md any time)[/dim]"
@@ -203,6 +205,7 @@ def _spec_assist(root: Path, interactive: bool) -> None:
         f"## Acceptance\n\n{success}\n"
     )
     console.print("  [green]✓[/green] SPEC.md written")
+    return True
 
 
 async def start_flow(
@@ -218,9 +221,49 @@ async def start_flow(
     root = root.resolve()
     root.mkdir(parents=True, exist_ok=True)
     repo = GitRepo(root)
-    if not await repo.is_repo():
+
+    # ---- capture repository state BEFORE any mutation (git safety) ----
+    was_repo = await repo.is_repo()
+    pre_tracked: list[str] = []
+    pre_staged: list[str] = []
+    pre_untracked: list[str] = []
+    had_commits = False
+    if was_repo:
+        pre_tracked = await repo.tracked_changes()
+        pre_staged = await repo.staged_changes()
+        pre_untracked = await repo.untracked_files()
+        had_commits = await repo.has_commits()
+        if pre_tracked or pre_staged:
+            # Existing repository with in-progress user work: stop before
+            # touching anything. Mixing it into an orchestration baseline
+            # could entangle the user's changes with agent work.
+            pending = list(dict.fromkeys(pre_staged + pre_tracked))  # dedupe, keep order
+            listing = ", ".join(pending[:5])
+            more = "" if len(pending) <= 5 else ", …"
+            console.print(
+                "[yellow]You have work in progress here that isn't committed"
+                f"[/yellow] ({listing}{more}).\n\n"
+                "Orkestra won't touch it — but it also can't set up a clean "
+                "starting point for the agents while it's pending, and "
+                "continuing could mix your changes into the agents' work.\n\n"
+                "[bold]Save your work first, then rerun this command:[/bold]\n"
+                '  git add -A && git commit -m "my work in progress"\n'
+                "[dim]or set it aside temporarily:[/dim]\n"
+                '  git stash push -m "before orkestra"\n'
+            )
+            raise typer.Exit(code=1)
+    else:
+        pre_untracked = [
+            str(path.relative_to(root))
+            for path in root.rglob("*")
+            if path.is_file() and ".git" not in path.parts
+        ]
         await repo.init()
         console.print("[green]✓[/green] Git repository created")
+
+    # Files Orkestra itself creates/updates in this invocation — the ONLY
+    # things its setup commit may ever contain.
+    orkestra_owned: list[str] = []
     gitignore = root / ".gitignore"
     existing_ignore = gitignore.read_text() if gitignore.exists() else ""
     if ".orkestra/" not in existing_ignore.split("\n"):
@@ -229,6 +272,7 @@ async def start_flow(
             + ("\n" if existing_ignore and not existing_ignore.endswith("\n") else "")
             + ".orkestra/\n"
         )
+        orkestra_owned.append(".gitignore")
 
     console.print("\n[bold]Looking for coding agents on this machine…[/bold]")
     ready = await _detect_ready_adapters()
@@ -294,15 +338,34 @@ async def start_flow(
         "[dim](plain TOML — advanced users can edit it directly)[/dim]"
     )
 
-    _spec_assist(root, interactive)
+    if _spec_assist(root, interactive):
+        orkestra_owned.append("SPEC.md")
 
-    if (
-        not await repo.has_commits()
-        or await repo.tracked_changes()
-        or (await repo.untracked_files())
-    ):
-        await repo.add_all_and_commit("orkestra start")
-        console.print("[green]✓[/green] committed project setup")
+    # Setup commit: pathspec-scoped to Orkestra-owned files only. The
+    # user's tracked, staged, and untracked files are never included.
+    if orkestra_owned:
+        sha = await repo.commit_paths(orkestra_owned, "orkestra start")
+        if sha:
+            committed = await repo.commit_files_in(sha)
+            unexpected = [f for f in committed if f not in orkestra_owned]
+            if unexpected:  # defensive: structural guarantee, verified anyway
+                msg = f"setup commit unexpectedly included {unexpected}"
+                raise RuntimeError(msg)
+            console.print(
+                "[green]✓[/green] committed Orkestra setup files "
+                f"({', '.join(committed)}) — nothing else"
+            )
+
+    baseline_missing = not had_commits and bool(pre_untracked)
+    if baseline_missing:
+        console.print(
+            f"\n[yellow]Your {len(pre_untracked)} existing file(s) are not "
+            "committed yet[/yellow] — agents work from committed code, so "
+            "save them as the starting point before running:\n"
+            '  git add . && git commit -m "project baseline"\n'
+            "then: [bold]orkestra run[/bold]"
+        )
+        run_after = False
 
     names = ", ".join(p.name for p in profiles)
     console.print(f"\n[bold]Ready.[/bold] Agents: {names} · preset: {preset.label}")
