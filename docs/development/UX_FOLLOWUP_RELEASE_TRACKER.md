@@ -43,8 +43,8 @@ hygiene. No kernel changes, no compatibility breaks.
       QUICKSTART, CLI, FAQ, TROUBLESHOOTING, demo, tests)
 - [x] P4 BUILD_STATUS current-state rewrite; FINAL_BUILD_REPORT labeled
       historical; release report written
-- [ ] P5 full gates + fresh wheel/sdist installs
-- [ ] P6 dogfood scenarios A–D recorded below
+- [x] P5 full gates + fresh wheel/sdist installs
+- [x] P6 dogfood scenarios A–D recorded below
 - [ ] P7 version 0.4.1, PR through protected main, tag, GitHub release,
       publish → pypi approval gate
 
@@ -69,6 +69,11 @@ hygiene. No kernel changes, no compatibility breaks.
 - P1 suite: tests/cli/test_start_git_safety.py — 9 scenarios on real
   git repos, all passing
 - P2 suite: tests/cli/test_review_accept.py — 13 scenarios, all passing
+- P5 (2026-07-25): 385 passed; ruff/mypy/bandit/pip-audit clean;
+  twine check PASSED ×2; fresh-venv wheel and sdist installs verified
+- P6 dogfood A–D: all passed (exact commands + outputs in
+  UX_FOLLOWUP_RELEASE_REPORT.md); real exits verified (dirty stop = 1,
+  incomplete-accept refusal = 1)
 
 ## Outcome
 

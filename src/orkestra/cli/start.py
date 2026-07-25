@@ -237,8 +237,9 @@ async def start_flow(
             # Existing repository with in-progress user work: stop before
             # touching anything. Mixing it into an orchestration baseline
             # could entangle the user's changes with agent work.
-            listing = ", ".join((pre_staged + pre_tracked)[:5])
-            more = "" if len(pre_staged + pre_tracked) <= 5 else ", …"
+            pending = list(dict.fromkeys(pre_staged + pre_tracked))  # dedupe, keep order
+            listing = ", ".join(pending[:5])
+            more = "" if len(pending) <= 5 else ", …"
             console.print(
                 "[yellow]You have work in progress here that isn't committed"
                 f"[/yellow] ({listing}{more}).\n\n"
