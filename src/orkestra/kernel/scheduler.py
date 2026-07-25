@@ -20,6 +20,7 @@ from orkestra.errors import PolicyViolation, VerificationError, WorkspaceError
 from orkestra.ids import new_id
 from orkestra.kernel.dag import TaskDag
 from orkestra.kernel.retry import FALLBACK_IMMEDIATELY, BackoffPolicy, next_agent
+from orkestra.memory import Memory, open_memory
 from orkestra.schemas.agent import (
     AgentEvent,
     AgentResult,
@@ -35,7 +36,7 @@ from orkestra.verify import run_verification
 from orkestra.workspace.worktrees import Workspace
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
     from orkestra.adapters.base import AgentAdapter
@@ -79,6 +80,10 @@ class Orchestrator:
         self._agent_versions: dict[str, str] = {}
         self.director_service: object | None = None  # DirectorService, wired by app
         self._quota: QuotaTracker | None = None  # created per execute()
+        # Optional verified memory. None whenever Provalume is absent, memory is
+        # disabled in config, or its database will not open — in every one of
+        # those cases the kernel behaves exactly as it did before.
+        self._memory: Memory | None = None
 
     # ------------------------------------------------------------ events
 
@@ -166,8 +171,17 @@ class Orchestrator:
         def states() -> dict[str, TaskState]:
             return {t.key: t.state for t in self.store.tasks_for_run(run_id)}
 
+        run = self.store.get_run(run_id)
+        self._memory = open_memory(
+            self.root,
+            self.config,
+            run_id=run_id,
+            branch=run.integration_branch,
+            base_commit=run.base_commit,
+        )
+
         try:
-            return await self._execute_loop(run_id, dag, semaphore, in_flight, states)
+            state = await self._execute_loop(run_id, dag, semaphore, in_flight, states)
         except asyncio.CancelledError:
             # Graceful in-process shutdown: cancel children so no pipeline
             # coroutine (or agent subprocess) outlives this call. A hard
@@ -176,6 +190,14 @@ class Orchestrator:
                 aio_task.cancel()
             await asyncio.gather(*in_flight.values(), return_exceptions=True)
             raise
+        finally:
+            if self._memory is not None:
+                self._memory.close()
+
+        with self._remember() as mem:
+            if mem is not None:
+                mem.record_run_completed(run_id=run_id, outcome=state.value, tasks=len(tasks))
+        return state
 
     async def _execute_loop(
         self,
@@ -547,7 +569,7 @@ class Orchestrator:
             self.store.set_task_state(
                 task.task_id, TaskState.VERIFYING, expected=(TaskState.RUNNING,)
             )
-            verify_ok = await self._verify(run_id, task, workspace)
+            verify_ok = await self._verify(run_id, task, workspace, agent)
             if not verify_ok:
                 record_task_outcome(
                     self.store,
@@ -634,6 +656,10 @@ class Orchestrator:
                         task.task_id, TaskState.READY, expected=(TaskState.INTEGRATING,)
                     )
                     continue
+                if commit is not None:
+                    with self._remember() as mem:
+                        if mem is not None:
+                            mem.record_integration(commit_sha=commit, task_id=task.task_id)
                 await self.workspaces.remove_workspace(workspace, keep_branch=True)
             else:
                 # Non-mutating task: nothing to integrate; discard workspace.
@@ -754,6 +780,53 @@ class Orchestrator:
             cancel_flag,
         )
 
+    @contextlib.contextmanager
+    def _remember(self) -> Iterator[Memory | None]:
+        """Guard a memory interaction, swallowing anything the body raises.
+
+        The guard wraps the *whole* interaction, argument construction included.
+        An earlier version guarded only the adapter call, and an attribute error
+        while assembling its arguments propagated out and crashed a run — which
+        is exactly what "memory never breaks a run" is supposed to prevent. A
+        guard that does not cover argument construction is not a guard.
+
+        Yields ``None`` when memory is closed, so every call site states the
+        no-op case explicitly rather than relying on a null object.
+        """
+        with contextlib.suppress(Exception):
+            yield self._memory
+
+    def _memory_sections(self, task: TaskRow) -> list[str]:
+        """Advisory sections appended to a brief: prior context and a warning.
+
+        Both are appended *after* the task instructions. Putting retrieved memory
+        first would give it the position of primary instruction, which is exactly
+        what Provalume's untrusted-data banner exists to deny.
+
+        Neither can change what the agent is asked to do, and neither can stop
+        the task from being dispatched.
+        """
+        if self._memory is None:
+            return []
+
+        sections: list[str] = []
+        # Building these arguments touches task state; a failure here must not
+        # cost the task its brief.
+        budget = self.config.memory.brief_budget_chars
+        if budget > 0:
+            context = self._memory.brief_context(
+                title=task.spec.title, task_id=task.task_id, budget=budget
+            )
+            if context:
+                sections += ["", context]
+
+        if self.config.memory.preflight:
+            warning = self._memory.preflight_warning(spec=task.spec)
+            if warning:
+                sections += ["", "## Before you start", "", warning]
+
+        return sections
+
     def _render_brief(self, task: TaskRow, fix_context: str) -> str:
         parts = [
             f"# Task: {task.spec.title}",
@@ -774,9 +847,12 @@ class Orchestrator:
             ]
         if fix_context:
             parts += ["", "## Follow-up context", fix_context]
+        parts += self._memory_sections(task)
         return "\n".join(parts)
 
-    async def _verify(self, run_id: str, task: TaskRow, workspace: Workspace) -> bool:
+    async def _verify(
+        self, run_id: str, task: TaskRow, workspace: Workspace, agent: str | None = None
+    ) -> bool:
         commands = task.spec.acceptance or self.config.verify.commands
         if not commands:
             return True
@@ -789,6 +865,19 @@ class Orchestrator:
             f"verification {'passed' if outcome.passed else 'FAILED'}:\n{outcome.summary}",
             task_id=task.task_id,
         )
+        with self._remember() as mem:
+            if mem is not None:
+                # The evidence everything else rests on. A failure becomes a
+                # gotcha keyed on a deterministic signature; a success becomes a
+                # procedural candidate keyed on the exact command.
+                for command in commands:
+                    mem.record_verification(
+                        command=command,
+                        passed=outcome.passed,
+                        excerpt=outcome.summary,
+                        task_id=task.task_id,
+                        agent=agent,
+                    )
         return outcome.passed
 
     async def _review(
@@ -870,6 +959,19 @@ class Orchestrator:
                 self.store.finish_attempt(attempt_id, AttemptState.FAILED, result)
                 continue
             self.store.finish_attempt(attempt_id, AttemptState.SUCCEEDED, result)
+            # Recorded here rather than at the call site: ReviewVerdict does not
+            # carry the reviewer's identity, and identity is exactly what lets
+            # Provalume refuse to promote on a self-review.
+            with self._remember() as mem:
+                if mem is not None:
+                    mem.record_review(
+                        reviewer=reviewer,
+                        approved=verdict.approve,
+                        subject=task.spec.title,
+                        finding="; ".join(verdict.findings or verdict.required_changes),
+                        task_id=task.task_id,
+                        attempt_id=attempt_id,
+                    )
             record_task_outcome(
                 self.store,
                 run_id,
