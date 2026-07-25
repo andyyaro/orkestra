@@ -103,7 +103,7 @@ table; the prepared run executes later with `orkestra run`.
 
 Execute the latest prepared run, or prepare-and-execute in one go.
 Streams events with a per-task progress/cost line; `--watch` attaches the live TUI while executing (needs the `[tui]` extra and a real terminal). Ends in `complete` (exit 0), `waiting on decision`
-(exit 2), or failure (exit 1). On success it
+(exit 2), `cancelled` (exit 3), or failure (exit 1). On success it
 summarizes outcomes and points to `orkestra review` / `orkestra accept`.
 
 ### `orkestra review [--run ID] [--full]`

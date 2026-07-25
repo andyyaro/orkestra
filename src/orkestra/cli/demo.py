@@ -73,6 +73,13 @@ async def _run_demo(root: Path) -> bool:
             "scripted fakes — every mechanism below is the real kernel."
         )
         run_id = application.store.create_run("orkestra-demo")
+        application.store.update_run_payload(
+            run_id,
+            agents={
+                name: {"available": "True", "version": "demo", "detail": "scripted fake agent"}
+                for name in ("ada", "grace")
+            },
+        )
         base, integration = await application.workspaces.start_run(run_id)
         application.store.set_run_git(run_id, base, integration)
 
