@@ -66,7 +66,13 @@ def _load_app(offline: bool = False) -> App:
 
 
 def _pick_run(application: App, run_id: str | None) -> str:
+    from orkestra.errors import StoreError
+
     if run_id:
+        try:
+            application.store.get_run(run_id)
+        except StoreError:
+            _fail(f"run {run_id!r} not found — `orkestra status` shows the latest run")
         return run_id
     latest = application.store.latest_run()
     if latest is None:
@@ -112,7 +118,13 @@ def _print_completion(application: App, run_id: str) -> None:
     summary = asyncio.run(_gather_run_summary(application, run_id))
     console.print("\n[green bold]Run complete — your verified result is ready.[/green bold]")
     console.print(f"  tasks: {summary.done}/{summary.total} finished")
-    console.print("  verification: passed (your acceptance commands, run by Orkestra)")
+    if application.config.verify.commands:
+        console.print("  verification: passed (your test commands, run by Orkestra)")
+    else:
+        console.print(
+            "  verification: [yellow]skipped — no test commands configured[/yellow] "
+            "(add some under \\[verify] in .orkestra/config.toml)"
+        )
     if summary.reviews_required:
         console.print("  review: every change approved by an independent agent")
     if summary.open_decisions:
@@ -198,13 +210,13 @@ def init(
         )
         if verify_commands:
             console.print(
-                "detected test culture — pre-filled [verify] commands: "
+                "detected test culture — pre-filled \\[verify] commands: "
                 + ", ".join(f"`{c}`" for c in verify_commands)
             )
         else:
             console.print(
                 "[yellow]no test commands detected[/yellow] — add your own to "
-                "[verify] in .orkestra/config.toml; they are the safety net "
+                "\\[verify] in .orkestra/config.toml; they are the safety net "
                 "agents cannot talk past"
             )
         spec_path = root / "SPEC.md"
@@ -257,6 +269,14 @@ def start(
     except ConfigError as exc:
         _fail(str(exc))
         return
+    except typer.Abort:
+        console.print()
+        _fail(
+            "setup needs answers, but input ended before it finished — "
+            "piping input or scripting this? use --non-interactive, or run "
+            "it in a real terminal"
+        )
+        return
     if should_run:
         import os
 
@@ -267,6 +287,10 @@ def start(
         console.print(
             "next: [bold]orkestra run[/bold] (add --watch for the live view) · "
             "then [bold]orkestra review[/bold] and [bold]orkestra accept[/bold]"
+        )
+        console.print(
+            "[dim]if you edit SPEC.md first, commit the edit — runs only "
+            "start from committed code[/dim]"
         )
 
 
@@ -1004,11 +1028,21 @@ def approve(
 # ---------------------------------------------------- pause/resume/cancel
 
 
+def _require_active(application: App, run_id: str, *, verb: str) -> None:
+    run = application.store.get_run(run_id)
+    if run.state in (RunState.COMPLETE, RunState.FAILED, RunState.CANCELLED):
+        application.close()
+        _fail(
+            f"run {run_id} already finished (state: {run.state.value}) — there is nothing to {verb}"
+        )
+
+
 @app.command()
 def pause(run_id: Annotated[str | None, typer.Option("--run")] = None) -> None:
     """Ask a running orchestration to pause after in-flight tasks finish."""
     application = _load_app()
     resolved = _pick_run(application, run_id)
+    _require_active(application, resolved, verb="pause")
     application.orchestrator.request_pause(resolved)
     console.print(f"pause requested for {resolved}")
     application.close()
@@ -1019,6 +1053,7 @@ def cancel(run_id: Annotated[str | None, typer.Option("--run")] = None) -> None:
     """Cancel the run: in-flight agents are terminated."""
     application = _load_app()
     resolved = _pick_run(application, run_id)
+    _require_active(application, resolved, verb="cancel")
     application.orchestrator.request_cancel(resolved)
     console.print(f"cancel requested for {resolved}")
     application.close()
@@ -1129,10 +1164,17 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
         "[dim](nothing of yours has been changed)[/dim]"
     )
     if summary.complete:
-        console.print(
-            "  verification: every finished task passed your acceptance "
-            "commands (run by Orkestra, not taken on trust)"
-        )
+        if application.config.verify.commands:
+            console.print(
+                "  verification: every finished task passed your test "
+                "commands (run by Orkestra, not taken on trust)"
+            )
+        else:
+            console.print(
+                "  verification: [yellow]skipped — no test commands "
+                "configured[/yellow] (add some under \\[verify] in "
+                ".orkestra/config.toml)"
+            )
         if summary.reviews_required:
             console.print(
                 "  independent review: every change was approved by a "
@@ -1225,12 +1267,24 @@ def _accept_impl(
         _fail(f"run {resolved} has no results to accept")
         return
 
-    async def _preflight() -> tuple[_RunSummary, str, list[str], list[str], bool]:
+    async def _preflight() -> tuple[_RunSummary, str, list[str], list[str], bool, str]:
         from orkestra.workspace.git import GitRepo
 
         repo = GitRepo(application.root)
-        summary = await _gather_run_summary(application, resolved)
         current = await repo.current_branch()
+        if not await repo.branch_exists(run.integration_branch):
+            code, log, _ = await repo._git(
+                "log", "--oneline", "--grep", f"Accept orkestra run {resolved}", check=False
+            )
+            state = "accepted" if code == 0 and log.strip() else "missing"
+            return _RunSummary(run=None), current, [], [], False, state
+        code, _, _ = await repo._git(
+            "merge-base", "--is-ancestor", run.integration_branch, "HEAD", check=False
+        )
+        branch_tip = await repo.head_commit(run.integration_branch)
+        if code == 0 and branch_tip != run.base_commit:
+            return _RunSummary(run=None), current, [], [], False, "accepted"
+        summary = await _gather_run_summary(application, resolved)
         tracked = await repo.tracked_changes()
         untracked = await repo.untracked_files()
         _, names, _ = await repo._git(
@@ -1243,11 +1297,9 @@ def _accept_impl(
         collisions = sorted(run_files & set(untracked))
         head = await repo.head_commit()
         branch_moved = head != run.base_commit
-        return summary, current, tracked, collisions, branch_moved
+        return summary, current, tracked, collisions, branch_moved, "pending"
 
-    summary, current, tracked, collisions, branch_moved = asyncio.run(_preflight())
-
-    # ---- hard safety refusals -------------------------------------------
+    summary, current, tracked, collisions, branch_moved, accept_state = asyncio.run(_preflight())
     if current.startswith("ork/"):
         application.close()
         _fail(
@@ -1255,6 +1307,22 @@ def _accept_impl(
             "Switch to your own branch first: git checkout main"
         )
         return
+    if accept_state == "accepted":
+        application.close()
+        console.print(
+            f"run {resolved} is already part of [bold]{current}[/bold] — nothing new to bring in"
+        )
+        raise typer.Exit(code=0)
+    if accept_state == "missing":
+        application.close()
+        _fail(
+            f"the results of run {resolved} are no longer available (their "
+            "internal branch was deleted without being accepted). Re-run the "
+            "work with `orkestra run`."
+        )
+        return
+
+    # ---- hard safety refusals -------------------------------------------
     if tracked:
         application.close()
         _fail(
@@ -1296,8 +1364,9 @@ def _accept_impl(
         + (f" · {summary.shortstat}" if summary.shortstat else "")
     )
     if summary.complete:
+        verify_word = "passed" if application.config.verify.commands else "none configured"
         console.print(
-            "  verification: passed · independent review: "
+            f"  verification: {verify_word} · independent review: "
             + ("approved" if summary.reviews_required else "not required by policy")
         )
     if summary.open_decisions:
@@ -1314,7 +1383,16 @@ def _accept_impl(
             "will simply be missing from your branch."
         )
     if not yes:
-        proceed = typer.confirm("Proceed with accepting this result?", default=False)
+        try:
+            proceed = typer.confirm("Proceed with accepting this result?", default=False)
+        except typer.Abort:
+            application.close()
+            console.print()
+            _fail(
+                "no answer received — running without a terminal? add --yes "
+                "to accept without the prompt"
+            )
+            return
         if not proceed:
             application.close()
             console.print("nothing changed — your branch is untouched")
@@ -1448,14 +1526,14 @@ def report(
 def watch(
     run_id: Annotated[str | None, typer.Option("--run")] = None,
 ) -> None:
-    """Live TUI monitor for a run (requires the [tui] extra)."""
+    """Live TUI monitor for a run (requires the 'tui' extra)."""
     try:
         from orkestra.cli.watch import WatchApp
     except ModuleNotFoundError:
         _fail(
             "the TUI needs Textual — install with: "
-            "uv tool install 'orkestra-runtime[tui]'  "
-            "(or: pip install 'orkestra-runtime[tui]')"
+            "uv tool install 'orkestra-runtime\\[tui]'  "
+            "(or: pip install 'orkestra-runtime\\[tui]')"
         )
         return
     application = _load_app()
