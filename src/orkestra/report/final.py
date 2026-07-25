@@ -34,6 +34,18 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
         "decisions": [d.model_dump(mode="json") for d in store.decisions_for_run(run_id)],
         "usage": store.usage_summary(run_id),
         "agent_performance": store.ledger_summary(),
+        "field_notes": {
+            "attempts[].state": (
+                "outcome of the agent call itself (process ran and returned a "
+                "result), not whether the task passed verification or review; "
+                "task outcomes live in agent_performance and task.state"
+            ),
+            "usage": (
+                "covers every LLM call including director analysis, planning, "
+                "plan challenges and capability probes; cost is reported only "
+                "by agents that expose it"
+            ),
+        },
     }
     for task in tasks:
         attempts = store.attempts_for_task(task.task_id)
@@ -57,6 +69,10 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
                         "attempt_id": a.attempt_id,
                         "agent": a.agent,
                         "role": a.role,
+                        # NB: this is the agent call's own outcome (did the
+                        # CLI run and return a result), NOT whether the task
+                        # passed verification/review — see agent_performance.
+                        "agent_call_state": a.state.value,
                         "state": a.state.value,
                         "session_id": (
                             a.result.session.session_id if a.result and a.result.session else None
