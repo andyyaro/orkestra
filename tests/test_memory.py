@@ -203,6 +203,45 @@ def test_the_gate_is_quiet_on_an_unrelated_action(live_memory: Any, spec_factory
     assert live_memory.preflight_warning(spec=spec_factory(acceptance=["npm run lint"])) == ""
 
 
+def test_the_gate_does_not_match_a_gotcha_on_the_task_kind(
+    live_memory: Any, spec_factory: Any
+) -> None:
+    """Regression: the task *kind* was passed as Provalume's ``subsystem``.
+
+    ``subsystem`` is matched as a substring of a gotcha's text, and the kind
+    ``test`` is a substring of ``pytest`` — so every recorded pytest failure
+    matched every test task, and the brief carried "previously failed in test"
+    about a command the task never mentions.
+    """
+    live_memory.record_verification(
+        command="pytest -n auto", passed=False, excerpt="E boom", task_id="t1"
+    )
+    spec = spec_factory(key="test", kind=TaskKind.TEST, acceptance=["npm run lint"])
+    assert live_memory.preflight_warning(spec=spec) == ""
+
+
+def test_performance_memory_reports_the_attempts_that_happened(live_memory: Any) -> None:
+    """Recorded attempts must reach the digest as a rate, not as "no attempts".
+
+    Nothing else aggregates agent capability: with no ``attempt.completed``
+    event the accumulator renders "no recorded attempts", stamps it, and splices
+    that claim into the next brief.
+    """
+    for index in range(3):
+        live_memory.record_attempt(
+            task_id=f"t{index}",
+            attempt_id=f"a{index}",
+            outcome="succeeded",
+            kind="implement",
+            agent="agent-a",
+            adapter_id="fake",
+        )
+    context = live_memory.brief_context(title="agent-a implement", task_id="t9", budget=4000)
+    assert "agent-a on implement:" in context, f"performance memory never surfaced: {context}"
+    assert "succeeded (100%)" in context, f"the success rate was not rendered: {context}"
+    assert "no recorded attempts" not in context
+
+
 def test_a_review_verdict_is_recorded_with_its_reviewer(live_memory: Any) -> None:
     """The reviewer's identity is what lets Provalume refuse a self-review."""
     live_memory.record_verification(

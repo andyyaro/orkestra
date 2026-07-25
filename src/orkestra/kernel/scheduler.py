@@ -516,6 +516,14 @@ class Orchestrator:
                     succeeded=False,
                     detail=result.error_kind.value,
                 )
+                self._remember_attempt(
+                    task,
+                    attempt_id,
+                    agent,
+                    primary=assignment.primary,
+                    outcome="failed",
+                    error_kind=result.error_kind.value,
+                )
                 if result.error_kind is ErrorKind.CANCELLED:
                     self.store.set_task_state(task.task_id, TaskState.CANCELLED)
                     return
@@ -563,6 +571,9 @@ class Orchestrator:
             # Agent finished; deterministic pipeline takes over.
             quota.note_success(agent)
             self.store.finish_attempt(attempt_id, AttemptState.SUCCEEDED, result)
+            self._remember_attempt(
+                task, attempt_id, agent, primary=assignment.primary, outcome="succeeded"
+            )
             mutating = task.spec.mutates_repo and task.spec.kind in MUTATING_KINDS
             commit = None
             if mutating:
@@ -814,6 +825,46 @@ class Orchestrator:
         """
         with contextlib.suppress(Exception):
             yield self._memory
+
+    def _remember_attempt(
+        self,
+        task: TaskRow,
+        attempt_id: str,
+        agent: str,
+        *,
+        primary: str,
+        outcome: str,
+        error_kind: str = "",
+    ) -> None:
+        """Feed performance memory, at both points an attempt ends.
+
+        Called from the two places `_run_task` finishes an attempt, because that
+        is the only place the facts exist. Without it performance memory has no
+        input at all, and Provalume — correctly, from what it was given —
+        publishes "<agent>: no recorded attempts at <kind>." into the next
+        brief, at the `verified` rung, about an agent that had just succeeded.
+
+        ``outcome`` mirrors the recorded ``AttemptState``: whether the agent
+        produced a usable result, not whether the task later passed
+        verification. Verification and review land as their own events and are
+        aggregated separately.
+        """
+        with self._remember() as mem:
+            if mem is not None:
+                agent_config = self.config.agents.get(agent)
+                mem.record_attempt(
+                    task_id=task.task_id,
+                    attempt_id=attempt_id,
+                    outcome=outcome,
+                    kind=task.spec.kind.value,
+                    # The agent that actually ran, not the assigned primary, so
+                    # a fallback's record is attributed to the fallback.
+                    agent=agent,
+                    adapter_id=self.adapters[agent].adapter_id,
+                    model=(agent_config.model if agent_config else None) or "",
+                    error_kind=error_kind,
+                    fallback=agent != primary,
+                )
 
     def _memory_sections(self, task: TaskRow) -> list[str]:
         """Advisory sections appended to a brief: prior context and a warning.

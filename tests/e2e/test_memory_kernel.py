@@ -43,6 +43,9 @@ class SpyMemory:
         self._note("preflight_warning")
         return ""
 
+    def record_attempt(self, **_: Any) -> None:
+        self._note("record_attempt")
+
     def record_verification(self, **_: Any) -> None:
         self._note("record_verification")
 
@@ -95,6 +98,7 @@ async def test_the_kernel_records_the_full_evidence_chain(
     assert state is RunState.COMPLETE
     for expected in (
         "brief_context",
+        "record_attempt",
         "record_verification",
         "record_review",
         "record_integration",
@@ -166,6 +170,61 @@ async def test_only_commands_that_actually_ran_are_recorded(
     )
     assert not any(passed for _, passed in recorded), (
         f"a failing command was recorded as passing: {recorded}"
+    )
+
+
+async def test_every_attempt_that_ends_reaches_performance_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: `record_attempt` was defined and never called.
+
+    Performance memory has no other input. With no attempt event, Provalume
+    aggregated nothing and published "<agent>: no recorded attempts at
+    implement." — spliced into the next brief, stamped VERIFIED, about an agent
+    that had just succeeded.
+
+    Both endings must be recorded, attributed to the agent that actually ran:
+    `alpha` fails, `beta` takes over as the fallback.
+    """
+    recorded: list[dict[str, Any]] = []
+
+    class AttemptMemory(SpyMemory):
+        def record_attempt(self, **kwargs: Any) -> None:
+            self._note("record_attempt")
+            recorded.append(kwargs)
+
+    app = await make_project(tmp_path)
+    monkeypatch.setattr(scheduler_module, "open_memory", lambda *a, **k: AttemptMemory())
+    try:
+        task = spec(
+            "feat",
+            "FAKE:fail_if_agent:alpha\nFAKE:write:out.txt:done",
+            kind=TaskKind.IMPLEMENT,
+            acceptance=["true"],
+        )
+        run_id = await manual_run(app, [(task, assign("alpha", "beta", ["beta"]))])
+        assert await app.orchestrator.execute(run_id) is RunState.COMPLETE
+    finally:
+        app.close()
+
+    by_agent = {call["agent"]: call for call in recorded}
+    assert set(by_agent) == {"alpha", "beta"}, (
+        f"an attempt ended without reaching performance memory: {recorded}"
+    )
+
+    failed = by_agent["alpha"]
+    assert failed["outcome"] == "failed"
+    assert failed["error_kind"], f"the failure carried no error kind: {failed}"
+    assert failed["fallback"] is False
+
+    succeeded = by_agent["beta"]
+    assert succeeded["outcome"] == "succeeded"
+    assert succeeded["kind"] == "implement"
+    assert succeeded["adapter_id"] == "fake"
+    assert succeeded["attempt_id"], "no attempt id, so nothing links to the work it describes"
+    assert succeeded["fallback"] is True, (
+        "the fallback was recorded as a first-choice success, which is the "
+        "statistic `fallbacks` exists to correct"
     )
 
 
