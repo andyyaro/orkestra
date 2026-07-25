@@ -131,3 +131,78 @@ async def test_a_memory_that_raises_on_every_call_does_not_fail_the_run(
 
     assert state is RunState.COMPLETE
     assert memory.calls, "the kernel never reached memory at all — test is vacuous"
+
+
+async def test_only_commands_that_actually_ran_are_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: recording iterated the requested commands, not the results.
+
+    Verification stops at the first failure, so a later command may never run,
+    and each command has its own exit code. Attributing the whole-run verdict to
+    every requested command recorded passing and unrun commands as failures —
+    which manufactures gotchas, and then false pre-action warnings.
+    """
+    recorded: list[tuple[str, bool]] = []
+
+    class RecordingMemory(SpyMemory):
+        def record_verification(self, **kwargs: Any) -> None:
+            self._note("record_verification")
+            recorded.append((kwargs["command"], kwargs["passed"]))
+
+    app = await make_project(tmp_path)
+    monkeypatch.setattr(scheduler_module, "open_memory", lambda *a, **k: RecordingMemory())
+    try:
+        # `false` fails, so `echo` never runs at all.
+        task = spec("implement", "Add a thing", acceptance=["false", "echo unreachable"])
+        run_id = await manual_run(app, [(task, assign("alpha", "beta"))])
+        await app.orchestrator.execute(run_id)
+    finally:
+        app.close()
+
+    assert recorded, "verification was never recorded"
+    assert all(cmd == "false" for cmd, _ in recorded), (
+        f"a command that never ran was recorded: {recorded}"
+    )
+    assert not any(passed for _, passed in recorded), (
+        f"a failing command was recorded as passing: {recorded}"
+    )
+
+
+async def test_the_recorded_excerpt_carries_the_actual_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the excerpt was `outcome.summary`, which holds no error.
+
+    Fingerprinting a summary yields one signature for every failure of a given
+    command, however unrelated — so the gate warns about a failure that never
+    happened. The excerpt must carry captured output.
+    """
+    excerpts: list[str] = []
+
+    class ExcerptMemory(SpyMemory):
+        def record_verification(self, **kwargs: Any) -> None:
+            self._note("record_verification")
+            excerpts.append(kwargs["excerpt"])
+
+    app = await make_project(tmp_path)
+    monkeypatch.setattr(scheduler_module, "open_memory", lambda *a, **k: ExcerptMemory())
+    try:
+        # The marker must exist only in the *output*, never in the command text:
+        # `outcome.summary` quotes the command, so a marker visible in the
+        # command would make this test pass against the very bug it guards.
+        # The shell concatenates `MARK""ER` into `MARKER`, which the command
+        # string therefore never literally contains.
+        marker = "MARKER9c1f"
+        command = "sh -c 'echo MARK\"\"ER9c1f >&2; exit 1'"
+        assert marker not in command, "the marker leaked into the command — test would be vacuous"
+        task = spec("implement", "Add a thing", acceptance=[command])
+        run_id = await manual_run(app, [(task, assign("alpha", "beta"))])
+        await app.orchestrator.execute(run_id)
+    finally:
+        app.close()
+
+    assert excerpts, "verification was never recorded"
+    assert any(marker in e for e in excerpts), (
+        f"the captured output never reached the excerpt: {excerpts}"
+    )
