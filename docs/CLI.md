@@ -16,13 +16,18 @@ command.
 
 ## The guided journey
 
-### `orkestra start [PATH] [--preset faster|balanced|max-quality|custom] [--non-interactive] [--run/--no-run]`
+### `orkestra start [PATH] [--preset faster|balanced|max-quality|custom] [--non-interactive] [--run/--no-run] [--agents claude,codex]`
 
 Everything from zero to running: Git setup, agent detection, preset or
 per-agent model/effort selection (with live model discovery where the
 CLI supports it), verification-command confirmation, spec assistance,
 and an optional immediate run. With fewer than two signed-in agents it
 configures practice mode (fake agents) so the journey always works.
+`--agents` restricts setup to the named agents instead of enabling
+every signed-in CLI (friendly names accepted: claude, codex,
+antigravity/agy, gemini — at least two required); if a requested agent
+isn't signed in, start stops with an explanation rather than silently
+substituting.
 Re-running it on an existing project reconfigures without destroying
 your spec. Presets tune models, effort, probes, concurrency — never
 verification or independent review.
@@ -130,10 +135,13 @@ Task graph state; `--json` emits the full machine-readable report.
 
 Redacted event log (agent output, gate results, warnings).
 
-### `orkestra report [--run ID] [--out FILE.md] [--json-out FILE.json]`
+### `orkestra report [--run ID] [--out FILE.md] [--json-out FILE.json] [--save]`
 
 Full run report: agents, analysis, tasks, attempts, decisions, usage,
 agent performance ledger. Redacted; suitable as a support bundle.
+`--save` writes both markdown and JSON under `.orkestra/reports/`
+(git-ignored, no clutter); an explicit `--out` inside the repository
+prints a reminder that the file is untracked.
 
 ### `orkestra watch [--run ID]`
 

@@ -113,10 +113,26 @@ def _progress_callback(application: App) -> Callable[[str, AgentEvent], None]:
     return callback
 
 
+def _is_practice_mode(application: App) -> bool:
+    """True when every enabled agent is a built-in fake (practice) agent."""
+    enabled = application.config.enabled_agents
+    return bool(enabled) and all(a.adapter == "fake" for a in enabled.values())
+
+
+_PRACTICE_NOTE = (
+    "  [yellow]practice run:[/yellow] the built-in practice agents demonstrate "
+    "the workflow with placeholder files — your SPEC.md is not actually "
+    "implemented. Sign in to two real agent CLIs and rerun "
+    "[bold]orkestra start[/bold] for real results."
+)
+
+
 def _print_completion(application: App, run_id: str) -> None:
     """Friendly end-of-run message: outcomes, not internals."""
     summary = asyncio.run(_gather_run_summary(application, run_id))
     console.print("\n[green bold]Run complete — your verified result is ready.[/green bold]")
+    if _is_practice_mode(application):
+        console.print(_PRACTICE_NOTE)
     console.print(f"  tasks: {summary.done}/{summary.total} finished")
     if application.config.verify.commands:
         console.print("  verification: passed (your test commands, run by Orkestra)")
@@ -253,6 +269,13 @@ def start(
         bool | None,
         typer.Option("--run/--no-run", help="Run immediately after setup."),
     ] = None,
+    agents: Annotated[
+        str | None,
+        typer.Option(
+            "--agents",
+            help="Only enable these agents (comma-separated, e.g. claude,codex).",
+        ),
+    ] = None,
 ) -> None:
     """Guided setup: agents, preset, models, gates, spec — then run."""
     from orkestra.cli.start import start_flow
@@ -264,6 +287,7 @@ def start(
                 interactive=not non_interactive,
                 preset_key=preset,
                 run_after=run_now,
+                agent_filter=agents,
             )
         )
     except ConfigError as exc:
@@ -1147,6 +1171,8 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
     done, total = summary.done, summary.total
     commits = summary.commits
     console.print(f"[bold]Run {resolved}[/bold] — project {run.project_name}")  # type: ignore[attr-defined]
+    if _is_practice_mode(application):
+        console.print(_PRACTICE_NOTE)
     state_value = run.state.value  # type: ignore[attr-defined]
     state_style = "green" if summary.complete else "yellow"
     console.print(
@@ -1503,6 +1529,13 @@ def report(
     run_id: Annotated[str | None, typer.Option("--run")] = None,
     out: Annotated[Path | None, typer.Option("--out", help="Write markdown report here.")] = None,
     json_out: Annotated[Path | None, typer.Option("--json-out")] = None,
+    save: Annotated[
+        bool,
+        typer.Option(
+            "--save",
+            help="Write markdown + JSON under .orkestra/reports/ (git-ignored).",
+        ),
+    ] = False,
 ) -> None:
     """Produce the run report (markdown and/or JSON, secrets redacted)."""
     from orkestra.report.final import build_report, render_json, render_markdown
@@ -1511,15 +1544,36 @@ def report(
     resolved = _pick_run(application, run_id)
     document = build_report(application.store, resolved)
     markdown = render_markdown(document)
+    if save:
+        reports_dir = application.root / ".orkestra" / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        out = out or reports_dir / f"{resolved}.md"
+        json_out = json_out or reports_dir / f"{resolved}.json"
     if out:
         out.write_text(markdown, encoding="utf-8")
         console.print(f"wrote {out}")
+        _report_location_note(application.root, out)
     if json_out:
         json_out.write_text(render_json(document), encoding="utf-8")
         console.print(f"wrote {json_out}")
+        _report_location_note(application.root, json_out)
     if not out and not json_out:
         console.print(markdown)
     application.close()
+
+
+def _report_location_note(root: Path, path: Path) -> None:
+    """Warn when a report lands in the repo as a stray untracked file."""
+    try:
+        rel = path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return
+    if rel.parts[:1] != (".orkestra",):
+        console.print(
+            f"[dim]note: {path} sits in your repository as an untracked file — "
+            "commit or delete it when done, or use --save to keep reports "
+            "under .orkestra/reports/ (git-ignored)[/dim]"
+        )
 
 
 @app.command()
