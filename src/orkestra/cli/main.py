@@ -245,11 +245,26 @@ def doctor() -> None:
             table.add_row("agents overall", "[green]ok[/green]", f"{ready_agents} agents ready")
 
         docker = shutil.which("docker")
-        table.add_row(
-            "docker (optional)",
-            "[green]present[/green]" if docker else "[yellow]absent[/yellow]",
-            "used only for the opt-in docker sandbox",
-        )
+        if application.config.policy.sandbox == "docker":
+            daemon_ok = False
+            if docker:
+                probe = subprocess.run(
+                    [docker, "info"], capture_output=True, timeout=20, check=False
+                )
+                daemon_ok = probe.returncode == 0
+            if not daemon_ok:
+                problems += 1
+            table.add_row(
+                "docker (required: sandbox enabled)",
+                "[green]ok[/green]" if daemon_ok else "[red]daemon unavailable[/red]",
+                'policy.sandbox = "docker" needs a running Docker daemon',
+            )
+        else:
+            table.add_row(
+                "docker (optional)",
+                "[green]present[/green]" if docker else "[yellow]absent[/yellow]",
+                "used only for the opt-in docker sandbox",
+            )
         console.print(table)
         if problems:
             err_console.print(f"[red]{problems} problem(s) found[/red]")

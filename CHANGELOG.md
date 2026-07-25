@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Docker sandbox (ADR-0009): `policy.sandbox = "docker"` now runs
+  **external and fake agents** inside hardened containers — network
+  none, cap-drop ALL, no-new-privileges, read-only rootfs with tmpfs
+  /tmp, memory/CPU/pids limits, non-root host uid, and only the task
+  worktree mounted. Per-agent `sandbox_image` config; vendor CLIs are
+  still refused with the credential-exposure explanation; `orkestra
+  doctor` treats the Docker daemon as a hard check when enabled.
+  Verified live with a real container end-to-end (implement → gates →
+  review → integrate).
 - Quota-aware scheduling: optional per-agent, per-run token budgets
   (`agents.<name>.token_budget`) computed from the kernel's own usage
   ledger — exhausted agents stop receiving new dispatches and fallbacks
