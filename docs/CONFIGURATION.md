@@ -1,7 +1,7 @@
 # Configuration Reference
 
 Location: `.orkestra/config.toml` (project-local, created by
-`orkestra init`, discovered by walking up from the current directory).
+`orkestra init` or `orkestra start`, discovered by walking up from the current directory).
 Validation is strict: unknown keys are errors with precise messages.
 
 ```toml

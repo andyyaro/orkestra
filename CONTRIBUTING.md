@@ -46,7 +46,8 @@ See `docs/adapters/AUTHORING.md`. Implement the adapter contract, then run
 the contract test kit:
 
 ```bash
-uv run pytest tests/adapters/test_contract.py --adapter your-adapter
+uv run pytest tests/adapters/test_contract.py  # see docs/adapters/PROTOCOL.md
+# ("Compliance testing") for wiring the suite to your own adapter
 ```
 
 ## Commit / PR conventions

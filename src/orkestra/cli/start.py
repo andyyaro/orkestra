@@ -74,6 +74,22 @@ def _fail(message: str) -> None:
     raise typer.Exit(code=1)
 
 
+def _guard_not_nested(root: Path, toplevel: Path | None) -> None:
+    """Refuse to set up a project in a subdirectory of an existing repo.
+
+    Git would resolve every command to the surrounding repository, so
+    setup commits and run isolation would land in the parent project.
+    """
+    if toplevel is not None and toplevel != root:
+        _fail(
+            f"this folder is inside an existing Git repository ({toplevel}).\n"
+            "Orkestra projects manage their own repository, so setting up "
+            "here would mix this project into that one.\n"
+            f"Either run it at the repository root:  orkestra start {toplevel}\n"
+            "or create the project outside that repository."
+        )
+
+
 async def _detect_ready_adapters() -> dict[str, dict[str, str]]:
     """adapter_id -> {version, ready, detail} for CLIs present on PATH."""
     found: dict[str, dict[str, str]] = {}
@@ -265,12 +281,18 @@ async def start_flow(
     """Returns (run_now, practice_mode)."""
     from orkestra.workspace.git import GitRepo
 
+    # Pure validation first: a bad --agents value must fail before any
+    # file or repository mutation happens.
+    if agent_filter:
+        _resolve_agent_filter(agent_filter)
+
     root = root.resolve()
     root.mkdir(parents=True, exist_ok=True)
     repo = GitRepo(root)
 
     # ---- capture repository state BEFORE any mutation (git safety) ----
     was_repo = await repo.is_repo()
+    _guard_not_nested(root, await repo.toplevel() if was_repo else None)
     pre_tracked: list[str] = []
     pre_staged: list[str] = []
     pre_untracked: list[str] = []
