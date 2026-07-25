@@ -43,14 +43,29 @@ question, options, and recommendation; `orkestra approve <id> --option
 
 State is persistent. `orkestra resume` reconciles (closes dangling
 attempts, repairs worktrees) and continues. Nothing is executed twice;
-interrupted attempts are re-planned cleanly.
+interrupted attempts are re-planned cleanly. An interrupt that landed
+*before* planning finished is re-planned from your spec as a fresh run.
 
 ## Verification keeps failing
 
 The kernel runs your `verify.commands` inside the task worktree with an
 allowlisted environment. Check they pass in a fresh checkout
 (`git worktree add /tmp/wt <branch> && cd /tmp/wt && <command>`), and
-remember agents may need the command's tools available on PATH.
+remember agents may need the command's tools available on PATH. The
+failing command's output is shown in the event log and handed to the
+agent that repairs the work, so `orkestra logs` tells you why.
+
+A command that cannot even start (missing executable, unparsable) is
+caught *before* any agent runs and blocks the task: fix
+`.orkestra/config.toml` first — retrying without editing it fails
+identically.
+
+## "ignoring plan acceptance entry"
+
+The plan proposed an extra per-task check that isn't a runnable command
+(prose, or shell syntax like pipes — commands run without a shell). It
+is dropped, not executed. Your `[verify]` commands still gate the task,
+so this is informational.
 
 ## Merge conflicts between tasks
 
@@ -66,6 +81,17 @@ Rate-limited agents back off (60 s base, exponential) and eventually
 fall back to other agents or a human gate. Long runs on subscription
 plans may simply need to wait for your provider's window to reset —
 `orkestra pause` / `resume` are safe across resets.
+
+## An agent says it needs permission to run commands
+
+Headless agents cannot answer permission prompts. Claude Code runs with
+`--permission-mode acceptEdits`, so it edits files freely but may refuse
+to *run* commands (like your test suite) and will say so; Orkestra
+surfaces a warning when it detects this. It is not fatal — Orkestra runs
+your `[verify]` commands itself, deterministically, after the agent
+finishes. To let agents run commands themselves, pre-approve the tools
+they need in the vendor CLI's own settings (e.g. Claude Code's
+`~/.claude/settings.json` `permissions.allow`).
 
 ## Antigravity task stalls until timeout
 

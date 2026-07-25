@@ -4,7 +4,7 @@
 
 - Python ≥ 3.12
 - Git ≥ 2.20 (worktree support)
-- macOS or Linux (Windows is untested; see ROADMAP.md)
+- macOS or Linux (Windows is untested; see ../ROADMAP.md)
 - At least **two** agent CLIs installed and signed in with their own
   official flows, for example:
   - Claude Code: `claude` — https://code.claude.com/docs
@@ -65,4 +65,6 @@ git branch --list 'ork/*'              # inspect leftover run branches
 git branch -D <branch>                 # delete the ones you don't want
 ```
 
-Orkestra writes nothing outside your project directories.
+Orkestra keeps no persistent state outside your project directories (the
+codex adapter writes short-lived schema files, and `orkestra demo` a
+scratch repository, into the system temp directory).

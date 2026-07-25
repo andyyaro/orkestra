@@ -8,6 +8,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-25
+
+Correction release driven by the third fleet test — the first run with
+real multi-agent orchestration (report:
+`docs/development/FLEET_TEST_REPORT_v0.4.5_REAL_AGENTS.md`). Real agents
+exposed a verification pipeline that did not match the product's claims.
+
+### Changed (breaking semantics)
+- **Your `[verify]` commands are now always the authoritative gate.**
+  Previously a plan-generated `acceptance` list *replaced* them. Now
+  plan-proposed entries run only *in addition*, and only when they
+  validate as runnable commands (plain argv, no shell/prose syntax,
+  executable resolvable); invalid entries are dropped with a warning
+  instead of being executed. Runs that relied on director-invented gates
+  will now also run the project's own commands.
+- `orkestra run` exits 3 when a run ends cancelled (was 0 in some paths).
+
+### Fixed
+- A `[verify]` command that cannot start is caught in pre-flight, before
+  any agent is dispatched — no more infinite retry loops replaying full
+  agent work against a deterministically broken gate. The blocked-task
+  explanation now says retrying without fixing the config will fail
+  identically, and names the real source of the command.
+- Verification failures capture the failing command's stdout/stderr into
+  the event log *and* into the repairing agent's fix context (previously
+  neither the user nor the agent could see why work was rejected).
+- `orkestra resume` recovers a run interrupted before planning finished
+  by re-planning from the spec (previously errored "run has no tasks",
+  contradicting README/FAQ/TROUBLESHOOTING).
+- Usage accounting now covers director analysis, planning, plan
+  challenges and capability probes, plus cache-read and cache-creation
+  input tokens (new `usage_log.cached_input_tokens` column). Report gains
+  a totals row, a cached-input column, 4-decimal costs, and a caveat that
+  cost covers only agents that report it.
+- `orkestra pause` stops new attempts inside a running task, not just new
+  tasks; the in-flight subprocess is never killed.
+- Report task table shows Attempts / Reviews run / Rejections derived
+  from attempt rows, so a human "retry" no longer erases the history;
+  per-attempt `session_id` is exposed in the JSON report.
+- A review skipped because a task produced no changes is announced
+  explicitly instead of looking like an approval.
+- Commits exclude build artifacts (`__pycache__`, `*.pyc`,
+  `node_modules`, `.pytest_cache`) that agent test runs generate.
+- Claude Code permission stalls in headless runs are detected and
+  surfaced as a warning (documented in TROUBLESHOOTING).
+- Director analysis in reports no longer leaks tool-call scaffolding, and
+  assumptions are shown; long text truncates at a word boundary.
+- `[agent]` attribution in commit subjects and streamed events survives
+  Rich markup; streamed events are attributed to the acting agent.
+- `orkestra status` shows run timing and a "still preparing" hint during
+  analysis/probing/planning; `accept` mentions `--cleanup` and describes
+  the working tree precisely.
+
+### Documentation
+- Full staleness audit: verification-authority model documented across
+  CONCEPTS, CONFIGURATION, SECURITY_MODEL, THREAT_MODEL, ARCHITECTURE and
+  README; resume/pause/usage/report behavior corrected in CLI, FAQ,
+  QUICKSTART, TROUBLESHOOTING; INSTALL temp-file claim and dead link
+  fixed; PROVIDERS Codex credential claim corrected; AUTHORING autonomy
+  mapping corrected; PROTOCOL usage shape updated.
+
 ## [0.4.5] - 2026-07-25
 
 Fixes for the second simulated-user fleet test of 0.4.4

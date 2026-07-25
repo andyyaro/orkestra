@@ -41,11 +41,31 @@ _API_ERROR_TO_KIND = {
 }
 
 
+#: Phrases a headless agent produces when a permission prompt it cannot
+#: answer blocks it (typically running commands, e.g. the project's tests).
+_PERMISSION_MARKERS = (
+    "permission to run",
+    "don't have permission",
+    "do not have permission",
+    "requires permission",
+    "permission denied by",
+    "cannot run commands",
+    "need approval to run",
+    "asking for approval",
+)
+
+
+def _looks_permission_blocked(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in _PERMISSION_MARKERS)
+
+
 class ClaudeParser(StreamParser):
     def __init__(self) -> None:
         self.final: dict[str, Any] | None = None
         self.last_error_kind = ErrorKind.NONE
         self.stderr_tail: list[str] = []
+        self.permission_blocked = False
 
     def feed_line(self, line: str, *, is_stderr: bool) -> Iterable[AgentEvent]:
         if is_stderr:
@@ -79,7 +99,19 @@ class ClaudeParser(StreamParser):
             for block in message.get("content") or []:
                 if isinstance(block, dict):
                     if block.get("type") == "text" and block.get("text"):
-                        yield AgentEvent(kind=EventKind.TEXT, text=str(block["text"])[:4000])
+                        text = str(block["text"])
+                        if _looks_permission_blocked(text):
+                            self.permission_blocked = True
+                            yield AgentEvent(
+                                kind=EventKind.WARNING,
+                                text=(
+                                    "agent appears blocked by a permission prompt it "
+                                    "cannot answer headlessly (e.g. running commands). "
+                                    "Pre-approve the tools it needs in the vendor CLI's "
+                                    "settings — see docs/TROUBLESHOOTING.md"
+                                ),
+                            )
+                        yield AgentEvent(kind=EventKind.TEXT, text=text[:4000])
                     elif block.get("type") == "tool_use":
                         yield AgentEvent(
                             kind=EventKind.TOOL,
@@ -94,7 +126,8 @@ class ClaudeParser(StreamParser):
             usage = Usage(
                 input_tokens=int(usage_raw.get("input_tokens") or 0),
                 output_tokens=int(usage_raw.get("output_tokens") or 0),
-                cached_input_tokens=int(usage_raw.get("cache_read_input_tokens") or 0),
+                cached_input_tokens=int(usage_raw.get("cache_read_input_tokens") or 0)
+                + int(usage_raw.get("cache_creation_input_tokens") or 0),
                 total_cost_usd=self.final.get("total_cost_usd"),
             )
             session_id = str(self.final.get("session_id") or "")

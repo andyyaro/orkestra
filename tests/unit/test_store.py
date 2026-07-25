@@ -12,6 +12,7 @@ from orkestra.schemas.common import AttemptState, RunState, TaskKind, TaskState
 from orkestra.schemas.decision import DecisionOption, HumanDecision
 from orkestra.schemas.task import Assignment, TaskSpec
 from orkestra.store import Database, Store
+from orkestra.store.migrations import MIGRATIONS
 
 
 @pytest.fixture
@@ -27,13 +28,13 @@ class TestMigrations:
     def test_fresh_db_migrates(self, tmp_path: Path) -> None:
         db = Database(tmp_path / "a.db")
         row = db.query_one("SELECT version FROM schema_version")
-        assert row is not None and row["version"] == 1
+        assert row is not None and row["version"] == len(MIGRATIONS)
 
     def test_reopen_is_idempotent(self, tmp_path: Path) -> None:
         path = tmp_path / "b.db"
         Database(path).close()
         db2 = Database(path)  # must not re-run migration 1
-        assert db2.query_one("SELECT version FROM schema_version")["version"] == 1
+        assert db2.query_one("SELECT version FROM schema_version")["version"] == len(MIGRATIONS)
 
     def test_future_schema_rejected(self, tmp_path: Path) -> None:
         path = tmp_path / "c.db"

@@ -92,7 +92,7 @@ class TestAcceptConfirmation:
         out = result.output
         assert "About to accept run" in out
         assert "run state: complete" in out
-        assert "working tree: clean" in out
+        assert "no uncommitted changes to tracked files" in " ".join(out.split())
 
 
 class TestCompleteRunEnforcement:

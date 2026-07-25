@@ -15,8 +15,9 @@ a `GEMINI_API_KEY` or Vertex setup you provision.
 
 **Will parallel agents burn through my plan limits?**
 Faster than serial use, yes — that's physics. Defaults are conservative
-(`max_concurrency = 2`, probes cached and budgeted). Usage per agent is
-recorded and shown in `orkestra report`.
+(`max_concurrency = 2`, probes cached and budgeted). Usage per agent — including director
+analysis, planning, plan challenges and capability probes, and cached
+input tokens — is recorded and shown in `orkestra report`.
 
 **Can Claude assign work to itself?**
 Yes. The director is a planner, not a bystander — Claude (or whichever
@@ -32,7 +33,8 @@ the deterministic heuristic planner (also used by `--offline`).
 **What happens if I close my laptop mid-run?**
 State is in SQLite with idempotent transitions. `orkestra resume`
 reconciles (dangling attempts marked interrupted, worktrees repaired)
-and continues. Nothing is silently executed twice.
+and continues — including an interrupt before planning finished, which
+is re-planned cleanly from your spec. Nothing is silently executed twice.
 
 **Where does the result end up?**
 In a holding area your branches never see until you act: `orkestra

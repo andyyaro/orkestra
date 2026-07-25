@@ -27,7 +27,8 @@ compliant use of your accounts is yours.
 ## OpenAI Codex CLI (`codex`)
 
 - `codex exec` is built for scripts/pipelines per OpenAI's docs. API-key
-  auth (`CODEX_API_KEY`) is OpenAI's recommended automation credential;
+  auth (an OpenAI API key in the Codex CLI's own configuration) is the
+  recommended automation credential; Orkestra never reads or forwards it;
   ChatGPT-account auth is fine interactively/locally, and documented for
   CI only as "advanced, trusted private" use.
 - OpenAI permits forking/wrapping the Apache-2.0 CLI but has not issued
