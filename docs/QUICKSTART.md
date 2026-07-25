@@ -2,6 +2,15 @@
 
 Ten minutes from empty directory to a verified, multi-agent result.
 
+## 0. Watch it work first (free)
+
+```bash
+orkestra demo
+```
+
+Scripted fake agents, real engine: planning, parallel isolated tasks,
+a review rejection and repair, integration. No quota, no logins.
+
 ## 1. Initialize
 
 ```bash
@@ -26,13 +35,14 @@ exactly `Hello, {name}!`, plus `test_greet.py` runnable with
 
 ## 3. Configure agents and gates
 
-`orkestra init` already enabled the agent CLIs it found on your PATH.
-Open `.orkestra/config.toml`, confirm at least two agents are enabled,
-and add a deterministic acceptance command:
+`orkestra init` already enabled the agent CLIs it found on your PATH
+**and pre-filled `[verify]` commands from your project's test setup**
+(pytest/npm/cargo/go). Check them — they are the safety net agents
+cannot talk past. Optionally pick models and effort:
 
-```toml
-[verify]
-commands = ["python3 test_greet.py"]
+```bash
+orkestra agents set claude --model sonnet
+orkestra agents set antigravity --effort high
 ```
 
 Commit your spec (Orkestra refuses to run on a dirty repo):
@@ -72,16 +82,17 @@ orkestra resume
 ## 6. Inspect and merge
 
 ```bash
+orkestra diff                # commits + files the run built
+orkestra diff --full         # the whole patch
+orkestra merge --cleanup     # accept into your branch, tidy up
 orkestra report --out report.md
-git log --oneline ork/<run-id>/integration
-git merge ork/<run-id>/integration     # when you're satisfied
 ```
 
 ## If it stops with a question
 
 ```bash
-orkestra decisions          # what, why, options, recommendation
-orkestra approve dec_xxxx --option retry
+orkestra decisions   # what happened + a plain-language explanation
+orkestra approve     # picks the open decision and prompts you
 orkestra resume
 ```
 

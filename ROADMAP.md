@@ -8,7 +8,7 @@ Direction, not commitment. Items move as evidence accumulates.
   (ADR-0009); remaining: vendor-CLI containerization pending
   vendor-supported container auth, and cidfile-based teardown of
   daemon-side strays on hard kills.
-- ~~Textual TUI~~ shipped post-0.1.2: `orkestra watch` ([tui] extra).
+- ~~Textual TUI~~ shipped: `orkestra watch` + `run --watch`.
 - ~~Quota-aware scheduling~~ shipped post-0.1.2: per-agent token
   budgets and global rate-limit cooldowns with immediate fallback.
 - ~~Adapter session reuse~~ shipped for fix cycles (post-0.1.2);

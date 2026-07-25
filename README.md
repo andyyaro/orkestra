@@ -2,147 +2,126 @@
 
 > **Coordinate many agents. Deliver one verified result.**
 
-Orkestra is an open-source, **local-first orchestration runtime** that lets
-two or more autonomous coding agents — Claude Code, OpenAI Codex CLI,
-Google Antigravity CLI, Gemini CLI, or your own — collaborate on the same
-software project with minimal human intervention.
+You already use coding agents — Claude Code, OpenAI Codex, Google
+Antigravity. Orkestra makes **two or more of them work on the same
+project at once**, safely: every task runs in its own isolated Git
+worktree, your test commands are the referee, and nothing lands until a
+*different* agent has reviewed it. Your branches are never touched;
+finished work waits on a side branch until you accept it.
 
-It exists because running several subscription-authenticated agent CLIs by
-hand means juggling terminals, praying nobody clobbers anybody's edits, and
-trusting an LLM's word that "all tests pass." Orkestra replaces that with a
-**deterministic kernel** that isolates every task in its own Git worktree,
-runs your acceptance commands itself, and requires an **independent agent
-review** before anything is integrated.
+## See it in 60 seconds — free
 
-## Why it's different
+```bash
+uv tool install 'orkestra-runtime[tui]'
+orkestra demo
+```
 
-Most multi-agent tools hard-code roles ("Claude implements, X reviews") or
-put an LLM in charge of everything. Orkestra separates powers:
+No agent CLIs, no logins, no tokens spent — scripted fake agents drive
+the *real* engine so you can watch the whole lifecycle:
 
-- A **director agent** (default: Claude Code — configurable) analyzes your
-  project, measures the available agents with bounded capability probes,
-  decomposes the work into a dependency graph, and proposes assignments.
-- A **deterministic, non-LLM kernel** validates every director decision
-  against schemas and policy, owns all state, dispatches work, enforces
-  `implementer ≠ reviewer`, runs verification gates, and integrates
-  results. Agents *propose*; the kernel *disposes*.
-- Delegation is **evidence-based and adaptive**: every probe result and
-  task outcome lands in a capability ledger; assignments re-rank as
-  evidence accumulates. Scores without recorded evidence don't exist.
+```text
+▸ The plan: two independent tasks run in PARALLEL, each in its own
+  isolated Git worktree, then a third task builds on both.
+  completed verification passed: PASS (exit 0): test -f feature_a.py
+  completed review by grace: changes requested (severity medium)
+    warning review requested changes (cycle 1)
+  completed review by grace: approved (severity none)
+  completed task feature-a done (agent ada)
+  completed all tasks done
+▸ Done: 3 tasks planned, isolated, verified, cross-reviewed, integrated.
+  1 review rejection triggered a repair loop (bounded — never spins forever).
+```
 
-```mermaid
-flowchart TB
-    subgraph you [You]
-        CLI[orkestra CLI]
-        SPEC[SPEC.md]
-    end
-    subgraph kernel [Deterministic kernel — no LLM]
-        SCH[Scheduler + task DAG]
-        POL[Policy engine]
-        VER[Verification gates]
-        DB[(SQLite state)]
-    end
-    DIR[Director agent<br/>default: Claude Code]
-    subgraph agents [Agent adapters]
-        A1[claude-code]
-        A2[codex-cli]
-        A3[antigravity-cli]
-        A4[gemini-cli / external / fake]
-    end
-    subgraph git [Git isolation]
-        W1[worktree: task A]
-        W2[worktree: task B]
-        INT[integration branch]
-    end
-    SPEC --> DIR
-    CLI --> SCH
-    DIR -- schema-validated decisions --> POL --> SCH
-    SCH <--> DB
-    SCH --> A1 & A2 & A3 & A4
-    A1 --> W1
-    A2 --> W2
-    VER --> W1 & W2
-    W1 & W2 -- gates + independent review --> INT
+That rejection-then-repair is the point: agents check each other, the
+kernel keeps score, and you only see verified results.
+
+## Use it on your project
+
+```bash
+cd my-project
+orkestra init .        # detects your agents AND your test commands
+$EDITOR SPEC.md        # describe what you want built (you'll get hints if it's vague)
+orkestra doctor        # green = ready
+orkestra run           # or: orkestra run --watch  (live TUI attached)
+```
+
+While it runs: `orkestra watch` (live dashboard from any terminal),
+`orkestra status`, `orkestra pause` / `resume` / `cancel` — state
+survives crashes, Ctrl-C, and reboots.
+
+When it finishes:
+
+```bash
+orkestra diff          # what was built (commits + files)
+orkestra merge         # accept it into your branch — the only step that touches it
+```
+
+If Orkestra needs you (budgets exhausted, a real decision), it stops
+and explains itself in plain language:
+
+```bash
+orkestra decisions     # what happened, what it means, what to try
+orkestra approve       # picks the open decision, prompts you, done
+orkestra resume
+```
+
+Pick models and effort per agent without touching TOML:
+
+```bash
+orkestra agents models                       # what you can choose
+orkestra agents set claude --model sonnet
+orkestra agents set antigravity --effort high
 ```
 
 ## Supported agents
 
 | Agent | Adapter | Notes |
 |---|---|---|
-| Claude Code | `claude-code` | Default director; structured output via `--json-schema` |
-| OpenAI Codex CLI | `codex-cli` | OS-level sandbox (Seatbelt/Landlock); `--output-schema` |
-| Google Antigravity CLI (`agy`) | `antigravity-cli` | First-party Google adapter for consumer accounts |
-| Google Gemini CLI | `gemini-cli` | For API-key / Vertex / Enterprise auth only¹ |
-| Anything else | `external` | Speak the [`orkestra-jsonl/1` protocol](docs/adapters/PROTOCOL.md) |
-| Scripted fake | `fake` | Deterministic; used by tests and offline mode |
+| Claude Code | `claude-code` | Default director; structured output |
+| OpenAI Codex CLI | `codex-cli` | OS-level sandbox; effort tuning |
+| Google Antigravity CLI (`agy`) | `antigravity-cli` | Consumer-account Google adapter; effort tuning |
+| Google Gemini CLI | `gemini-cli` | API-key / Vertex / Enterprise auth only¹ |
+| Anything else | `external` | One small [JSONL protocol](docs/adapters/PROTOCOL.md), any language |
+| Scripted fake | `fake` | Powers the demo, tests, offline mode |
 
-¹ Google migrated individual-consumer OAuth off the Gemini CLI to the
-Antigravity suite in June 2026; Orkestra's default Google adapter is
-therefore `antigravity-cli`.
+¹ Google moved individual-consumer OAuth to the Antigravity suite in
+June 2026, so `antigravity-cli` is the default Google adapter.
 
-Two agents are the minimum; there is no upper bound and no fixed-three
-assumption anywhere in the schema, scheduler, or tests.
+Two agents minimum, no upper bound, no fixed roles: a **director agent**
+(default Claude Code, configurable) plans and delegates from measured
+evidence — including to itself.
 
-## Install
+## What you can rely on
 
-Requires Python ≥ 3.12, Git, and at least two agent CLIs installed and
-signed in (their own official login flows — Orkestra never touches your
-credentials).
+| Guarantee | How |
+|---|---|
+| Your branches are never modified | work happens on `ork/*` branches; `orkestra merge` is the only step that touches yours, and you run it |
+| Agents can't approve their own work | kernel-enforced implementer ≠ reviewer, across vendors |
+| "Tests pass" claims mean nothing | the kernel runs *your* acceptance commands and reads exit codes itself |
+| No surprise costs | per-agent token budgets, rate-limit-aware scheduling, live progress/cost line, everything bounded |
+| Crashes lose nothing | SQLite state + idempotent transitions; `orkestra resume` reconciles and continues |
+| Secrets stay out of logs | credential-shape redaction on everything persisted or exported |
+| Your credentials are untouched | agents sign in through their own official CLIs; Orkestra never reads token stores |
 
-```bash
-# with uv (recommended)
-uv tool install orkestra-runtime
-# or with pip
-pip install orkestra-runtime
-```
+Elevated modes exist, are loudly named (`autonomy = "unsafe-full"`), and
+are never defaults. Details: [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md).
 
-## Quickstart (two agents)
+## How it works (the part for skeptics)
 
-```bash
-cd my-project                 # existing repo or empty directory
-orkestra init .               # writes .orkestra/config.toml + SPEC.md
-$EDITOR SPEC.md               # describe what you want built
-$EDITOR .orkestra/config.toml # enable ≥2 agents; set verify commands
-orkestra doctor               # check agents, auth, git readiness
-orkestra run                  # analyze → probe → plan → execute → report
-```
+Most multi-agent tools hard-code roles or put an LLM in charge of
+everything. Orkestra separates powers: intelligence proposes,
+determinism disposes.
 
-While it runs (or afterwards):
-
-```bash
-orkestra status        # task graph state
-orkestra logs          # streamed, redacted event log
-orkestra decisions     # questions only a human can answer
-orkestra approve dec_x --option retry
-orkestra pause / resume / cancel
-orkestra report --out report.md
-```
-
-Results accumulate on a dedicated branch `ork/<run>/integration` — your
-branches are never touched. Merge it when you're satisfied:
-
-```bash
-git merge ork/run_xxxx/integration
-```
-
-## The lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> analyzing: orkestra run
-    analyzing --> probing: director analysis
-    probing --> planning: capability matrix built
-    planning --> running: plan validated by kernel
-    running --> waiting_human: genuine decision needed
-    waiting_human --> running: orkestra approve + resume
-    running --> paused: orkestra pause
-    paused --> running: orkestra resume
-    running --> complete: all tasks integrated
-    running --> failed: budgets exhausted
-    running --> cancelled: orkestra cancel
-```
-
-Each task moves through a pipeline the implementing agent cannot skip:
+- The **director agent** analyzes your spec, measures the available
+  agents with objective probes, decomposes the work into a dependency
+  graph, and proposes assignments — as schema-validated JSON, never
+  free prose.
+- The **deterministic kernel** (plain Python, no LLM) validates every
+  proposal against policy, owns all state, dispatches work, enforces
+  review independence, runs verification gates, and integrates results.
+- Delegation is **evidence-based**: probe results and every task
+  outcome land in a ledger; assignments re-rank as evidence accumulates.
+  Scores without recorded evidence don't exist.
 
 ```mermaid
 flowchart LR
@@ -156,104 +135,70 @@ flowchart LR
     I -- conflict --> A
 ```
 
-### Capability discovery
-
 ```mermaid
-flowchart LR
-    INV[inventory agents<br/>versions + auth] --> PRB[bounded probes<br/>cached per version]
-    PRB --> OBS[objective observations]
-    OBS --> MTX[weighted matrix<br/>+ confidence]
-    MTX --> PLAN[assignments]
-    PLAN --> LED[per-task outcomes<br/>feed back]
-    LED --> MTX
+flowchart TB
+    subgraph you [You]
+        CLI[orkestra CLI / TUI]
+        SPEC[SPEC.md]
+    end
+    subgraph kernel [Deterministic kernel — no LLM]
+        SCH[Scheduler + task DAG]
+        POL[Policy engine]
+        VER[Verification gates]
+        DB[(SQLite state)]
+    end
+    DIR[Director agent]
+    subgraph agents [Agent adapters]
+        A1[claude-code]
+        A2[codex-cli]
+        A3[antigravity-cli]
+        A4[external / fake]
+    end
+    SPEC --> DIR
+    CLI --> SCH
+    DIR -- schema-validated decisions --> POL --> SCH
+    SCH <--> DB
+    SCH --> A1 & A2 & A3 & A4
+    VER --> SCH
 ```
 
-Probes are budgeted, cached per agent version, and can be disabled
-(`probes.mode = "off"`). Every matrix score carries the observation ids
-behind it.
+More diagrams (lifecycle, capability discovery, human gates):
+[docs/CONCEPTS.md](docs/CONCEPTS.md) and
+[docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
 
-### Human gates
+## Verified vs. experimental
 
-```mermaid
-flowchart LR
-    X[task exhausts budgets<br/>or hits a policy wall] --> Q[decision record persisted:<br/>question, options, consequences,<br/>recommendation]
-    Q --> U[orkestra decisions]
-    U --> AP[orkestra approve id --option k]
-    AP --> RES[orkestra resume]
-    RES --> Y[unblocked work continues]
-```
+**Verified** — 300+ tests plus live cross-vendor runs with real Claude
+Code / Codex / Antigravity CLIs (including a gate-caught silent failure,
+automatic fallback repair, and cross-vendor review approvals), and
+dogfooding: Orkestra reviewed its own code, and that review's findings
+shipped as v0.1.1.
 
-Independent tasks keep running while a decision is open; state survives
-closing the terminal, crashes, and reboots (SQLite + idempotent
-transitions).
+**Experimental / limits** — Antigravity's JSON output flag is
+undocumented upstream (adapter has a plain-text fallback); Gemini CLI is
+auth-limited by Google's consumer migration; the Docker sandbox covers
+external/fake agents only (vendor CLIs would need your credential
+stores mounted — refused, see ADR-0009); Windows untested. Providers'
+plan limits are yours: see [docs/PROVIDERS.md](docs/PROVIDERS.md),
+including a disclosed gray area in Antigravity's ToS.
 
-## Safety model
+## Docs
 
-| Guarantee | Mechanism |
-|---|---|
-| Your branches are never modified | all work on `ork/*` branches; integration is opt-in merge |
-| Agents can't approve their own work | kernel-enforced `implementer ≠ reviewer` |
-| "Tests pass" claims are worthless | the kernel re-runs your acceptance commands and reads exit codes |
-| No shell injection | argv-only subprocess execution everywhere; generated branch names |
-| Git hooks can't attack the orchestrator | Orkestra's own git runs hook-disabled; diffs touching hooks/`.git`/workflows are rejected |
-| Secrets stay out of logs | credential-shaped redaction at write time and export time |
-| No credential access | agents authenticate through their own official CLIs; Orkestra never reads token stores |
-| No surprise costs | no pushes, no deploys, no purchases; rate-limit signals are hard backpressure; bounded retries everywhere |
+[Install](docs/INSTALL.md) · [Quickstart](docs/QUICKSTART.md) ·
+[Concepts](docs/CONCEPTS.md) · [Configuration](docs/CONFIGURATION.md) ·
+[CLI](docs/CLI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) ·
+[FAQ](docs/FAQ.md) · [Adapter protocol](docs/adapters/PROTOCOL.md) ·
+[Security model](docs/SECURITY_MODEL.md) ·
+[Threat model](docs/security/THREAT_MODEL.md) · [Roadmap](ROADMAP.md)
 
-Elevated modes exist but are explicit and loudly named
-(`autonomy = "unsafe-full"` per agent). Full details:
-[docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) and
-[docs/security/THREAT_MODEL.md](docs/security/THREAT_MODEL.md).
-
-## Status: verified vs. experimental
-
-**Verified** (unit + integration + E2E tested, and live-smoke-tested with
-real Claude Code / Codex / Antigravity CLIs): worktree isolation, the
-verification/review pipeline, crash recovery and resume, human gates,
-capability probes and evidence-based assignment, all five adapters'
-parsers against captured CLI output.
-
-**Experimental / known limits**: Antigravity's `--output-format` flag is
-undocumented upstream and may drift (the adapter falls back to plain
-text); Gemini CLI adapter is auth-limited by Google's consumer migration;
-Docker sandboxing and a TUI are roadmap items (`ROADMAP.md`); Windows is
-untested.
-
-**Provider terms**: you run agents under your own subscriptions and their
-own limits — see [docs/PROVIDERS.md](docs/PROVIDERS.md) for the terms
-review, including an unresolved gray area in Google's Antigravity ToS
-regarding third-party tools; review your providers' terms yourself.
-
-## Extending
-
-Add any agent as an external command speaking a small JSONL protocol —
-[docs/adapters/PROTOCOL.md](docs/adapters/PROTOCOL.md) — and validate it
-with the built-in contract test kit. Built-in adapter contributions:
-[docs/adapters/AUTHORING.md](docs/adapters/AUTHORING.md).
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Ground rules: the kernel stays
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) — kernel stays
 deterministic, no fixed-agent-count assumptions, evidence over
-self-report. Quality gates: ruff, mypy `--strict`, bandit, pytest with
-coverage ≥ 80%.
-
-## Documentation
-
-- [Installation](docs/INSTALL.md) · [Quickstart](docs/QUICKSTART.md) ·
-  [Concepts](docs/CONCEPTS.md) · [Configuration](docs/CONFIGURATION.md) ·
-  [CLI reference](docs/CLI.md)
-- [Architecture](docs/architecture/ARCHITECTURE.md) ·
-  [ADRs](docs/architecture/adr/) ·
-  [Threat model](docs/security/THREAT_MODEL.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md) · [FAQ](docs/FAQ.md) ·
-  [Provider terms](docs/PROVIDERS.md) · [Roadmap](ROADMAP.md)
+self-report.
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0 — [LICENSE](LICENSE), [NOTICE](NOTICE).
 
-Claude is a trademark of Anthropic PBC; Codex and ChatGPT are trademarks
-of OpenAI; Gemini and Antigravity are trademarks of Google LLC. Orkestra
-is an independent project, not affiliated with or endorsed by Anthropic,
-OpenAI, or Google.
+Claude is a trademark of Anthropic PBC; Codex and ChatGPT of OpenAI;
+Gemini and Antigravity of Google LLC. Orkestra is independent and not
+affiliated with or endorsed by any of them.

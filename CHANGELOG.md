@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-25
+
+The usability release — everything here came out of a serious "is this
+too technical?" self-audit.
+
+### Added
+
+- `orkestra demo`: free, zero-quota, full-lifecycle showcase with
+  scripted fake agents driving the real kernel (parallel isolated
+  tasks, gate checks, a review rejection + repair, integration).
+- `orkestra diff` and `orkestra merge [--cleanup]`: inspect and accept
+  a run's results without ever typing an `ork/*` branch name.
+- `orkestra agents set NAME --model … --effort …` and `orkestra agents
+  models`: pick models and reasoning effort per agent without editing
+  TOML (comment-preserving writes, validation with rollback). New
+  `agents.<name>.effort` wired to `agy --effort` and codex
+  `model_reasoning_effort`.
+- `orkestra init` now detects your test culture (pytest / npm / cargo /
+  go) and pre-fills `[verify]` commands; spec-quality hints warn about
+  vague or template SPEC.md files before quota is spent.
+- Plain-language explanations on every human gate (cause → meaning →
+  suggested next step), shown in `orkestra decisions` and interactive
+  approve.
+- `orkestra approve` with no arguments: picks the single open decision
+  and prompts, defaulting to the recommendation.
+- Live progress/cost line during runs (`▸ progress: 2/5 tasks · 41k
+  tokens · $0.31`).
+- `orkestra run --watch`: attach the live TUI while the run executes.
+
 ## [0.2.0] - 2026-07-25
 
 ### Added
