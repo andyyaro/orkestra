@@ -10,7 +10,14 @@ import tomllib
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    model_validator,
+)
 
 from orkestra.errors import ConfigError
 
@@ -156,6 +163,14 @@ def load_config(path: Path) -> ProjectConfig:
         raise ConfigError(msg) from exc
     try:
         return ProjectConfig.model_validate(raw)
+    except ValidationError as exc:
+        details = []
+        for err in exc.errors():
+            loc = ".".join(str(part) for part in err["loc"])
+            reason = err["msg"].removeprefix("Value error, ")
+            details.append(f"  {loc}: {reason}" if loc else f"  {reason}")
+        msg = f"{path}: invalid configuration:\n" + "\n".join(details)
+        raise ConfigError(msg) from exc
     except Exception as exc:
         msg = f"{path}: invalid configuration:\n{exc}"
         raise ConfigError(msg) from exc
