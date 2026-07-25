@@ -6,6 +6,8 @@ import asyncio
 import shutil
 import subprocess  # nosec B404 - argv-only execution, no shell
 from collections.abc import Callable
+from dataclasses import dataclass as _dataclass
+from dataclasses import field as _field
 from pathlib import Path
 from typing import Annotated
 
@@ -105,6 +107,26 @@ def _progress_callback(application: App) -> Callable[[str, AgentEvent], None]:
     return callback
 
 
+def _print_completion(application: App, run_id: str) -> None:
+    """Friendly end-of-run message: outcomes, not internals."""
+    summary = asyncio.run(_gather_run_summary(application, run_id))
+    console.print("\n[green bold]Run complete — your verified result is ready.[/green bold]")
+    console.print(f"  tasks: {summary.done}/{summary.total} finished")
+    console.print("  verification: passed (your acceptance commands, run by Orkestra)")
+    if summary.reviews_required:
+        console.print("  review: every change approved by an independent agent")
+    if summary.open_decisions:
+        console.print("  decisions you resolved along the way: see `orkestra decisions --all`")
+    usage = application.store.usage_summary(run_id)
+    tokens = sum((row["input_tokens"] or 0) + (row["output_tokens"] or 0) for row in usage)
+    cost = sum(row["total_cost_usd"] or 0 for row in usage)
+    line = f"  usage: {tokens / 1000:.0f}k tokens"
+    if cost:
+        line += f" · ${cost:.2f} (agents that report cost)"
+    console.print(line)
+    console.print("\nNext:\n  [bold]orkestra review[/bold]\n  [bold]orkestra accept[/bold]")
+
+
 def _print_event(_run_id: str, event: AgentEvent) -> None:
     styles = {
         EventKind.ERROR: "red",
@@ -189,9 +211,12 @@ def init(
         if not spec_path.exists():
             spec_path.write_text(SPEC_TEMPLATE.format(name=root.name))
             console.print(f"created {spec_path.name} — describe your project there")
-        if not await repo.has_commits():
-            await repo.add_all_and_commit("orkestra init")
-            console.print("created initial commit")
+        # Allowlist-scoped: only files Orkestra itself writes. Any
+        # pre-existing user files stay exactly as they were.
+        if not await repo.has_commits() and await repo.commit_paths(
+            [".gitignore", "SPEC.md"], "orkestra init"
+        ):
+            console.print("created initial commit (Orkestra setup files only)")
         console.print(f"[green]✓[/green] project initialized at {root}")
         found = [name for name, ok in detected.items() if ok]
         console.print(
@@ -241,7 +266,7 @@ def start(
     else:
         console.print(
             "next: [bold]orkestra run[/bold] (add --watch for the live view) · "
-            "then [bold]orkestra diff[/bold] and [bold]orkestra merge[/bold]"
+            "then [bold]orkestra review[/bold] and [bold]orkestra accept[/bold]"
         )
 
 
@@ -757,10 +782,11 @@ def run(
     _show_status(application, latest.run_id)
     application.close()
     if state is RunState.COMPLETE:
-        console.print(
-            f"\n[green]run complete[/green] — verified results are on branch "
-            f"[bold]{latest.integration_branch}[/bold]; merge when satisfied."
-        )
+        reopened = build_app(root=None)
+        try:
+            _print_completion(reopened, latest.run_id)
+        finally:
+            reopened.close()
     elif state is RunState.WAITING_HUMAN:
         console.print(
             "\n[yellow]run is waiting on your decision[/yellow] — "
@@ -1025,96 +1051,309 @@ def resume(
 # ------------------------------------------------------------ diff/merge
 
 
-@app.command()
-def diff(
-    run_id: Annotated[str | None, typer.Option("--run")] = None,
-    full: Annotated[bool, typer.Option("--full", help="Full patch, not just stats.")] = False,
-) -> None:
-    """Show what a run built (against the base it started from)."""
+@_dataclass
+class _RunSummary:
+    run: object
+    by_state: dict[str, int] = _field(default_factory=dict)
+    done: int = 0
+    total: int = 0
+    complete: bool = False
+    commits: list[str] = _field(default_factory=list)
+    stat: str = ""
+    shortstat: str = ""
+    open_decisions: int = 0
+    reviews_required: bool = True
+
+
+async def _gather_run_summary(application: App, resolved: str) -> _RunSummary:
+    """Everything review/accept need to describe a run, in one pass."""
+    from orkestra.workspace.git import GitRepo
+
+    run = application.store.get_run(resolved)
+    repo = GitRepo(application.root)
+    tasks = application.store.tasks_for_run(resolved)
+    by_state: dict[str, int] = {}
+    for task in tasks:
+        by_state[task.state.value] = by_state.get(task.state.value, 0) + 1
+    commits: list[str] = []
+    stat = ""
+    shortstat = ""
+    if run.integration_branch and run.base_commit:
+        _, log, _ = await repo._git(
+            "log", "--oneline", f"{run.base_commit}..{run.integration_branch}", check=False
+        )
+        commits = [line for line in log.splitlines() if line.strip()]
+        _, stat, _ = await repo._git(
+            "diff", "--stat", f"{run.base_commit}..{run.integration_branch}", check=False
+        )
+        _, shortstat, _ = await repo._git(
+            "diff", "--shortstat", f"{run.base_commit}..{run.integration_branch}", check=False
+        )
+    open_decisions = application.store.decisions_for_run(resolved, unresolved_only=True)
+    return _RunSummary(
+        run=run,
+        by_state=by_state,
+        done=by_state.get("done", 0),
+        total=len(tasks),
+        complete=run.state is RunState.COMPLETE,
+        commits=commits,
+        stat=stat.strip(),
+        shortstat=shortstat.strip(),
+        open_decisions=len(open_decisions),
+        reviews_required=application.config.policy.require_review,
+    )
+
+
+def _print_review(application: App, resolved: str, summary: _RunSummary, *, full: bool) -> None:
+    import asyncio as _asyncio
+
+    run = summary.run
+    by_state = summary.by_state
+    done, total = summary.done, summary.total
+    commits = summary.commits
+    console.print(f"[bold]Run {resolved}[/bold] — project {run.project_name}")  # type: ignore[attr-defined]
+    state_value = run.state.value  # type: ignore[attr-defined]
+    state_style = "green" if summary.complete else "yellow"
+    console.print(
+        f"  status: [{state_style}]{state_value}[/{state_style}] · {done}/{total} tasks finished"
+    )
+    others = {k: v for k, v in by_state.items() if k != "done"}
+    if others:
+        console.print(
+            "  not finished: "
+            + ", ".join(f"{count} {state}" for state, count in sorted(others.items()))
+        )
+    base = str(run.base_commit)[:10]  # type: ignore[attr-defined]
+    console.print(
+        f"  starting point: your code as of commit {base} "
+        "[dim](nothing of yours has been changed)[/dim]"
+    )
+    if summary.complete:
+        console.print(
+            "  verification: every finished task passed your acceptance "
+            "commands (run by Orkestra, not taken on trust)"
+        )
+        if summary.reviews_required:
+            console.print(
+                "  independent review: every change was approved by a "
+                "different agent than the one that wrote it"
+            )
+    if summary.open_decisions:
+        console.print(
+            f"  [yellow]waiting on you: {summary.open_decisions} open "
+            "decision(s) — `orkestra decisions`[/yellow]"
+        )
+    console.print(
+        f"\n  result: {len(commits)} commit(s)"
+        + (f" · {summary.shortstat}" if summary.shortstat else "")
+    )
+    for line in commits[:20]:
+        console.print(f"    {line}")
+    if len(commits) > 20:
+        console.print(f"    … and {len(commits) - 20} more")
+    if summary.stat:
+        console.print("\n" + summary.stat)
+    if not summary.complete:
+        console.print(
+            "\n[yellow]⚠ This run is not complete[/yellow] — what you see "
+            "above is a partial result. `orkestra resume` continues it; "
+            "accepting it anyway requires the advanced --allow-partial flag."
+        )
+    if full:
+        from orkestra.workspace.git import GitRepo
+
+        async def _patch() -> str:
+            repo = GitRepo(application.root)
+            _, patch, _ = await repo._git(
+                "diff",
+                f"{run.base_commit}..{run.integration_branch}",  # type: ignore[attr-defined]
+                check=False,
+            )
+            return patch
+
+        console.print(_asyncio.run(_patch()), highlight=False)
+    else:
+        console.print(
+            "\n[dim]orkestra review --full shows the whole patch · "
+            "orkestra accept brings it into your branch[/dim]"
+        )
+
+
+def _review_impl(run_id: str | None, full: bool) -> None:
     application = _load_app()
     resolved = _pick_run(application, run_id)
     run = application.store.get_run(resolved)
     if not run.integration_branch or not run.base_commit:
         application.close()
-        _fail(f"run {resolved} has no integrated results yet")
+        _fail(f"run {resolved} has no results to review yet")
         return
-
-    async def _run() -> None:
-        from orkestra.workspace.git import GitRepo
-
-        repo = GitRepo(application.root)
-        _, log, _ = await repo._git(
-            "log", "--oneline", f"{run.base_commit}..{run.integration_branch}"
-        )
-        commits = [line for line in log.splitlines() if line.strip()]
-        console.print(
-            f"[bold]run {resolved}[/bold] — {len(commits)} commit(s) on {run.integration_branch}\n"
-        )
-        for line in commits:
-            console.print(f"  {line}")
-        _, stat, _ = await repo._git(
-            "diff", "--stat", f"{run.base_commit}..{run.integration_branch}"
-        )
-        console.print("\n" + (stat.strip() or "(no file changes)"))
-        if full:
-            _, patch, _ = await repo._git("diff", f"{run.base_commit}..{run.integration_branch}")
-            console.print(patch, highlight=False)
-        else:
-            console.print(
-                "\n[dim]orkestra diff --full for the patch · orkestra merge to accept[/dim]"
-            )
-
-    asyncio.run(_run())
+    summary = asyncio.run(_gather_run_summary(application, resolved))
+    _print_review(application, resolved, summary, full=full)
     application.close()
 
 
 @app.command()
-def merge(
+def review(
     run_id: Annotated[str | None, typer.Option("--run")] = None,
-    cleanup: Annotated[
-        bool, typer.Option("--cleanup", help="Delete the run's ork/* branches after merging.")
-    ] = False,
+    full: Annotated[bool, typer.Option("--full", help="Show the whole patch.")] = False,
 ) -> None:
-    """Accept a run's verified results into your current branch."""
+    """See what a run built: status, verification, reviews, and changes."""
+    _review_impl(run_id, full)
+
+
+@app.command()
+def diff(
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+    full: Annotated[bool, typer.Option("--full", help="Show the whole patch.")] = False,
+) -> None:
+    """Alias of `orkestra review` (kept for advanced users and scripts)."""
+    _review_impl(run_id, full)
+
+
+def _accept_impl(
+    run_id: str | None,
+    *,
+    cleanup: bool,
+    yes: bool,
+    allow_partial: bool,
+) -> None:
     application = _load_app()
     resolved = _pick_run(application, run_id)
     run = application.store.get_run(resolved)
     if not run.integration_branch:
         application.close()
-        _fail(f"run {resolved} has no integration branch")
+        _fail(f"run {resolved} has no results to accept")
         return
-    if run.state is not RunState.COMPLETE:
-        console.print(
-            f"[yellow]note:[/yellow] run state is '{run.state.value}', not "
-            "'complete' — you are merging partial results."
-        )
 
-    async def _run() -> None:
-        from orkestra.errors import WorkspaceError
+    async def _preflight() -> tuple[_RunSummary, str, list[str], list[str], bool]:
         from orkestra.workspace.git import GitRepo
 
         repo = GitRepo(application.root)
+        summary = await _gather_run_summary(application, resolved)
         current = await repo.current_branch()
-        if current.startswith("ork/"):
-            _fail(f"you are on {current}; switch to your own branch first")
-        changed = await repo.tracked_changes()
-        if changed:
-            _fail(
-                "your working tree has uncommitted changes to tracked files "
-                f"({', '.join(changed[:5])}) — commit or stash before merging"
-            )
-        merged = await repo.merge_no_ff(
-            run.integration_branch,
-            f"Merge orkestra run {resolved} ({run.project_name})",
+        tracked = await repo.tracked_changes()
+        untracked = await repo.untracked_files()
+        _, names, _ = await repo._git(
+            "diff",
+            "--name-only",
+            f"{run.base_commit}..{run.integration_branch}",
+            check=False,
         )
-        if not merged:
-            _fail(
-                f"merge conflict between {current} and {run.integration_branch} "
-                "— your branch moved since the run started. Resolve manually "
-                f"with: git merge {run.integration_branch}"
-            )
-        console.print(f"[green]✓ merged[/green] run {resolved} into [bold]{current}[/bold]")
-        if cleanup:
+        run_files = {line for line in names.splitlines() if line.strip()}
+        collisions = sorted(run_files & set(untracked))
+        head = await repo.head_commit()
+        branch_moved = head != run.base_commit
+        return summary, current, tracked, collisions, branch_moved
+
+    summary, current, tracked, collisions, branch_moved = asyncio.run(_preflight())
+
+    # ---- hard safety refusals -------------------------------------------
+    if current.startswith("ork/"):
+        application.close()
+        _fail(
+            f"you are on {current}, one of Orkestra's internal branches. "
+            "Switch to your own branch first: git checkout main"
+        )
+        return
+    if tracked:
+        application.close()
+        _fail(
+            "you have uncommitted changes to tracked files "
+            f"({', '.join(tracked[:5])}). Save them first —\n"
+            '  git add -A && git commit -m "my work"\n'
+            "or set them aside:  git stash push — then accept again."
+        )
+        return
+    if collisions:
+        application.close()
+        _fail(
+            "these untracked files would be overwritten by the result: "
+            f"{', '.join(collisions[:5])}. Move or commit them first."
+        )
+        return
+    if not summary.complete and not allow_partial:
+        by_state = summary.by_state
+        missing = ", ".join(
+            f"{count} {state}" for state, count in sorted(by_state.items()) if state != "done"
+        )
+        application.close()
+        _fail(
+            f"run {resolved} is not complete (state: {run.state.value}; "
+            f"unfinished: {missing or 'unknown'}). Finish it with "
+            "`orkestra resume`, or — if you truly want the partial result — "
+            "rerun with the advanced flag --allow-partial."
+        )
+        return
+
+    # ---- preflight summary + explicit confirmation ----------------------
+    commits = summary.commits
+    console.print(f"\n[bold]About to accept run {resolved} into [cyan]{current}[/cyan][/bold]")
+    console.print(
+        f"  run state: {run.state.value} · tasks finished: {summary.done}/{summary.total}"
+    )
+    console.print(
+        f"  changes: {len(commits)} commit(s)"
+        + (f" · {summary.shortstat}" if summary.shortstat else "")
+    )
+    if summary.complete:
+        console.print(
+            "  verification: passed · independent review: "
+            + ("approved" if summary.reviews_required else "not required by policy")
+        )
+    if summary.open_decisions:
+        console.print(f"  [yellow]note: {summary.open_decisions} decision(s) still open[/yellow]")
+    console.print("  working tree: clean")
+    if branch_moved:
+        console.print(
+            f"  [yellow]note: {current} moved since the run started — a "
+            "conflict is possible; conflicts are aborted safely[/yellow]"
+        )
+    if not summary.complete:
+        console.print(
+            "  [red]⚠ ACCEPTING A PARTIAL RESULT[/red] — unfinished tasks "
+            "will simply be missing from your branch."
+        )
+    if not yes:
+        proceed = typer.confirm("Proceed with accepting this result?", default=False)
+        if not proceed:
+            application.close()
+            console.print("nothing changed — your branch is untouched")
+            raise typer.Exit(code=0)
+
+    async def _merge() -> bool:
+        from orkestra.workspace.git import GitRepo
+
+        repo = GitRepo(application.root)
+        return await repo.merge_no_ff(
+            run.integration_branch,
+            f"Accept orkestra run {resolved} ({run.project_name})",
+        )
+
+    merged = asyncio.run(_merge())
+    if not merged:
+        application.close()
+        _fail(
+            f"the result could not be combined with {current} automatically "
+            "because your branch changed the same files since the run "
+            "started. Nothing was modified — the attempted merge was "
+            "aborted and both sides are intact.\n"
+            "Next steps:\n"
+            f"  git merge {run.integration_branch}   # then resolve the "
+            "conflicts it reports\n"
+            "or rerun the work on your current code: orkestra run"
+        )
+        return
+    console.print(
+        f"[green]✓ accepted[/green] — run {resolved} is now part of [bold]{current}[/bold]"
+    )
+
+    if cleanup:
+
+        async def _cleanup() -> int:
+            from orkestra.errors import WorkspaceError
+            from orkestra.workspace.git import GitRepo
+
+            repo = GitRepo(application.root)
             removed = 0
             for task in application.store.tasks_for_run(resolved):
                 branch = f"ork/{resolved}/{task.task_id}"
@@ -1129,10 +1368,53 @@ def merge(
                 removed += 1
             except WorkspaceError:
                 pass
-            console.print(f"[dim]cleaned up {removed} run branch(es)[/dim]")
+            return removed
 
-    asyncio.run(_run())
+        removed = asyncio.run(_cleanup())
+        console.print(f"[dim]tidied up {removed} internal branch(es)[/dim]")
     application.close()
+
+
+@app.command()
+def accept(
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+    cleanup: Annotated[
+        bool, typer.Option("--cleanup", help="Tidy up internal branches after accepting.")
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the confirmation prompt (automation).")
+    ] = False,
+    allow_partial: Annotated[
+        bool,
+        typer.Option(
+            "--allow-partial",
+            help="ADVANCED, RISKY: accept an incomplete run's partial results.",
+        ),
+    ] = False,
+) -> None:
+    """Bring a completed run's verified result into your current branch."""
+    _accept_impl(run_id, cleanup=cleanup, yes=yes, allow_partial=allow_partial)
+
+
+@app.command()
+def merge(
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+    cleanup: Annotated[
+        bool, typer.Option("--cleanup", help="Tidy up internal branches after accepting.")
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the confirmation prompt (automation).")
+    ] = False,
+    allow_partial: Annotated[
+        bool,
+        typer.Option(
+            "--allow-partial",
+            help="ADVANCED, RISKY: accept an incomplete run's partial results.",
+        ),
+    ] = False,
+) -> None:
+    """Alias of `orkestra accept` (kept for advanced users and scripts)."""
+    _accept_impl(run_id, cleanup=cleanup, yes=yes, allow_partial=allow_partial)
 
 
 # ----------------------------------------------------------------- report

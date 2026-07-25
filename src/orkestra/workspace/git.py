@@ -95,6 +95,13 @@ class GitRepo:
         _, out, _ = await self._git("status", "--porcelain")
         return [line[3:] for line in out.splitlines() if line.startswith("??")]
 
+    async def staged_changes(self) -> list[str]:
+        """Paths with staged (index) changes."""
+        _, out, _ = await self._git("status", "--porcelain")
+        return [
+            line[3:] for line in out.splitlines() if line[:1] not in (" ", "?", "") and line.strip()
+        ]
+
     async def current_branch(self) -> str:
         _, out, _ = await self._git("rev-parse", "--abbrev-ref", "HEAD")
         return out.strip()
@@ -119,6 +126,24 @@ class GitRepo:
 
     async def checkout(self, ref: str) -> None:
         await self._git("checkout", ref)
+
+    async def commit_paths(self, paths: list[str], message: str) -> str | None:
+        """Stage and commit ONLY *paths* (pathspec-scoped; the user's other
+        staged or modified files are untouched). Returns sha or None when
+        none of the paths have changes."""
+        if not paths:
+            return None
+        _, status, _ = await self._git("status", "--porcelain", "--", *paths)
+        if not status.strip():
+            return None
+        await self._git("add", "--", *paths)
+        await self._git("commit", "-m", message, "--", *paths)
+        return await self.head_commit()
+
+    async def commit_files_in(self, ref: str = "HEAD") -> list[str]:
+        """Files contained in a commit (for allowlist verification)."""
+        _, out, _ = await self._git("show", "--name-only", "--format=", ref)
+        return [line for line in out.splitlines() if line.strip()]
 
     async def add_all_and_commit(self, message: str) -> str | None:
         """Stage everything and commit; returns commit sha or None if clean."""

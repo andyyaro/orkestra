@@ -92,14 +92,16 @@ orkestra pause     # finish in-flight tasks, then stop
 orkestra resume
 ```
 
-## 6. Inspect and merge
+## 6. Review and accept
 
 ```bash
-orkestra diff                # commits + files the run built
-orkestra diff --full         # the whole patch
-orkestra merge --cleanup     # accept into your branch, tidy up
+orkestra review              # what was built: status, checks, changes
+orkestra review --full       # the whole patch
+orkestra accept --cleanup    # bring it into your branch (asks first), tidy up
 orkestra report --out report.md
 ```
+
+(`diff` and `merge` still work as advanced aliases.)
 
 ## If it stops with a question
 

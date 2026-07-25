@@ -137,7 +137,9 @@ class TestWorkflow:
 
         result = runner.invoke(app, ["run", "--offline"])
         assert result.exit_code == 0, result.output
-        assert "run complete" in result.output
+        assert "Run complete" in result.output
+        assert "orkestra review" in result.output  # journey guidance
+        assert "ork/run_" not in result.output.split("Run complete")[1]
 
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 0
@@ -208,25 +210,25 @@ class TestDecisionFlow:
 
 
 class TestDiffMerge:
-    def test_diff_shows_commits_and_files(self, project: Path) -> None:
+    """Backward-compatible aliases share the review/accept implementation."""
+
+    def test_diff_alias_matches_review(self, project: Path) -> None:
         runner.invoke(app, ["run", "--offline"])
-        result = runner.invoke(app, ["diff"])
-        assert result.exit_code == 0, result.output
-        assert "commit(s) on" in result.output
-        assert "orkestra merge to accept" in result.output
+        review_output = runner.invoke(app, ["review"]).output
+        diff_output = runner.invoke(app, ["diff"]).output
+        assert review_output == diff_output
         result = runner.invoke(app, ["diff", "--full"])
         assert result.exit_code == 0
         assert "diff --git" in result.output
 
-    def test_merge_accepts_results_into_main(self, project: Path) -> None:
+    def test_merge_alias_accepts_with_yes(self, project: Path) -> None:
         runner.invoke(app, ["run", "--offline"])
-        result = runner.invoke(app, ["merge", "--cleanup"])
+        result = runner.invoke(app, ["merge", "--cleanup", "--yes"])
         assert result.exit_code == 0, result.output
-        assert "merged" in result.output
-        # fake agents wrote marker files; after merge they exist on main
+        assert "accepted" in result.output
         markers = list(project.glob("fake-task_*.txt"))
-        assert markers, "merged results should be in the working tree"
-        assert "cleaned up" in result.output
+        assert markers, "accepted results should be in the working tree"
+        assert "tidied up" in result.output
         branches = subprocess.run(
             ["git", "branch", "--list", "ork/*"],
             cwd=project,
@@ -239,9 +241,10 @@ class TestDiffMerge:
     def test_merge_refuses_dirty_tree(self, project: Path) -> None:
         runner.invoke(app, ["run", "--offline"])
         (project / "SPEC.md").write_text("modified after run\n")
-        result = runner.invoke(app, ["merge"])
+        result = runner.invoke(app, ["merge", "--yes"])
         assert result.exit_code == 1
-        assert "commit or stash" in result.output
+        assert "uncommitted changes" in result.output
+        assert "git stash" in result.output
 
     def test_diff_without_results(self, project: Path) -> None:
         result = runner.invoke(app, ["diff"])
@@ -259,7 +262,7 @@ class TestDemo:
         assert "changes requested" in out  # the rejection happened
         assert "feature_a.py" in out and "feature_b.py" in out
         assert ".fake-reject-done" not in out  # internals stay hidden
-        assert "orkestra init" in out  # points to the next step
+        assert "orkestra start" in out  # points to the next step
 
 
 class TestApproveInteractive:

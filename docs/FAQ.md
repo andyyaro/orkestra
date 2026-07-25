@@ -35,8 +35,11 @@ reconciles (dangling attempts marked interrupted, worktrees repaired)
 and continues. Nothing is silently executed twice.
 
 **Where does the result end up?**
-On `ork/<run>/integration`. Your branches are untouched until you merge
-it yourself. Failed task branches are preserved for inspection.
+In a holding area your branches never see until you act: `orkestra
+review` shows it, `orkestra accept` brings it into your branch (after a
+confirmation, and only for completed runs). Under the hood it's a Git
+branch (`ork/<run>/integration`) — visible to advanced users, never
+required knowledge.
 
 **Why did my run stop with a question?**
 Budgets exhausted, a policy wall, or missing auth — cases with genuinely
