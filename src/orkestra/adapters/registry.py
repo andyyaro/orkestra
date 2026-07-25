@@ -21,7 +21,9 @@ def build_adapter(agent_name: str, config: AgentConfig) -> AgentAdapter:
     """Instantiate the adapter bound to one configured agent."""
     adapter_id = config.adapter
     if adapter_id == "claude-code":
-        return ClaudeCodeAdapter(model=config.model, autonomy=config.autonomy)
+        return ClaudeCodeAdapter(
+            model=config.model, autonomy=config.autonomy, run_commands=config.run_commands
+        )
     if adapter_id == "codex-cli":
         return CodexCliAdapter(model=config.model, autonomy=config.autonomy, effort=config.effort)
     if adapter_id == "antigravity-cli":
