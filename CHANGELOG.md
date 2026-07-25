@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-25
+
+Corrective follow-up to v0.4.0: git safety, a coherent review→accept
+journey, and honest status documents. No kernel or config changes.
+
+### Fixed
+
+- **`orkestra start` (and `init`) can no longer commit pre-existing
+  user work.** Repository state is captured before any mutation;
+  existing repos with tracked or staged changes stop with plain-language
+  guidance (commit or stash) — deterministically in non-interactive
+  mode. Setup commits are pathspec-scoped to an explicit allowlist of
+  files Orkestra created in that invocation (SPEC.md, .gitignore) and
+  verified against the actual commit contents. New-repo-with-files
+  setups commit only Orkestra's files and print exact baseline
+  guidance instead of auto-running.
+- **Partial results can no longer be merged casually.** `accept`/`merge`
+  hard-refuse incomplete runs; the advanced `--allow-partial` flag
+  explains what's missing and still confirms (unless `--yes`).
+- The success message no longer leads with an internal `ork/*` branch
+  name; it summarizes outcomes (tasks, verification, review, usage) and
+  points to `orkestra review` / `orkestra accept`.
+- `BUILD_STATUS.md` rewritten as a trustworthy current-state document;
+  `FINAL_BUILD_REPORT.md` labeled as the historical v0.1.0 snapshot;
+  stale counts/claims corrected.
+
+### Added
+
+- `orkestra review [--full]`: plain-language run summary — status, task
+  counts, verification and independent-review outcomes, commits, file
+  stats, and a clear partial-result warning. `orkestra diff` is now an
+  alias of it.
+- `orkestra accept [--cleanup] [--yes] [--allow-partial]`: preflight
+  summary, confirmation defaulting to **No**, working-tree and
+  untracked-collision safety, internal-branch refusal, clean conflict
+  aborts with next steps, and cleanup only after success.
+  `orkestra merge` is now an alias with identical rules.
+
 ## [0.4.0] - 2026-07-25
 
 Progressive-disclosure configuration: `orkestra start → run/watch →

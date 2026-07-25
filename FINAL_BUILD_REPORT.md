@@ -1,4 +1,9 @@
-# Orkestra — Final Build Report
+# Orkestra — Final Build Report (historical)
+
+> **Historical snapshot** of the original autonomous build that
+> produced v0.1.0 on 2026-07-24 (with same-day amendments through
+> v0.2.0). Figures here describe that moment, not the present —
+> current state lives in `BUILD_STATUS.md`.
 
 Date: 2026-07-24. Build executed autonomously per `MASTERPROMPT.md`.
 

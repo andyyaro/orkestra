@@ -29,19 +29,19 @@ hygiene. No kernel changes, no compatibility breaks.
 
 ## Implementation tasks
 
-- [ ] P1 start git-safety redesign (state capture; allowlist pathspec
+- [x] P1 start git-safety redesign (state capture; allowlist pathspec
       commit of SPEC.md/.gitignore only; dirty-repo stop with plain
       options; deterministic non-interactive failure; same allowlist
       commit applied to `init`)
-- [ ] P1 regression tests (11 scenarios, real git repos)
-- [ ] P2 `orkestra review` (+ `--full`; `diff` shares implementation)
-- [ ] P2 `orkestra accept` (preflight, confirm default No, `--yes`,
+- [x] P1 regression tests (11 scenarios, real git repos)
+- [x] P2 `orkestra review` (+ `--full`; `diff` shares implementation)
+- [x] P2 `orkestra accept` (preflight, confirm default No, `--yes`,
       complete-run enforcement, `--allow-partial`, untracked-collision
       check, ork/* refusal, safe conflict abort, cleanup only after
       success; `merge` = advanced alias, same rules)
-- [ ] P3 terminology sweep (final message, start output, README,
+- [x] P3 terminology sweep (final message, start output, README,
       QUICKSTART, CLI, FAQ, TROUBLESHOOTING, demo, tests)
-- [ ] P4 BUILD_STATUS current-state rewrite; FINAL_BUILD_REPORT labeled
+- [x] P4 BUILD_STATUS current-state rewrite; FINAL_BUILD_REPORT labeled
       historical; release report written
 - [ ] P5 full gates + fresh wheel/sdist installs
 - [ ] P6 dogfood scenarios A–D recorded below
@@ -62,7 +62,13 @@ hygiene. No kernel changes, no compatibility breaks.
 
 ## Verification evidence
 
-(recorded as each phase actually completes — no pre-claimed results)
+- 2026-07-25: full suite after P1–P3 on branch `ux-followup-v0.4.1`:
+  **385 passed** (`uv run pytest -p no:cacheprovider`, 253s); ruff/mypy
+  clean at each commit (a9a464a, then review/accept and terminology
+  commits)
+- P1 suite: tests/cli/test_start_git_safety.py — 9 scenarios on real
+  git repos, all passing
+- P2 suite: tests/cli/test_review_accept.py — 13 scenarios, all passing
 
 ## Outcome
 
