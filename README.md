@@ -67,9 +67,11 @@ survives crashes, Ctrl-C, and reboots.
 When it finishes:
 
 ```bash
-orkestra diff          # what was built (commits + files)
-orkestra merge         # accept it into your branch — the only step that touches it
+orkestra review        # what was built: status, checks, changes
+orkestra accept        # bring it into your branch — asks before touching anything
 ```
+
+(`orkestra diff` and `orkestra merge` remain as advanced aliases.)
 
 If Orkestra needs you (budgets exhausted, a real decision), it stops
 and explains itself in plain language:
@@ -106,7 +108,7 @@ evidence — including to itself.
 
 | Guarantee | How |
 |---|---|
-| Your branches are never modified | work happens on `ork/*` branches; `orkestra merge` is the only step that touches yours, and you run it |
+| Your branches are never modified | agents work in isolation; `orkestra accept` is the only step that touches your branch, it always asks first, and it refuses incomplete runs |
 | Agents can't approve their own work | kernel-enforced implementer ≠ reviewer, across vendors |
 | "Tests pass" claims mean nothing | the kernel runs *your* acceptance commands and reads exit codes itself |
 | No surprise costs | per-agent token budgets, rate-limit-aware scheduling, live progress/cost line, everything bounded |

@@ -137,7 +137,9 @@ class TestWorkflow:
 
         result = runner.invoke(app, ["run", "--offline"])
         assert result.exit_code == 0, result.output
-        assert "run complete" in result.output
+        assert "Run complete" in result.output
+        assert "orkestra review" in result.output  # journey guidance
+        assert "ork/run_" not in result.output.split("Run complete")[1]
 
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 0
@@ -260,7 +262,7 @@ class TestDemo:
         assert "changes requested" in out  # the rejection happened
         assert "feature_a.py" in out and "feature_b.py" in out
         assert ".fake-reject-done" not in out  # internals stay hidden
-        assert "orkestra init" in out  # points to the next step
+        assert "orkestra start" in out  # points to the next step
 
 
 class TestApproveInteractive:

@@ -30,7 +30,10 @@ def no_agents(monkeypatch: pytest.MonkeyPatch) -> None:
 def git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid", *args],
-        cwd=root, check=True, capture_output=True, text=True,
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     return result.stdout
 
@@ -45,8 +48,7 @@ def make_repo(root: Path, *, commit_readme: bool = True) -> None:
 
 
 def start(root: Path, *extra: str) -> object:
-    return runner.invoke(app, ["start", str(root), "--non-interactive",
-                               "--no-run", *extra])
+    return runner.invoke(app, ["start", str(root), "--non-interactive", "--no-run", *extra])
 
 
 def head_files(root: Path) -> list[str]:
@@ -111,9 +113,7 @@ class TestDirtyRepositoryStops:
 
 
 class TestUntrackedAndBaseline:
-    def test_5_unrelated_untracked_files_proceed_but_never_committed(
-        self, tmp_path: Path
-    ) -> None:
+    def test_5_unrelated_untracked_files_proceed_but_never_committed(self, tmp_path: Path) -> None:
         root = tmp_path / "untracked"
         make_repo(root)
         (root / "scratch.txt").write_text("my notes\n")
