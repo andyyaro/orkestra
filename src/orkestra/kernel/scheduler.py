@@ -21,6 +21,7 @@ from orkestra.ids import new_id
 from orkestra.kernel.dag import TaskDag
 from orkestra.kernel.retry import FALLBACK_IMMEDIATELY, BackoffPolicy, next_agent
 from orkestra.memory import Memory, open_memory
+from orkestra.memory import unavailable_reason as memory_unavailable_reason
 from orkestra.schemas.agent import (
     AgentEvent,
     AgentResult,
@@ -101,6 +102,8 @@ class Orchestrator:
         # disabled in config, or its database will not open — in every one of
         # those cases the kernel behaves exactly as it did before.
         self._memory: Memory | None = None
+        # One brief-budget warning per orchestrator, not one per task.
+        self._budget_warned = False
 
     # ------------------------------------------------------------ events
 
@@ -196,6 +199,19 @@ class Orchestrator:
             branch=run.integration_branch,
             base_commit=run.base_commit,
         )
+        if self._memory is None and self.config.memory.enabled:
+            # Memory was asked for and did not start. Said once, out loud: a run
+            # that records nothing and injects nothing otherwise looks exactly
+            # like a healthy one.
+            self.emit(
+                run_id,
+                EventKind.WARNING,
+                f"memory is enabled but unavailable: {memory_unavailable_reason()}",
+            )
+        else:
+            with self._remember() as mem:
+                if mem is not None:
+                    mem.record_run_started(run_id=run_id)
 
         try:
             state = await self._execute_loop(run_id, dag, semaphore, in_flight, states)
@@ -213,6 +229,15 @@ class Orchestrator:
             for aio_task in in_flight.values():
                 aio_task.cancel()
             await asyncio.gather(*in_flight.values(), return_exceptions=True)
+            # Closed by the `finally` a moment from now, so the outcome is
+            # recorded here or not at all. A cancelled run that leaves a
+            # `run.started` with no ending reads in the journal as a run still
+            # in flight, forever.
+            with self._remember() as mem:
+                if mem is not None:
+                    mem.record_run_completed(
+                        run_id=run_id, outcome=RunState.CANCELLED.value, tasks=len(tasks)
+                    )
             raise
         finally:
             if self._memory is not None:
@@ -881,17 +906,41 @@ class Orchestrator:
             if mem is not None:
                 budget = self.config.memory.brief_budget_chars
                 if budget > 0:
-                    context = mem.brief_context(
+                    context, reason = mem.brief_context_detail(
                         title=task.spec.title, task_id=task.task_id, budget=budget
                     )
                     if context:
                         sections += ["", context]
+                    elif reason:
+                        self._warn_about_budget(task.run_id, reason)
 
                 if self.config.memory.preflight:
-                    warning = mem.preflight_warning(spec=task.spec)
+                    # The commands `_verify` will actually run, not just the
+                    # first: verification records a result per command, so a gate
+                    # asked about only one of them can hold a record it will
+                    # never surface.
+                    warning = mem.preflight_warning(
+                        commands=task.spec.acceptance or self.config.verify.commands
+                    )
                     if warning:
                         sections += ["", "## Before you start", "", warning]
         return sections
+
+    def _warn_about_budget(self, run_id: str, reason: str) -> None:
+        """Say once that `brief_budget_chars` is too small to inject anything.
+
+        Once per run, not once per task: the setting is global, so repeating it
+        per task would bury the run's real events under an identical line.
+        """
+        if self._budget_warned:
+            return
+        self._budget_warned = True
+        self.emit(
+            run_id,
+            EventKind.WARNING,
+            f"memory.brief_budget_chars={self.config.memory.brief_budget_chars} is too "
+            f"small to inject anything; set 0 to disable injection deliberately. {reason}",
+        )
 
     def _render_brief(self, task: TaskRow, fix_context: str) -> str:
         parts = [
@@ -1165,6 +1214,7 @@ class Orchestrator:
     def apply_decision(self, decision_id: str, option: str, note: str = "") -> str:
         """Resolve a human decision and apply its effect. Returns summary."""
         decision = self.store.resolve_decision(decision_id, option, note)
+        self._remember_decision(decision, option, note)
         if decision.task_id is None:
             return f"decision {decision_id} resolved: {option}"
         task = self.store.get_task(decision.task_id)
@@ -1185,3 +1235,48 @@ class Orchestrator:
             self.store.set_run_state(decision.run_id, RunState.FAILED)
             return "run marked failed"
         return f"decision {decision_id} resolved: {option}"
+
+    def _remember_decision(self, decision: HumanDecision, option: str, note: str) -> None:
+        """Record a resolved gate, opening memory for the call if need be.
+
+        The rejected options are the reusable half: they are the only input to
+        the pre-action gate's rejected-alternative tier, which stays permanently
+        dead without them — nothing stops an agent re-proposing what a human just
+        turned down.
+
+        Memory is normally opened by `execute()` and closed in its `finally`, but
+        `orkestra approve` runs in a *different process* where `execute()` never
+        ran, so `self._memory` is None there and always will be. Rather than
+        widen the client's lifetime to the whole orchestrator, this opens one for
+        the duration of the write and closes it again — the write is a handful of
+        rows, and a short-lived client cannot outlive the command that made it.
+        """
+        with contextlib.suppress(Exception):
+            rejected = tuple(opt.label or opt.key for opt in decision.options if opt.key != option)
+            selected = next(
+                (opt.label or opt.key for opt in decision.options if opt.key == option), option
+            )
+            mem = self._memory
+            opened: Memory | None = None
+            if mem is None:
+                run = self.store.get_run(decision.run_id)
+                opened = open_memory(
+                    self.root,
+                    self.config,
+                    run_id=decision.run_id,
+                    branch=run.integration_branch,
+                    base_commit=run.base_commit,
+                )
+                mem = opened
+            try:
+                if mem is not None:
+                    mem.record_decision(
+                        question=decision.question,
+                        selected=selected,
+                        rejected=rejected,
+                        note=note,
+                        task_id=decision.task_id,
+                    )
+            finally:
+                if opened is not None:
+                    opened.close()

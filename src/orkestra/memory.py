@@ -32,10 +32,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from orkestra.schemas.config import ProjectConfig
-    from orkestra.schemas.task import TaskSpec
+    from collections.abc import Sequence
 
-#: Recorded once so `doctor` and the run report can say whether memory is active.
+    from orkestra.schemas.config import ProjectConfig
+
+#: Why memory is not running. Set by :func:`is_available` for an import failure
+#: and by :func:`open_memory` for a database that will not open — the second is
+#: the one that used to be invisible, because a run with memory silently off
+#: looked exactly like a run with it on.
+#:
+#: Read by the kernel, which emits one WARNING event per run when memory was
+#: configured and did not start. `doctor` does not yet have a memory row; when
+#: it grows one, this is what it reads.
 _UNAVAILABLE_REASON = ""
 
 
@@ -51,10 +59,12 @@ def is_available() -> bool:
 
 
 def unavailable_reason() -> str:
-    """Why memory is off, for `doctor` output. Empty when it is available."""
-    if is_available():
-        return ""
-    return _UNAVAILABLE_REASON or "provalume is not installed"
+    """Why memory is off. Empty when it is available and last opened cleanly."""
+    if not is_available():
+        return _UNAVAILABLE_REASON or "provalume is not installed"
+    # Importable, but the last open may still have failed. Reported rather than
+    # cleared: "provalume imports fine" is not the same claim as "memory works".
+    return _UNAVAILABLE_REASON
 
 
 class Memory:
@@ -77,27 +87,63 @@ class Memory:
         Returns a string rather than a digest object so the caller can append it
         without knowing anything about Provalume's types.
         """
-        try:
-            from provalume.integrations.generic import splice_digest
-            from provalume.integrations.orkestra import safe_digest
+        return self.brief_context_detail(title=title, task_id=task_id, budget=budget)[0]
 
-            digest = safe_digest(self._adapter, query=title, char_budget=budget, task_id=task_id)
+    def brief_context_detail(
+        self, *, title: str, task_id: str, budget: int = 2000
+    ) -> tuple[str, str]:
+        """The digest, plus a reason when the *configuration* made it impossible.
+
+        Two very different things produce an empty digest, and collapsing them
+        was how a mis-set budget became invisible. A retrieval outage is expected
+        and must stay quiet — memory fails open. A budget too small to hold
+        Provalume's mandatory untrusted-data banner is a configuration error:
+        *no* run at that setting can ever inject anything, so every other signal
+        reporting healthy is a lie. The second returns a reason for the caller to
+        surface once.
+
+        ``safe_digest`` is deliberately not used here: it swallows
+        ``BudgetExceeded`` along with everything else, which is precisely the
+        distinction this method exists to keep. The fail-open guarantee is
+        re-stated locally instead.
+        """
+        try:
+            from provalume.errors import BudgetExceeded
+            from provalume.integrations.generic import splice_digest
+
+            try:
+                digest = self._adapter.brief_digest(
+                    query=title, char_budget=budget, task_id=task_id
+                )
+            except BudgetExceeded as exc:
+                return "", str(exc)
+            except Exception:
+                # A memory outage is not a run outage, and not a config error.
+                return "", ""
             if digest is None or not digest.items:
-                return ""
+                return "", ""
             # Annotated rather than returned directly: Provalume is an optional
             # extra, so under a type-check without it installed everything
             # crossing this boundary is `Any`. Naming the type here is what keeps
             # the rest of the module strict.
             spliced: str = splice_digest("", digest)
-            return spliced.strip()
+            return spliced.strip(), ""
         except Exception:
-            return ""
+            return "", ""
 
-    def preflight_warning(self, *, spec: TaskSpec) -> str:
-        """A warning if this task resembles a known failure, or ``""``.
+    def preflight_warning(self, *, commands: Sequence[str]) -> str:
+        """A warning if any of these commands resembles a known failure, or ``""``.
 
         **Advisory only.** The caller appends it to the brief; nothing here can
         block a dispatch.
+
+        Takes the *whole* command list, not its first entry. Verification records
+        one result per command, so a task whose acceptance is
+        ``["ruff check src", "pytest -q"]`` writes its gotcha against ``pytest
+        -q`` — and a gate that only ever asked about ``ruff check src`` held the
+        record and declined to surface it. The caller passes exactly the list
+        ``_verify`` will run, so anything the gate can learn about is something
+        it can also be asked about.
 
         Deliberately no ``subsystem``. Provalume matches it as a substring of a
         gotcha's text (``retrieval/preflight.py:_overlap``), so the obvious
@@ -111,11 +157,42 @@ class Memory:
         try:
             from provalume.integrations.orkestra import safe_preflight
 
-            command = spec.acceptance[0] if spec.acceptance else ""
-            result = safe_preflight(self._adapter, command=command)
-            if result is None or not result.matched:
+            summary = ""
+            top_confidence = -1.0
+            shown: set[str] = set()
+            other: set[str] = set()
+            recorded = False
+            asked: set[str] = set()
+            for command in commands:
+                if not command or command in asked:
+                    continue
+                asked.add(command)
+                # At most one `warning.shown` for the whole set: the event means
+                # "a warning was put in front of someone", and one brief carries
+                # one warning however many commands were consulted. Provalume
+                # only records on a match, so `record` stays live until the first
+                # one lands.
+                result = safe_preflight(self._adapter, command=command, record=not recorded)
+                if result is None or not result.matched:
+                    continue
+                recorded = True
+                ids = {str(match.memory_id) for match in result.matches}
+                confidence = max((float(m.confidence) for m in result.matches), default=0.0)
+                if confidence > top_confidence:
+                    other |= shown
+                    top_confidence = confidence
+                    summary = str(result.summary)
+                    shown = ids
+                else:
+                    other |= ids
+            if not summary:
                 return ""
-            summary: str = result.summary
+            also = other - shown
+            if also:
+                count = len(also)
+                summary += (
+                    f"\n  ({count} further related record(s) matched another acceptance command.)"
+                )
             return summary
         except Exception:
             return ""
@@ -259,11 +336,17 @@ class Memory:
         selected: str,
         rejected: tuple[str, ...] = (),
         note: str = "",
+        task_id: str | None = None,
     ) -> None:
         """Record a resolved human decision gate.
 
         ``rejected`` is the reusable part: without it, nothing stops an agent
-        re-proposing what a human already turned down.
+        re-proposing what a human already turned down. It is also the only input
+        to the pre-action gate's rejected-alternative tier, which stays dead
+        until something calls this.
+
+        ``task_id`` scopes the decision to the task it unblocked; without it the
+        record cannot be attributed to the work it was about.
         """
         self._safe(
             lambda: self._adapter.human_decision(
@@ -272,8 +355,18 @@ class Memory:
                 rejected=rejected,
                 rationale=note,
                 authority="human",
+                task_id=task_id,
             )
         )
+
+    def record_run_started(self, *, run_id: str) -> None:
+        """Open the run in the journal.
+
+        Paired with :meth:`record_run_completed`. Without it every journal held a
+        ``run.completed`` with no matching ``run.started``, so nothing downstream
+        could tell a run that finished from a run that was never seen.
+        """
+        self._safe(lambda: self._adapter.run_started(run_id=run_id))
 
     def record_run_completed(self, *, run_id: str, outcome: str, tasks: int) -> None:
         self._safe(
@@ -310,7 +403,13 @@ def open_memory(
     ``None`` is the normal, supported case: Provalume not installed, memory
     disabled in config, or a database that will not open. Callers treat ``None``
     as "no memory this run" and carry on.
+
+    A failure to open is recorded in :func:`unavailable_reason` so the caller can
+    say so out loud. Swallowing it without a reason made a corrupt or locked
+    database indistinguishable from a healthy run — recording nothing, injecting
+    nothing, and reporting fine.
     """
+    global _UNAVAILABLE_REASON
     if not config.memory.enabled:
         return None
     if not is_available():
@@ -334,7 +433,9 @@ def open_memory(
                 base_commit=base_commit,
             ),
         )
-    except Exception:
+    except Exception as exc:
+        _UNAVAILABLE_REASON = f"memory database would not open: {exc}"
         return None
 
+    _UNAVAILABLE_REASON = ""
     return Memory(adapter, client)
