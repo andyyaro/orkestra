@@ -17,8 +17,9 @@ disclosure policy at the repository root `SECURITY.md`.
 3. **No shell, no injection.** Every subprocess (agents, git,
    verification) is an argument array; prompts travel as single argv
    elements or stdin; branch and worktree names are kernel-generated
-   from a restricted alphabet; verification commands come only from your
-   config.
+   from a restricted alphabet; verification commands come from your
+   config (plan-proposed additions execute only after
+   deterministic validation and can only add checks, never replace yours).
 4. **Git can't be turned against you.** Orkestra's own git commands run
    with hooks disabled; diffs that touch `.git` internals, hook files,
    `.orkestra`, or `.github/workflows` (configurable) are rejected;

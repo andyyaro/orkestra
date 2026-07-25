@@ -31,7 +31,7 @@ from orkestra.schemas.common import AttemptState, RunState, TaskKind, TaskState
 from orkestra.schemas.decision import DecisionOption, HumanDecision
 from orkestra.schemas.director import ReviewVerdict
 from orkestra.schemas.task import TaskBrief
-from orkestra.verify import run_verification
+from orkestra.verify import VerificationOutcome, run_verification
 from orkestra.workspace.worktrees import Workspace
 
 if TYPE_CHECKING:
@@ -394,6 +394,22 @@ class Orchestrator:
         if not decision.allowed:
             self._block_task(run_id, task_id, "; ".join(decision.violations))
             return
+        # Deterministic pre-flight: a gate that cannot even start would
+        # fail identically after any amount of agent work. Catch it here
+        # (and on every retry) so broken [verify] config never burns an
+        # agent attempt — the fix is editing config, not re-running agents.
+        from orkestra.verify.runner import gate_command_problem
+
+        gate_problems = [
+            f"{cmd!r}: {problem}"
+            for cmd in self.config.verify.commands
+            if (problem := gate_command_problem(cmd, strict=False))
+        ]
+        if gate_problems:
+            self._block_task(
+                run_id, task_id, "verification setup error: " + "; ".join(gate_problems)
+            )
+            return
 
         failed_agents: list[str] = []
         attempt_index = 0
@@ -404,6 +420,16 @@ class Orchestrator:
         sessions: dict[str, str] = {}
 
         while True:
+            # A pause request stops NEW attempts immediately — not just new
+            # tasks. The current agent subprocess is never killed mid-flight;
+            # the task simply goes back to READY for the resumed run.
+            if self._control(run_id) == "pause":
+                self.store.set_task_state(
+                    task.task_id,
+                    TaskState.READY,
+                    expected=(TaskState.READY, TaskState.RUNNING),
+                )
+                return
             budget = self.policy.check_attempt_budget(task.attempt_count + attempt_index)
             quota = self._quota
             if quota is None:  # pragma: no cover - execute() always sets it
@@ -547,8 +573,8 @@ class Orchestrator:
             self.store.set_task_state(
                 task.task_id, TaskState.VERIFYING, expected=(TaskState.RUNNING,)
             )
-            verify_ok = await self._verify(run_id, task, workspace)
-            if not verify_ok:
+            verify_outcome = await self._verify(run_id, task, workspace)
+            if verify_outcome is not None and not verify_outcome.passed:
                 record_task_outcome(
                     self.store,
                     run_id,
@@ -562,8 +588,10 @@ class Orchestrator:
                 failed_agents_snapshot = list(failed_agents)
                 failed_agents.append(agent)
                 fix_context = (
-                    "Deterministic verification failed; fix the code so the "
-                    "acceptance commands pass."
+                    "Deterministic verification failed. Output of the "
+                    "failing command(s):\n\n"
+                    + verify_outcome.failure_detail()
+                    + "\n\nFix the code so these commands pass."
                 )
                 self.store.set_task_state(
                     task.task_id, TaskState.READY, expected=(TaskState.VERIFYING,)
@@ -611,6 +639,17 @@ class Orchestrator:
                         task.task_id, TaskState.READY, expected=(TaskState.REVIEWING,)
                     )
                     continue
+
+            elif self.config.policy.require_review:
+                # Honesty: never let "review required" look like it happened
+                # when there was nothing to review.
+                self.emit(
+                    run_id,
+                    EventKind.TEXT,
+                    f"independent review skipped for {task.key}: task produced "
+                    "no repository changes to review",
+                    task_id=task.task_id,
+                )
 
             if mutating and commit is not None:
                 self.store.set_task_state(
@@ -747,12 +786,15 @@ class Orchestrator:
                 and adapter.adapter_id in SANDBOXABLE_ADAPTERS
             ):
                 spec = wrap_in_docker(spec, agent_config.sandbox_image)
-        return await run_invocation(
-            spec,
-            adapter.make_parser(brief),
-            self._attempt_event_cb(run_id, task_id, attempt_id),
-            cancel_flag,
-        )
+        base_cb = self._attempt_event_cb(run_id, task_id, attempt_id)
+
+        def tagged(event: AgentEvent) -> None:
+            """Stamp the acting agent so streamed output is attributable."""
+            if agent_name and not event.data.get("agent"):
+                event = event.model_copy(update={"data": {**event.data, "agent": agent_name}})
+            base_cb(event)
+
+        return await run_invocation(spec, adapter.make_parser(brief), tagged, cancel_flag)
 
     def _render_brief(self, task: TaskRow, fix_context: str) -> str:
         parts = [
@@ -766,30 +808,60 @@ class Orchestrator:
             "the orchestrator commits your changes.",
             "- Do not touch `.github/workflows`, `.git`, or `.orkestra` paths.",
         ]
-        if task.spec.acceptance:
+        gates = self._gate_commands("", task, quiet=True)
+        if gates:
             parts += [
                 "",
                 "## Acceptance (the orchestrator will run these; they must pass)",
-                *[f"- `{c}`" for c in task.spec.acceptance],
+                *[f"- `{c}`" for c in gates],
             ]
         if fix_context:
             parts += ["", "## Follow-up context", fix_context]
         return "\n".join(parts)
 
-    async def _verify(self, run_id: str, task: TaskRow, workspace: Workspace) -> bool:
-        commands = task.spec.acceptance or self.config.verify.commands
+    def _gate_commands(self, run_id: str, task: TaskRow, *, quiet: bool = False) -> list[str]:
+        """The task's real verification gate: the user's [verify] commands
+        always (authoritative), plus plan-derived acceptance entries that
+        survive deterministic validation. Invalid plan entries are dropped
+        with a warning — never exec'd, never allowed to block the run."""
+        from orkestra.verify.runner import gate_command_problem
+
+        commands = list(self.config.verify.commands)
+        for entry in task.spec.acceptance or []:
+            if entry in commands:
+                continue
+            problem = gate_command_problem(entry)
+            if problem is None:
+                commands.append(entry)
+            elif not quiet:
+                self.emit(
+                    run_id,
+                    EventKind.WARNING,
+                    f"ignoring plan acceptance entry ({problem}): {entry!r}",
+                    task_id=task.task_id,
+                )
+        return commands
+
+    async def _verify(
+        self, run_id: str, task: TaskRow, workspace: Workspace
+    ) -> VerificationOutcome | None:
+        """Run the gate; returns the outcome, or None when nothing to run."""
+        commands = self._gate_commands(run_id, task)
         if not commands:
-            return True
+            return None
         outcome = await run_verification(
             commands, workspace.path, timeout_s=self.config.verify.timeout_s
         )
+        text = f"verification {'passed' if outcome.passed else 'FAILED'}:\n{outcome.summary}"
+        if not outcome.passed:
+            text += "\n\nfailing output:\n" + outcome.failure_detail(2000)
         self.emit(
             run_id,
             EventKind.COMPLETED if outcome.passed else EventKind.ERROR,
-            f"verification {'passed' if outcome.passed else 'FAILED'}:\n{outcome.summary}",
+            text,
             task_id=task.task_id,
         )
-        return outcome.passed
+        return outcome
 
     async def _review(
         self, run_id: str, task: TaskRow, workspace: Workspace, implementer: str

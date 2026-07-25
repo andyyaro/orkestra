@@ -57,7 +57,7 @@ agents with different models).
 
 | Key | Default | Meaning |
 |---|---|---|
-| `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). Tasks may carry their own `acceptance` list from the plan; otherwise these run |
+| `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). These always run and are the authoritative gate; plan-generated `acceptance` entries run in addition to them and only when they validate as runnable commands. A command that cannot start is caught in pre-flight, before any agent is dispatched |
 | `timeout_s` | `900` | Per-command timeout |
 
 ## `[probes]`

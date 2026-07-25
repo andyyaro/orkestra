@@ -46,7 +46,11 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
                 "state": task.state.value,
                 "depends_on": task.spec.depends_on,
                 "assignment": task.assignment.model_dump(mode="json") if task.assignment else None,
-                "attempt_count": task.attempt_count,
+                # Counters on the task row are budget windows (reset by a
+                # human 'retry'); the report shows true history from the
+                # attempt rows instead.
+                "attempt_count": sum(1 for a in attempts if a.role == "primary"),
+                "reviews_run": sum(1 for a in attempts if a.role == "reviewer"),
                 "review_cycles": task.review_cycles,
                 "attempts": [
                     {
@@ -54,6 +58,9 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
                         "agent": a.agent,
                         "role": a.role,
                         "state": a.state.value,
+                        "session_id": (
+                            a.result.session.session_id if a.result and a.result.session else None
+                        ),
                         "error": (a.result.error_detail[:300] if a.result else ""),
                     }
                     for a in attempts
@@ -61,6 +68,21 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
             }
         )
     return report
+
+
+_TAGLIKE = __import__("re").compile(r"</?(?:parameter|item|summary|invoke|function[^>]*)\b[^>]*>")
+
+
+def _clean_text(text: str, limit: int) -> str:
+    """Strip tool-call scaffolding a model may leak into a text field, and
+    truncate at a word boundary with an explicit ellipsis."""
+    cleaned = _TAGLIKE.sub(" ", text)
+    cleaned = " ".join(cleaned.split())
+    if len(cleaned) <= limit:
+        return cleaned
+    head = cleaned[:limit]
+    cut = head.rfind(" ")
+    return (head[:cut] if cut > limit // 2 else head).rstrip(" .,;:") + " … (truncated)"
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -86,15 +108,30 @@ def render_markdown(report: dict[str, Any]) -> str:
         )
     analysis = run.get("analysis")
     if analysis:
-        lines += ["", "## Director analysis", "", str(analysis.get("summary", ""))[:2000]]
+        lines += [
+            "",
+            "## Director analysis",
+            "",
+            _clean_text(str(analysis.get("summary", "")), 2000),
+        ]
+        if analysis.get("assumptions"):
+            lines += [
+                "",
+                "Assumptions:",
+                *[f"- {_clean_text(str(a), 300)}" for a in analysis["assumptions"][:10]],
+            ]
         if analysis.get("risks"):
-            lines += ["", "Risks:", *[f"- {r}" for r in analysis["risks"][:10]]]
+            lines += [
+                "",
+                "Risks:",
+                *[f"- {_clean_text(str(r), 300)}" for r in analysis["risks"][:10]],
+            ]
     lines += [
         "",
         "## Tasks",
         "",
-        "| Task | Kind | State | Primary | Reviewers | Attempts | Review cycles |",
-        "|---|---|---|---|---|---|---|",
+        "| Task | Kind | State | Primary | Reviewers | Attempts | Reviews run | Rejections |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for task in report["tasks"]:
         assignment = task.get("assignment") or {}
@@ -102,7 +139,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"| {task['key']} | {task['kind']} | {task['state']} "
             f"| {assignment.get('primary', '')} "
             f"| {', '.join(assignment.get('reviewers', []))} "
-            f"| {task['attempt_count']} | {task['review_cycles']} |"
+            f"| {task['attempt_count']} | {task.get('reviews_run', 0)} "
+            f"| {task['review_cycles']} |"
         )
     if report["decisions"]:
         lines += ["", "## Human decisions", ""]
@@ -118,14 +156,38 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "## Usage",
             "",
-            "| Agent | Calls | Input tokens | Output tokens | Cost (USD) |",
-            "|---|---|---|---|---|",
+            "| Agent | Calls | Input tokens | Cached input | Output tokens | Cost (USD) |",
+            "|---|---|---|---|---|---|",
         ]
+        totals = {"calls": 0, "input": 0, "cached": 0, "output": 0, "cost": 0.0}
+        any_cost = False
         for row in report["usage"]:
             cost = row.get("total_cost_usd")
+            cached = row.get("cached_input_tokens") or 0
             lines.append(
                 f"| {row['agent']} | {row['calls']} | {row['input_tokens']} "
-                f"| {row['output_tokens']} | {cost if cost is not None else '—'} |"
+                f"| {cached} | {row['output_tokens']} "
+                f"| {f'{cost:.4f}' if cost is not None else '—'} |"
+            )
+            totals["calls"] += row["calls"]
+            totals["input"] += row["input_tokens"] or 0
+            totals["cached"] += cached
+            totals["output"] += row["output_tokens"] or 0
+            if cost is not None:
+                totals["cost"] += cost
+                any_cost = True
+        lines.append(
+            f"| **total** | {totals['calls']} | {totals['input']} | {totals['cached']} "
+            f"| {totals['output']} | "
+            f"{f'{totals["cost"]:.4f}' if any_cost else '—'} |"
+        )
+        if not any_cost or len([r for r in report["usage"] if r.get("total_cost_usd")]) < len(
+            report["usage"]
+        ):
+            lines.append("")
+            lines.append(
+                "_Cost covers only agents that report it; token columns cover "
+                "every call, including planning, challenges, and probes._"
             )
     if report["agent_performance"]:
         lines += [

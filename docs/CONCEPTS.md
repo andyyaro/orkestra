@@ -20,7 +20,8 @@ determinism disposes.**
   plan → execution → report. Runs are persistent and resumable.
 - A **task** is a node in the run's dependency graph (DAG), with a kind
   (`implement`, `test`, `review`, `research`, …), an assignment
-  (primary, reviewers, fallbacks), and acceptance commands.
+  (primary, reviewers, fallbacks), and optional extra acceptance
+  commands layered on top of your project gate.
 - An **attempt** is one agent's try at a task. Attempts are bounded by
   `max_attempts_per_task`; failures trigger backoff, fallback agents,
   director reassignment, and finally a human decision — in that order.
@@ -36,7 +37,13 @@ pass. Your own branches are never written to.
 
 ## Verification gates
 
-Acceptance commands come from your config or per-task from the plan.
+Your `[verify]` commands are always the authoritative gate. A plan may
+propose extra per-task acceptance commands; those run *in addition*, and
+only if they validate as runnable commands (plain argv, no shell or
+prose syntax, executable present) — anything else is dropped with a
+warning and never executed. When a gate fails, the failing command's
+output is recorded in the event log and handed to the agent that repairs
+the work.
 The kernel runs them itself in the task's worktree and reads exit codes.
 An agent claiming success has no effect; a failing gate sends the task
 back with the failure context.
