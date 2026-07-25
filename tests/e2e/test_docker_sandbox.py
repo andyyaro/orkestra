@@ -93,9 +93,7 @@ async def test_external_agent_runs_sandboxed(tmp_path: Path) -> None:
         )
         state = await app.orchestrator.execute(run_id)
         assert state is RunState.COMPLETE
-        _, out, _ = await repo._git(
-            "show", f"{integration}:sandboxed.txt"
-        )
+        _, out, _ = await repo._git("show", f"{integration}:sandboxed.txt")
         assert out.strip() == "hello-from-container"
         # The container had no network and ran as the host (non-root) user.
         events = app.store.events_for_run(run_id, limit=300)
