@@ -182,6 +182,13 @@ class Orchestrator:
 
         try:
             state = await self._execute_loop(run_id, dag, semaphore, in_flight, states)
+            # Recorded before the `finally` closes the client: a write to a
+            # closed client would be swallowed by the best-effort guard and
+            # vanish without trace.
+            with self._remember() as mem:
+                if mem is not None:
+                    mem.record_run_completed(run_id=run_id, outcome=state.value, tasks=len(tasks))
+            return state
         except asyncio.CancelledError:
             # Graceful in-process shutdown: cancel children so no pipeline
             # coroutine (or agent subprocess) outlives this call. A hard
@@ -193,11 +200,6 @@ class Orchestrator:
         finally:
             if self._memory is not None:
                 self._memory.close()
-
-        with self._remember() as mem:
-            if mem is not None:
-                mem.record_run_completed(run_id=run_id, outcome=state.value, tasks=len(tasks))
-        return state
 
     async def _execute_loop(
         self,
@@ -806,25 +808,21 @@ class Orchestrator:
         Neither can change what the agent is asked to do, and neither can stop
         the task from being dispatched.
         """
-        if self._memory is None:
-            return []
-
         sections: list[str] = []
-        # Building these arguments touches task state; a failure here must not
-        # cost the task its brief.
-        budget = self.config.memory.brief_budget_chars
-        if budget > 0:
-            context = self._memory.brief_context(
-                title=task.spec.title, task_id=task.task_id, budget=budget
-            )
-            if context:
-                sections += ["", context]
+        with self._remember() as mem:
+            if mem is not None:
+                budget = self.config.memory.brief_budget_chars
+                if budget > 0:
+                    context = mem.brief_context(
+                        title=task.spec.title, task_id=task.task_id, budget=budget
+                    )
+                    if context:
+                        sections += ["", context]
 
-        if self.config.memory.preflight:
-            warning = self._memory.preflight_warning(spec=task.spec)
-            if warning:
-                sections += ["", "## Before you start", "", warning]
-
+                if self.config.memory.preflight:
+                    warning = mem.preflight_warning(spec=task.spec)
+                    if warning:
+                        sections += ["", "## Before you start", "", warning]
         return sections
 
     def _render_brief(self, task: TaskRow, fix_context: str) -> str:
