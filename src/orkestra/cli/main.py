@@ -190,8 +190,10 @@ def init(
             spec_path.write_text(SPEC_TEMPLATE.format(name=root.name))
             console.print(f"created {spec_path.name} — describe your project there")
         if not await repo.has_commits():
-            await repo.add_all_and_commit("orkestra init")
-            console.print("created initial commit")
+            # Allowlist-scoped: only files Orkestra itself writes. Any
+            # pre-existing user files stay exactly as they were.
+            if await repo.commit_paths([".gitignore", "SPEC.md"], "orkestra init"):
+                console.print("created initial commit (Orkestra setup files only)")
         console.print(f"[green]✓[/green] project initialized at {root}")
         found = [name for name, ok in detected.items() if ok]
         console.print(
