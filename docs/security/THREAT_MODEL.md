@@ -108,7 +108,7 @@ Trust boundaries:
 - **Vector:** repository (or agent) writes `.git/hooks/*` or
   `core.hooksPath` tricks so that Orkestra's own Git commands execute code.
 - **Mitigation:** Orkestra runs all of its own Git commands with
-  `-c core.hooksPath=/dev/null` (hooks disabled) and rejects diffs that add
+  `-c core.hooksPath=` (empty) (hooks disabled) and rejects diffs that add
   or modify hook files or `.git` internals.
 
 ### T9. Worktree collisions and branch-name injection
@@ -165,7 +165,7 @@ Trust boundaries:
 - Orkestra cannot make a hostile agent CLI safe; it relies on each agent's
   own sandbox for what the agent does *inside* a task, and constrains what
   Orkestra *accepts* from the task (worktree diff + gates + review).
-- The optional elevated modes (`--unsafe-*` flags) deliberately relax
+- The optional elevated modes (config: `agents.<name>.autonomy = "unsafe-full"`) deliberately relax
   protections; they are opt-in, named "unsafe", logged, and never default.
 - Local attackers with the user's OS account can read `.orkestra/` state;
   Orkestra stores no secrets there, but transcripts may contain project

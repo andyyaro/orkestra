@@ -37,6 +37,7 @@ For each attempt, Orkestra runs your command with:
   "instructions": "…full rendered brief…",
   "cwd": "/path/to/isolated/worktree",
   "timeout_s": 1800,
+  "effort": null,
   "json_schema": null,
   "resume_session_id": null
 }
