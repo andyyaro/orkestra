@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `orkestra watch`: live Textual TUI monitor (optional `[tui]` extra) —
+  run header, task table, open decisions, streaming event tail, with
+  pause/cancel keys; reads the same SQLite store the kernel writes, so
+  it runs safely alongside `orkestra run` from another terminal.
 - Docker sandbox (ADR-0009): `policy.sandbox = "docker"` now runs
   **external and fake agents** inside hardened containers — network
   none, cap-drop ALL, no-new-privileges, read-only rootfs with tmpfs

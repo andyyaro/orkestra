@@ -36,6 +36,9 @@ dependencies = [
     "rich>=13.9",
 ]
 
+[project.optional-dependencies]
+tui = ["textual>=1.0"]
+
 [project.urls]
 Homepage = "https://github.com/andyyaro/orkestra"
 Repository = "https://github.com/andyyaro/orkestra"
@@ -54,6 +57,7 @@ dev = [
     "ruff>=0.9",
     "bandit>=1.8",
     "pip-audit>=2.7",
+    "textual>=1.0",
 ]
 
 [build-system]
