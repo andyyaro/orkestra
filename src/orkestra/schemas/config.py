@@ -27,6 +27,8 @@ class AgentConfig(BaseModel):
     adapter: Slug
     enabled: bool = True
     model: str | None = None
+    effort: Literal["low", "medium", "high"] | None = None
+    """Reasoning-effort tier where the CLI supports it (antigravity, codex)."""
     autonomy: Literal["safe", "unsafe-full"] = "safe"
     timeout_s: int = Field(default=1800, ge=30, le=24 * 3600)
     token_budget: int | None = Field(default=None, ge=1000)

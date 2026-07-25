@@ -151,9 +151,15 @@ class AntigravityCliAdapter(AgentAdapter):
     adapter_id = "antigravity-cli"
     executable = "agy"
 
-    def __init__(self, model: str | None = None, autonomy: str = "safe") -> None:
+    def __init__(
+        self,
+        model: str | None = None,
+        autonomy: str = "safe",
+        effort: str | None = None,
+    ) -> None:
         self.model = model
         self.autonomy = autonomy
+        self.effort = effort
 
     async def detect(self) -> AdapterInfo:
         path = self.which()
@@ -223,6 +229,8 @@ class AntigravityCliAdapter(AgentAdapter):
             argv += ["--mode", "accept-edits"]
         if self.model:
             argv += ["--model", self.model]
+        if self.effort:
+            argv += ["--effort", self.effort]
         if brief.resume_session_id:
             argv += ["--conversation", brief.resume_session_id]
         return InvocationSpec(argv=argv, cwd=brief.cwd, timeout_s=brief.timeout_s + 30)

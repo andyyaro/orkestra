@@ -15,6 +15,9 @@ spec_file = "SPEC.md"
 # ---------------------------------------------------------------------------
 # Agents. At least two enabled agents are required; add as many as you like.
 # Adapters: claude-code | codex-cli | antigravity-cli | gemini-cli | fake | external
+# Per agent you may set:  model = "..."   effort = "low|medium|high"
+# (effort applies to antigravity-cli and codex-cli; easiest via
+#  `orkestra agents set <name> --model ... --effort ...`)
 # ---------------------------------------------------------------------------
 {agents}
 # Example: a third-party agent speaking the orkestra-jsonl/1 protocol.

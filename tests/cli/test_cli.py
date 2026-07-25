@@ -285,3 +285,49 @@ class TestRunWatchGuards:
         result = runner.invoke(app, ["run", "--offline", "--watch"])
         assert result.exit_code == 1
         assert "interactive terminal" in result.output
+
+
+class TestAgentsSetModels:
+    def test_set_model_and_effort_preserves_comments(self, project: Path) -> None:
+        config = project / ".orkestra" / "config.toml"
+        config.write_text("# my precious comment\n" + config.read_text())
+        result = runner.invoke(
+            app, ["agents", "set", "alpha", "--model", "sonnet", "--effort", "high"]
+        )
+        assert result.exit_code == 0, result.output
+        text = config.read_text()
+        assert "# my precious comment" in text
+        assert 'model = "sonnet"' in text
+        assert 'effort = "high"' in text
+        # fake adapter has no effort control — honest note
+        assert "no effort control" in result.output
+
+    def test_invalid_effort_rolls_back(self, project: Path) -> None:
+        config = project / ".orkestra" / "config.toml"
+        before = config.read_text()
+        result = runner.invoke(app, ["agents", "set", "alpha", "--effort", "extreme"])
+        assert result.exit_code == 1
+        assert "rolled back" in result.output
+        assert config.read_text() == before
+
+    def test_unknown_agent(self, project: Path) -> None:
+        result = runner.invoke(app, ["agents", "set", "ghost", "--model", "x"])
+        assert result.exit_code == 1
+        assert "no agent named" in result.output
+
+    def test_clear(self, project: Path) -> None:
+        runner.invoke(app, ["agents", "set", "alpha", "--model", "sonnet"])
+        result = runner.invoke(app, ["agents", "set", "alpha", "--clear"])
+        assert result.exit_code == 0
+        assert 'model = "sonnet"' not in (project / ".orkestra" / "config.toml").read_text()
+
+    def test_models_listing(self, project: Path) -> None:
+        result = runner.invoke(app, ["agents", "models"])
+        assert result.exit_code == 0
+        assert "alpha" in result.output
+
+    def test_list_shows_model_and_effort(self, project: Path) -> None:
+        runner.invoke(app, ["agents", "set", "alpha", "--model", "sonnet", "--effort", "low"])
+        result = runner.invoke(app, ["agents", "list"])
+        assert result.exit_code == 0
+        assert "sonnet" in result.output and "low" in result.output
