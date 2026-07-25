@@ -185,6 +185,7 @@ class TestDecisionFlow:
         assert result.exit_code == 2, result.output  # waiting on human
         result = runner.invoke(app, ["decisions"])
         assert "--option" in result.output
+        assert "what this means" in result.output
         decision_id = next(
             line.strip().split()[0]
             for line in result.output.splitlines()
@@ -204,3 +205,83 @@ class TestDecisionFlow:
         runner.invoke(app, ["run", "--offline"])
         assert runner.invoke(app, ["pause"]).exit_code == 0
         assert runner.invoke(app, ["cancel"]).exit_code == 0
+
+
+class TestDiffMerge:
+    def test_diff_shows_commits_and_files(self, project: Path) -> None:
+        runner.invoke(app, ["run", "--offline"])
+        result = runner.invoke(app, ["diff"])
+        assert result.exit_code == 0, result.output
+        assert "commit(s) on" in result.output
+        assert "orkestra merge to accept" in result.output
+        result = runner.invoke(app, ["diff", "--full"])
+        assert result.exit_code == 0
+        assert "diff --git" in result.output
+
+    def test_merge_accepts_results_into_main(self, project: Path) -> None:
+        runner.invoke(app, ["run", "--offline"])
+        result = runner.invoke(app, ["merge", "--cleanup"])
+        assert result.exit_code == 0, result.output
+        assert "merged" in result.output
+        # fake agents wrote marker files; after merge they exist on main
+        markers = list(project.glob("fake-task_*.txt"))
+        assert markers, "merged results should be in the working tree"
+        assert "cleaned up" in result.output
+        branches = subprocess.run(
+            ["git", "branch", "--list", "ork/*"],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert branches == ""
+
+    def test_merge_refuses_dirty_tree(self, project: Path) -> None:
+        runner.invoke(app, ["run", "--offline"])
+        (project / "SPEC.md").write_text("modified after run\n")
+        result = runner.invoke(app, ["merge"])
+        assert result.exit_code == 1
+        assert "commit or stash" in result.output
+
+    def test_diff_without_results(self, project: Path) -> None:
+        result = runner.invoke(app, ["diff"])
+        assert result.exit_code == 1
+        assert "no runs found" in result.output
+
+
+class TestDemo:
+    def test_demo_full_lifecycle(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(app, ["demo", "--path", str(tmp_path / "d")])
+        assert result.exit_code == 0, result.output
+        out = result.output
+        assert "review rejection triggered a repair loop" in out
+        assert "changes requested" in out  # the rejection happened
+        assert "feature_a.py" in out and "feature_b.py" in out
+        assert ".fake-reject-done" not in out  # internals stay hidden
+        assert "orkestra init" in out  # points to the next step
+
+
+class TestApproveInteractive:
+    def test_no_args_single_decision_prompted(self, project: Path) -> None:
+        (project / "SPEC.md").write_text("# Doomed\nFAKE:fail:always\n")
+        git_commit_all(project)
+        runner.invoke(app, ["run", "--offline"])
+        # No id, no --option: picks the only decision, prompts, default=retry
+        result = runner.invoke(app, ["approve"], input="\n")
+        assert result.exit_code == 0, result.output
+        assert "what this means" in result.output
+        assert "reset" in result.output  # retry applied
+
+    def test_no_open_decisions(self, project: Path) -> None:
+        runner.invoke(app, ["run", "--offline"])
+        result = runner.invoke(app, ["approve"])
+        assert result.exit_code == 1
+        assert "no open decisions" in result.output
+
+
+class TestRunWatchGuards:
+    def test_watch_requires_tty(self, project: Path) -> None:
+        result = runner.invoke(app, ["run", "--offline", "--watch"])
+        assert result.exit_code == 1
+        assert "interactive terminal" in result.output

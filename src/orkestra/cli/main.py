@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 import subprocess  # nosec B404 - argv-only execution, no shell
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -76,7 +77,32 @@ def _read_spec(application: App, spec: Path | None) -> str:
     path = spec or (application.root / application.config.project.spec_file)
     if not path.is_file():
         _fail(f"specification file not found: {path} — create it or pass --spec")
-    return path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    from orkestra.cli.detect import spec_nudges
+
+    for nudge in spec_nudges(text):
+        console.print(f"[yellow]spec hint:[/yellow] {nudge}")
+    return text
+
+
+def _progress_callback(application: App) -> Callable[[str, AgentEvent], None]:
+    """Event printer plus a one-line progress/cost summary per finished task."""
+
+    def callback(run_id: str, event: AgentEvent) -> None:
+        _print_event(run_id, event)
+        if event.kind is EventKind.COMPLETED and event.text.startswith("task "):
+            tasks = application.store.tasks_for_run(run_id)
+            done = sum(1 for t in tasks if t.state.value == "done")
+            usage = application.store.usage_summary(run_id)
+            tokens = sum((row["input_tokens"] or 0) + (row["output_tokens"] or 0) for row in usage)
+            cost = sum(row["total_cost_usd"] or 0 for row in usage)
+            cost_text = f" · ${cost:.2f}" if cost else ""
+            console.print(
+                f"[bold]  ▸ progress: {done}/{len(tasks)} tasks · "
+                f"{tokens / 1000:.0f}k tokens{cost_text}[/bold]"
+            )
+
+    return callback
 
 
 def _print_event(_run_id: str, event: AgentEvent) -> None:
@@ -137,10 +163,28 @@ def init(
             "antigravity": shutil.which("agy") is not None,
             "gemini": shutil.which("gemini") is not None,
         }
+        from orkestra.cli.detect import detect_verify_commands
+
+        verify_commands = detect_verify_commands(root)
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(
-            render_config(root.name.lower().replace(" ", "-") or "project", detected)
+            render_config(
+                root.name.lower().replace(" ", "-") or "project",
+                detected,
+                verify_commands=verify_commands,
+            )
         )
+        if verify_commands:
+            console.print(
+                "detected test culture — pre-filled [verify] commands: "
+                + ", ".join(f"`{c}`" for c in verify_commands)
+            )
+        else:
+            console.print(
+                "[yellow]no test commands detected[/yellow] — add your own to "
+                "[verify] in .orkestra/config.toml; they are the safety net "
+                "agents cannot talk past"
+            )
         spec_path = root / "SPEC.md"
         if not spec_path.exists():
             spec_path.write_text(SPEC_TEMPLATE.format(name=root.name))
@@ -156,6 +200,20 @@ def init(
         )
 
     asyncio.run(_setup())
+
+
+@app.command()
+def demo(
+    path: Annotated[
+        Path | None,
+        typer.Option("--path", help="Keep the demo project here instead of a temp dir."),
+    ] = None,
+) -> None:
+    """See the full lifecycle in under a minute — free, no agent CLIs needed."""
+    from orkestra.cli.demo import run_demo
+
+    if not run_demo(path):
+        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------- doctor
@@ -441,26 +499,58 @@ def run(
     offline: Annotated[
         bool, typer.Option("--offline", help="Heuristic planning, no director LLM calls.")
     ] = False,
+    watch: Annotated[
+        bool, typer.Option("--watch", help="Attach the live TUI while the run executes.")
+    ] = False,
 ) -> None:
     """Plan (if needed) and execute until done, blocked, or cancelled."""
     application = _load_app(offline=offline)
 
-    async def _run() -> RunState:
+    async def _prepare() -> str:
         from orkestra.kernel.prepare import prepare_run
 
-        application.orchestrator._on_event = _print_event
         latest = application.store.latest_run()
         if (
             latest is not None
             and latest.state is RunState.PLANNING
             and application.store.tasks_for_run(latest.run_id)
         ):
-            run_id = latest.run_id
-            console.print(f"executing prepared run {run_id}")
-        else:
-            spec_text = _read_spec(application, spec)
-            run_id = await prepare_run(application.orchestrator, application.director, spec_text)
+            console.print(f"executing prepared run {latest.run_id}")
+            return latest.run_id
+        spec_text = _read_spec(application, spec)
+        return await prepare_run(application.orchestrator, application.director, spec_text)
+
+    async def _run() -> RunState:
+        application.orchestrator._on_event = _progress_callback(application)
+        run_id = await _prepare()
         return await application.orchestrator.execute(run_id)
+
+    if watch:
+        import sys
+
+        if not sys.stdout.isatty():
+            application.close()
+            _fail("--watch needs an interactive terminal (the TUI cannot render here)")
+            return
+        try:
+            from orkestra.cli.watch import WatchApp  # noqa: F401
+        except ModuleNotFoundError:
+            application.close()
+            _fail("--watch needs Textual — install with: uv tool install 'orkestra-runtime[tui]'")
+            return
+        application.orchestrator._on_event = _progress_callback(application)
+        try:
+            run_id = asyncio.run(_prepare())
+        except OrkestraError as exc:
+            application.close()
+            _fail(str(exc))
+            return
+        state = _execute_with_watch(application.root, run_id, offline=offline)
+        _show_status(application, run_id)
+        application.close()
+        if state is RunState.WAITING_HUMAN:
+            raise typer.Exit(code=2)
+        raise typer.Exit(code=1 if state is RunState.FAILED else 0)
 
     try:
         state = asyncio.run(_run())
@@ -486,6 +576,47 @@ def run(
         raise typer.Exit(code=2)
     else:
         raise typer.Exit(code=1 if state is RunState.FAILED else 0)
+
+
+def _execute_with_watch(root: Path, run_id: str, *, offline: bool) -> RunState:
+    """Run the kernel in a worker thread while the TUI owns the terminal.
+
+    The worker builds its own App (SQLite connections are per-thread); the
+    two sides coordinate through the shared WAL database exactly like two
+    separate processes would.
+    """
+    import threading
+
+    from orkestra.cli.watch import WatchApp
+
+    result: dict[str, RunState] = {}
+
+    def worker() -> None:
+        worker_app = build_app(root, offline=offline)
+        try:
+            result["state"] = asyncio.run(worker_app.orchestrator.execute(run_id))
+        finally:
+            worker_app.close()
+
+    thread = threading.Thread(target=worker, name="orkestra-execute", daemon=True)
+    thread.start()
+    watch_application = build_app(root, offline=offline)
+    try:
+        WatchApp(watch_application, run_id).run()
+        if thread.is_alive():
+            console.print(
+                "[yellow]TUI closed while the run is still executing — "
+                "waiting for it to finish (Ctrl-C cancels the run)[/yellow]"
+            )
+        try:
+            thread.join()
+        except KeyboardInterrupt:
+            console.print("[red]cancelling run…[/red]")
+            watch_application.orchestrator.request_cancel(run_id)
+            thread.join(timeout=120)
+        return result.get("state", watch_application.store.get_run(run_id).state)
+    finally:
+        watch_application.close()
 
 
 # ------------------------------------------------------------ status/logs
@@ -587,6 +718,8 @@ def decisions(
         )
         console.print(f"  question: {decision.question}")
         console.print(f"  why: {decision.why_blocked}")
+        if decision.plain:
+            console.print(f"  [cyan]what this means:[/cyan] {decision.plain}")
         for option in decision.options:
             marker = "→" if option.key == decision.recommendation else " "
             console.print(
@@ -602,12 +735,43 @@ def decisions(
 
 @app.command()
 def approve(
-    decision_id: Annotated[str, typer.Argument()],
-    option: Annotated[str, typer.Option("--option")],
+    decision_id: Annotated[str | None, typer.Argument()] = None,
+    option: Annotated[str | None, typer.Option("--option")] = None,
     note: Annotated[str, typer.Option("--note")] = "",
 ) -> None:
-    """Resolve a pending human decision."""
+    """Resolve a pending decision (no arguments needed when only one is open)."""
     application = _load_app()
+    if decision_id is None:
+        run = application.store.latest_run()
+        open_decisions = (
+            application.store.decisions_for_run(run.run_id, unresolved_only=True) if run else []
+        )
+        if not open_decisions:
+            application.close()
+            _fail("no open decisions")
+            return
+        if len(open_decisions) > 1:
+            application.close()
+            _fail(
+                f"{len(open_decisions)} decisions are open — run "
+                "`orkestra decisions` and pass the id you want to resolve"
+            )
+            return
+        decision_id = open_decisions[0].decision_id
+    if option is None:
+        try:
+            pending = application.store.get_decision(decision_id)
+        except OrkestraError as exc:
+            application.close()
+            _fail(str(exc))
+            return
+        console.print(f"[bold]{pending.question}[/bold]")
+        if pending.plain:
+            console.print(f"[cyan]what this means:[/cyan] {pending.plain}")
+        for entry in pending.options:
+            marker = "→" if entry.key == pending.recommendation else " "
+            console.print(f"  {marker} {entry.key}: {entry.label}")
+        option = typer.prompt("choose", default=pending.recommendation or pending.options[0].key)
     try:
         message = application.orchestrator.apply_decision(decision_id, option, note)
     except OrkestraError as exc:
@@ -651,7 +815,7 @@ def resume(
     resolved = _pick_run(application, run_id)
 
     async def _run() -> RunState:
-        application.orchestrator._on_event = _print_event
+        application.orchestrator._on_event = _progress_callback(application)
         await application.orchestrator.reconcile(resolved)
         return await application.orchestrator.execute(resolved)
 
@@ -663,6 +827,119 @@ def resume(
         raise typer.Exit(code=2)
     if state is RunState.FAILED:
         raise typer.Exit(code=1)
+
+
+# ------------------------------------------------------------ diff/merge
+
+
+@app.command()
+def diff(
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+    full: Annotated[bool, typer.Option("--full", help="Full patch, not just stats.")] = False,
+) -> None:
+    """Show what a run built (against the base it started from)."""
+    application = _load_app()
+    resolved = _pick_run(application, run_id)
+    run = application.store.get_run(resolved)
+    if not run.integration_branch or not run.base_commit:
+        application.close()
+        _fail(f"run {resolved} has no integrated results yet")
+        return
+
+    async def _run() -> None:
+        from orkestra.workspace.git import GitRepo
+
+        repo = GitRepo(application.root)
+        _, log, _ = await repo._git(
+            "log", "--oneline", f"{run.base_commit}..{run.integration_branch}"
+        )
+        commits = [line for line in log.splitlines() if line.strip()]
+        console.print(
+            f"[bold]run {resolved}[/bold] — {len(commits)} commit(s) on {run.integration_branch}\n"
+        )
+        for line in commits:
+            console.print(f"  {line}")
+        _, stat, _ = await repo._git(
+            "diff", "--stat", f"{run.base_commit}..{run.integration_branch}"
+        )
+        console.print("\n" + (stat.strip() or "(no file changes)"))
+        if full:
+            _, patch, _ = await repo._git("diff", f"{run.base_commit}..{run.integration_branch}")
+            console.print(patch, highlight=False)
+        else:
+            console.print(
+                "\n[dim]orkestra diff --full for the patch · orkestra merge to accept[/dim]"
+            )
+
+    asyncio.run(_run())
+    application.close()
+
+
+@app.command()
+def merge(
+    run_id: Annotated[str | None, typer.Option("--run")] = None,
+    cleanup: Annotated[
+        bool, typer.Option("--cleanup", help="Delete the run's ork/* branches after merging.")
+    ] = False,
+) -> None:
+    """Accept a run's verified results into your current branch."""
+    application = _load_app()
+    resolved = _pick_run(application, run_id)
+    run = application.store.get_run(resolved)
+    if not run.integration_branch:
+        application.close()
+        _fail(f"run {resolved} has no integration branch")
+        return
+    if run.state is not RunState.COMPLETE:
+        console.print(
+            f"[yellow]note:[/yellow] run state is '{run.state.value}', not "
+            "'complete' — you are merging partial results."
+        )
+
+    async def _run() -> None:
+        from orkestra.errors import WorkspaceError
+        from orkestra.workspace.git import GitRepo
+
+        repo = GitRepo(application.root)
+        current = await repo.current_branch()
+        if current.startswith("ork/"):
+            _fail(f"you are on {current}; switch to your own branch first")
+        changed = await repo.tracked_changes()
+        if changed:
+            _fail(
+                "your working tree has uncommitted changes to tracked files "
+                f"({', '.join(changed[:5])}) — commit or stash before merging"
+            )
+        merged = await repo.merge_no_ff(
+            run.integration_branch,
+            f"Merge orkestra run {resolved} ({run.project_name})",
+        )
+        if not merged:
+            _fail(
+                f"merge conflict between {current} and {run.integration_branch} "
+                "— your branch moved since the run started. Resolve manually "
+                f"with: git merge {run.integration_branch}"
+            )
+        console.print(f"[green]✓ merged[/green] run {resolved} into [bold]{current}[/bold]")
+        if cleanup:
+            removed = 0
+            for task in application.store.tasks_for_run(resolved):
+                branch = f"ork/{resolved}/{task.task_id}"
+                try:
+                    if await repo.branch_exists(branch):
+                        await repo.delete_branch(branch, force=True)
+                        removed += 1
+                except WorkspaceError:
+                    pass
+            try:
+                await repo.delete_branch(run.integration_branch, force=True)
+                removed += 1
+            except WorkspaceError:
+                pass
+            console.print(f"[dim]cleaned up {removed} run branch(es)[/dim]")
+
+    asyncio.run(_run())
+    application.close()
 
 
 # ----------------------------------------------------------------- report

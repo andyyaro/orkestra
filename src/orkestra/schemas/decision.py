@@ -30,6 +30,8 @@ class HumanDecision(BaseModel):
     why_blocked: str
     options: list[DecisionOption]
     recommendation: str = ""
+    plain: str = ""
+    """Plain-language explanation: cause → meaning → suggested next step."""
     unblocked_work: str = ""
     created_at: datetime = Field(default_factory=utc_now)
     resolved_at: datetime | None = None
