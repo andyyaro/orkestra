@@ -744,7 +744,7 @@ class Orchestrator:
         attempt_id = self.store.create_attempt(
             task.task_id, run_id, agent, "primary", str(workspace.path)
         )
-        instructions = self._render_brief(task, fix_context)
+        instructions = self._render_brief(task, fix_context, agent_name=agent)
         agent_config = self.config.agents[agent]
         brief = TaskBrief(
             task_id=task.task_id,
@@ -813,7 +813,15 @@ class Orchestrator:
 
         return await run_invocation(spec, adapter.make_parser(brief), tagged, cancel_flag)
 
-    def _render_brief(self, task: TaskRow, fix_context: str) -> str:
+    def _agent_can_run_commands(self, agent_name: str | None) -> bool:
+        if agent_name is None:
+            return False
+        cfg = self.config.agents.get(agent_name)
+        return bool(cfg and (cfg.run_commands or cfg.autonomy == "unsafe-full"))
+
+    def _render_brief(
+        self, task: TaskRow, fix_context: str, *, agent_name: str | None = None
+    ) -> str:
         parts = [
             f"# Task: {task.spec.title}",
             "",
@@ -825,6 +833,22 @@ class Orchestrator:
             "the orchestrator commits your changes.",
             "- Do not touch `.github/workflows`, `.git`, or `.orkestra` paths.",
         ]
+        # Tell the agent the truth about its sandbox. Without this, headless
+        # agents burn turns asking for a command approval nobody can grant.
+        if self._agent_can_run_commands(agent_name):
+            parts.append(
+                "- You MAY run commands here (this worktree is disposable). "
+                "Running the acceptance commands yourself before finishing "
+                "saves a repair cycle."
+            )
+        else:
+            parts.append(
+                "- You CANNOT run shell commands in this session, and nobody "
+                "can approve one — do not try, and do not ask. Write the code "
+                "and reason about correctness statically; the orchestrator "
+                "runs the acceptance commands for you the moment you finish, "
+                "and will hand you their exact output if they fail."
+            )
         gates = self._gate_commands("", task, quiet=True)
         if gates:
             parts += [

@@ -85,9 +85,11 @@ plans may simply need to wait for your provider's window to reset —
 ## An agent says it needs permission to run commands
 
 Headless agents cannot answer permission prompts. Claude Code runs with
-`--permission-mode acceptEdits`, so it edits files freely but may refuse
-to *run* commands (like your test suite) and will say so; Orkestra
-surfaces a warning when it detects this. It is not fatal — Orkestra runs
+`--permission-mode acceptEdits`, so it edits files freely but cannot
+*run* commands (like your test suite). Since v0.5.2 the task brief tells
+the agent this up front so it doesn't waste turns asking, and Orkestra
+surfaces a warning if it asks anyway. Set `run_commands = true` on an
+agent to let it run commands in its own worktree. It is not fatal — Orkestra runs
 your `[verify]` commands itself, deterministically, after the agent
 finishes. To let agents run commands themselves, pre-approve the tools
 they need in the vendor CLI's own settings (e.g. Claude Code's
