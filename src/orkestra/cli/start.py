@@ -38,6 +38,36 @@ _ADAPTER_EXECUTABLES = {
     "gemini-cli": "gemini",
 }
 
+# Friendly names users may pass to --agents, mapped to adapter ids.
+_AGENT_ALIASES = {
+    "claude": "claude-code",
+    "claude-code": "claude-code",
+    "codex": "codex-cli",
+    "codex-cli": "codex-cli",
+    "antigravity": "antigravity-cli",
+    "agy": "antigravity-cli",
+    "antigravity-cli": "antigravity-cli",
+    "gemini": "gemini-cli",
+    "gemini-cli": "gemini-cli",
+}
+
+
+def _resolve_agent_filter(raw: str) -> list[str]:
+    """Comma-separated friendly names -> adapter ids; fails on unknowns."""
+    names = [part.strip().lower() for part in raw.split(",") if part.strip()]
+    unknown = [n for n in names if n not in _AGENT_ALIASES]
+    if unknown:
+        _fail(
+            f"unknown agent name(s): {', '.join(unknown)} — choose from: "
+            "claude, codex, antigravity, gemini"
+        )
+    resolved = list(dict.fromkeys(_AGENT_ALIASES[n] for n in names))
+    if len(resolved) < 2:
+        _fail(
+            "Orkestra orchestrates multiple agents — pick at least two, e.g. --agents claude,codex"
+        )
+    return resolved
+
 
 def _fail(message: str) -> None:
     console.print(f"[red]error:[/red] {message}")
@@ -230,6 +260,7 @@ async def start_flow(
     interactive: bool,
     preset_key: str | None,
     run_after: bool | None,
+    agent_filter: str | None = None,
 ) -> tuple[bool, bool]:
     """Returns (run_now, practice_mode)."""
     from orkestra.workspace.git import GitRepo
@@ -300,6 +331,19 @@ async def start_flow(
     if ready:
         console.print(table)
     usable = [a for a, info in ready.items() if info["ready"] == "yes"]
+    if agent_filter:
+        requested = _resolve_agent_filter(agent_filter)
+        missing = [a for a in requested if a not in usable]
+        if missing:
+            ready_list = ", ".join(usable) or "none"
+            _fail(
+                f"you asked for {', '.join(missing)}, but "
+                f"{'they are' if len(missing) > 1 else 'it is'} not signed in "
+                f"on this machine (ready: {ready_list}). Sign in with the "
+                "vendor's own CLI first, or pick from the ready agents."
+            )
+        usable = [a for a in usable if a in requested]
+        console.print(f"[green]✓[/green] using only: {', '.join(usable)}")
     practice_mode = len(usable) < 2
     if practice_mode:
         console.print(
