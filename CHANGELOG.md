@@ -8,6 +8,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-25
+
+Efficiency and honesty pass over the remaining fleet-#4 findings.
+
+### Added
+- `run_commands` per-agent config option: lets an agent run shell
+  commands inside its own isolated worktree so it can self-check before
+  handing work back (off by default — Orkestra runs your `[verify]`
+  commands itself either way). For the Claude Code adapter this passes
+  `--allowedTools Bash`.
+
+### Fixed
+- **Agents no longer waste turns asking for permission nobody can
+  grant.** Headless agents cannot answer command-approval prompts, so
+  the task brief now states plainly that they cannot run commands, must
+  not ask, and that the orchestrator runs the acceptance commands for
+  them and will hand back the exact failure output. (Fleet evidence: a
+  large share of a $8.52 run was agents retrying denied Bash calls.)
+- Planning is cheaper on small specs: a plan of two tasks or fewer gets
+  one cross-challenge round instead of two, and says so.
+- `orkestra status` no longer presents a dead or interrupted
+  orchestrator as busy: it shows the time since the last event and warns
+  when an active run has been idle, with the `orkestra resume` remedy.
+  Start time is now local with a timezone marker.
+- `orkestra status` attempt counts now match `orkestra report` (both use
+  real attempt history rather than the budget counter a human "retry"
+  resets).
+- Test detection no longer claims to have "detected test culture" and
+  pre-fills `pytest -q` in a stdlib-unittest project: it reads what the
+  tests import, checks the tool exists, suggests
+  `python3 -m unittest discover -q` where that fits, and suggests
+  nothing when it cannot tell.
+- Completion and review no longer imply universal review when some
+  tasks had nothing to review; skipped reviews are counted and
+  qualified, and plan-proposed checks that were dropped as unrunnable
+  are surfaced instead of only appearing in the log.
+- The end-of-run message says where the result actually is (held outside
+  your branches until you accept).
+- JSON reports carry a `usage_total` object matching the markdown totals
+  row, and displayed costs are rounded consistently so rows add up.
+
 ## [0.5.1] - 2026-07-25
 
 Hotfix for a critical regression introduced in 0.5.0, found by the

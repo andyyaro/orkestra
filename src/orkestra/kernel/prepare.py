@@ -113,9 +113,20 @@ async def _prepare(
     plan = await director.plan(spec_text, analysis, matrix, agent_names, config.verify.commands)
     director.validate_plan(plan, agent_names)
 
+    # Scale the cross-challenge to the plan: a one- or two-task plan does
+    # not justify two full challenge round-trips (fleet evidence: planning
+    # ceremony ran 25-35% of total run cost on small specs).
+    budgeted = max_challengers if len(plan.tasks) > 2 else min(max_challengers, 1)
     challengers = [
         (name, orch.adapters[name]) for name in usable_agents if name != director.director_name
-    ][:max_challengers]
+    ][:budgeted]
+    if budgeted < max_challengers:
+        orch.emit(
+            run_id,
+            EventKind.TEXT,
+            f"small plan ({len(plan.tasks)} tasks): using {budgeted} plan "
+            f"challenger instead of {max_challengers} to keep planning cheap",
+        )
     challenges = []
     for challenger_name, challenger_adapter in challengers:
         challenge = await director.challenge(plan, challenger_name, challenger_adapter)

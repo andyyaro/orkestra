@@ -33,6 +33,7 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
         "tasks": [],
         "decisions": [d.model_dump(mode="json") for d in store.decisions_for_run(run_id)],
         "usage": store.usage_summary(run_id),
+        "usage_total": _usage_total(store.usage_summary(run_id)),
         "agent_performance": store.ledger_summary(),
         "field_notes": {
             "attempts[].state": (
@@ -84,6 +85,20 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
             }
         )
     return report
+
+
+def _usage_total(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Same totals the markdown table prints, for machine consumers."""
+    costs = [r["total_cost_usd"] for r in rows if r.get("total_cost_usd") is not None]
+    return {
+        "calls": sum(r["calls"] for r in rows),
+        "input_tokens": sum(r["input_tokens"] or 0 for r in rows),
+        "cached_input_tokens": sum(r.get("cached_input_tokens") or 0 for r in rows),
+        "output_tokens": sum(r["output_tokens"] or 0 for r in rows),
+        "total_cost_usd": round(sum(costs), 4) if costs else None,
+        "agents_reporting_cost": len(costs),
+        "agents_total": len(rows),
+    }
 
 
 _TAGLIKE = __import__("re").compile(r"</?(?:parameter|item|summary|invoke|function[^>]*)\b[^>]*>")
@@ -190,7 +205,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             totals["cached"] += cached
             totals["output"] += row["output_tokens"] or 0
             if cost is not None:
-                totals["cost"] += cost
+                totals["cost"] += round(cost, 4)
                 any_cost = True
         lines.append(
             f"| **total** | {totals['calls']} | {totals['input']} | {totals['cached']} "

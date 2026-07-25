@@ -14,9 +14,26 @@ class TestDetectVerify:
         (tmp_path / "uv.lock").write_text("")
         assert detect_verify_commands(tmp_path) == ["uv run pytest -q"]
 
-    def test_python_plain_pytest(self, tmp_path: Path) -> None:
+    def test_unittest_project_gets_unittest_command(self, tmp_path: Path) -> None:
+        # Recommending pytest here would produce a gate that cannot run.
         (tmp_path / "tests").mkdir()
-        assert detect_verify_commands(tmp_path) == ["pytest -q"]
+        (tmp_path / "tests" / "test_x.py").write_text(
+            "import unittest\n\n\nclass T(unittest.TestCase):\n"
+            "    def test_a(self):\n        pass\n"
+        )
+        assert detect_verify_commands(tmp_path) == ["python3 -m unittest discover -q"]
+
+    def test_pytest_imports_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_y.py").write_text(
+            "import pytest\n\n\ndef test_b():\n    pass\n"
+        )
+        (tmp_path / "uv.lock").write_text("")
+        assert detect_verify_commands(tmp_path) == ["uv run pytest -q"]
+
+    def test_empty_tests_dir_suggests_nothing(self, tmp_path: Path) -> None:
+        (tmp_path / "tests").mkdir()
+        assert detect_verify_commands(tmp_path) == []
 
     def test_node_with_real_test_script(self, tmp_path: Path) -> None:
         (tmp_path / "package.json").write_text(json.dumps({"scripts": {"test": "vitest"}}))
