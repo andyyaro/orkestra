@@ -5,6 +5,15 @@
 Commands find the project by walking up from the current directory to
 the nearest `.orkestra/config.toml`.
 
+## Try it first
+
+### `orkestra demo [--path DIR]`
+
+Free, zero-quota showcase: scripted fake agents drive the real kernel
+through planning, parallel isolated tasks, a verification gate, a review
+rejection + repair, and integration — in under a minute. The best first
+command.
+
 ## Project setup
 
 ### `orkestra init [PATH] [--non-interactive]`
@@ -29,6 +38,18 @@ fewer than two agents are ready or any hard check fails.
 Table of configured agents: adapter, version, availability, auth
 readiness, notes (including provider caveats).
 
+### `orkestra agents set NAME [--model M] [--effort low|medium|high] [--clear]`
+
+Pick an agent's model and reasoning effort without editing TOML — the
+config file is rewritten comment-preservingly and validated (invalid
+changes roll back). Effort applies to `antigravity-cli` and `codex-cli`;
+other adapters store it but tell you it's ignored.
+
+### `orkestra agents models`
+
+What you can pass to `--model` per agent (queries `agy models` live;
+shows documented aliases elsewhere).
+
 ### `orkestra agents probe [--live]`
 
 Run bounded capability probes (respecting `probes.*` config; `--live`
@@ -49,12 +70,22 @@ Prepare a run without executing: inventory → analysis → probes → plan →
 challenges by other agents → validated final plan. Prints the task
 table; the prepared run executes later with `orkestra run`.
 
-### `orkestra run [--spec FILE] [--offline]`
+### `orkestra run [--spec FILE] [--offline] [--watch]`
 
 Execute the latest prepared run, or prepare-and-execute in one go.
-Streams events; ends in `complete` (exit 0), `waiting on decision`
+Streams events with a per-task progress/cost line; `--watch` attaches the live TUI while executing (needs the `[tui]` extra and a real terminal). Ends in `complete` (exit 0), `waiting on decision`
 (exit 2), or failure (exit 1). Results land on
 `ork/<run>/integration` — merging into your branch is always your call.
+
+### `orkestra diff [--run ID] [--full]`
+
+What a run built: its commits and file stats against the base it
+started from (`--full` for the patch). No `ork/*` branch names needed.
+
+### `orkestra merge [--run ID] [--cleanup]`
+
+Accept a run's verified results into your current branch (refuses dirty
+trees and `ork/*` checkouts; `--cleanup` deletes the run's branches).
 
 ## Observability
 
@@ -87,9 +118,9 @@ never dispatches work; execution stays with `run`/`resume`.
 Open questions with why-blocked, options, consequences, and the
 director's recommendation.
 
-### `orkestra approve DECISION_ID --option KEY [--note TEXT]`
+### `orkestra approve [DECISION_ID] [--option KEY] [--note TEXT]`
 
-Resolve a decision (e.g. `retry` resets the task's budgets, `skip`
+With no arguments and exactly one open decision, shows it (with the plain-language explanation) and prompts, defaulting to the recommendation. Otherwise resolve a decision (e.g. `retry` resets the task's budgets, `skip`
 marks it failed, `abort` fails the run). Follow with `orkestra resume`.
 
 ## Control

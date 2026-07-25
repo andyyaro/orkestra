@@ -21,7 +21,8 @@ version = 1                      # config schema version (required)
 |---|---|---|
 | `adapter` | — (required) | `claude-code`, `codex-cli`, `antigravity-cli`, `gemini-cli`, `fake`, or `external` |
 | `enabled` | `true` | Disabled agents are ignored entirely |
-| `model` | adapter default | Model override passed to the CLI |
+| `model` | adapter default | Model override passed to the CLI (easiest: `orkestra agents set NAME --model …`) |
+| `effort` | adapter default | Reasoning effort `low`/`medium`/`high` — applies to `antigravity-cli` and `codex-cli` |
 | `autonomy` | `"safe"` | `safe` = workspace-scoped edit autonomy via the CLI's own safety system; `unsafe-full` = the CLI's bypass mode (explicit opt-in, logged) |
 | `timeout_s` | `1800` | Per-attempt wall clock (30–86400) |
 | `token_budget` | unlimited | Max input+output tokens this agent may spend per run (≥1000). Once exceeded, the kernel stops dispatching new work to it (reviews still allowed) and uses fallbacks |
