@@ -57,7 +57,7 @@ fewer than two agents are ready or any hard check fails.
 Table of configured agents: adapter, version, availability, auth
 readiness, notes (including provider caveats).
 
-### `orkestra agents set NAME [--model M] [--effort low|medium|high] [--clear]`
+### `orkestra agents set NAME [--model M] [--effort auto|low|medium|high|max] [--clear]`
 
 Pick an agent's model and reasoning effort without editing TOML — the
 config file is rewritten comment-preservingly and validated (invalid

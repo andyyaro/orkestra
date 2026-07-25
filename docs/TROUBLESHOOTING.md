@@ -13,9 +13,12 @@ Sign in with the vendor's own flow, then re-run doctor:
 
 ## "repository has uncommitted changes"
 
-Orkestra refuses to start runs on a dirty repo so it can never entangle
-your work with agent work. `git status`, then commit or stash. Note that
-untracked files count — including logs you redirect into the repo.
+Orkestra refuses to start runs while tracked files have uncommitted
+edits (staged or not), so it can never entangle your work with agent
+work. `git status`, then commit or stash. Untracked files don't block a
+run — Orkestra simply never touches them (`orkestra accept` refuses if
+a result would overwrite one). This includes SPEC.md: if you edit it
+after setup, commit the edit before `orkestra run`.
 
 ## "at least two enabled agents are required"
 
