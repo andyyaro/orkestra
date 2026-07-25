@@ -105,6 +105,7 @@ addopts = "-q"
 markers = [
     "e2e: end-to-end tests (slower)",
     "live: tests that invoke real agent CLIs (opt-in, quota-consuming)",
+    "docker: tests that require a running Docker daemon",
 ]
 
 [tool.coverage.run]

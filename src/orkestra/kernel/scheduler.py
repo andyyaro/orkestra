@@ -700,7 +700,15 @@ class Orchestrator:
         self._cancel_flags[attempt_id] = cancel_flag
         try:
             result = await asyncio.wait_for(
-                self._invoke(adapter, brief, run_id, task.task_id, attempt_id, cancel_flag),
+                self._invoke(
+                    adapter,
+                    brief,
+                    run_id,
+                    task.task_id,
+                    attempt_id,
+                    cancel_flag,
+                    agent_name=agent,
+                ),
                 timeout=brief.timeout_s + 120,
             )
         except TimeoutError:
@@ -721,11 +729,22 @@ class Orchestrator:
         task_id: str,
         attempt_id: str,
         cancel_flag: asyncio.Event,
+        agent_name: str | None = None,
     ) -> AgentResult:
+        from orkestra.adapters.docker import SANDBOXABLE_ADAPTERS, wrap_in_docker
         from orkestra.adapters.runner import run_invocation
 
+        spec = adapter.build_invocation(brief)
+        if self.config.policy.sandbox == "docker" and agent_name is not None:
+            agent_config = self.config.agents.get(agent_name)
+            if (
+                agent_config is not None
+                and agent_config.sandbox_image
+                and adapter.adapter_id in SANDBOXABLE_ADAPTERS
+            ):
+                spec = wrap_in_docker(spec, agent_config.sandbox_image)
         return await run_invocation(
-            adapter.build_invocation(brief),
+            spec,
             adapter.make_parser(brief),
             self._attempt_event_cb(run_id, task_id, attempt_id),
             cancel_flag,
@@ -823,7 +842,13 @@ class Orchestrator:
             self._cancel_flags[attempt_id] = cancel_flag
             try:
                 result = await self._invoke(
-                    adapter, brief, run_id, task.task_id, attempt_id, cancel_flag
+                    adapter,
+                    brief,
+                    run_id,
+                    task.task_id,
+                    attempt_id,
+                    cancel_flag,
+                    agent_name=reviewer,
                 )
             finally:
                 self._cancel_flags.pop(attempt_id, None)

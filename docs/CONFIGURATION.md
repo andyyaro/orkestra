@@ -25,6 +25,7 @@ version = 1                      # config schema version (required)
 | `autonomy` | `"safe"` | `safe` = workspace-scoped edit autonomy via the CLI's own safety system; `unsafe-full` = the CLI's bypass mode (explicit opt-in, logged) |
 | `timeout_s` | `1800` | Per-attempt wall clock (30–86400) |
 | `token_budget` | unlimited | Max input+output tokens this agent may spend per run (≥1000). Once exceeded, the kernel stops dispatching new work to it (reviews still allowed) and uses fallbacks |
+| `sandbox_image` | — | Container image this agent runs in when `policy.sandbox = "docker"` (external/fake adapters only) |
 | `command` | — | **external adapter only**: argv of your agent binary |
 
 Multiple profiles of the same adapter are valid (e.g. two `claude-code`
@@ -49,7 +50,7 @@ agents with different models).
 | `allow_push` | `false` | Orkestra never pushes unless this is true |
 | `task_timeout_s` | `1800` | Kernel-enforced ceiling per attempt |
 | `protected_paths` | `[".git", ".orkestra", ".github/workflows"]` | Diffs touching these are rejected |
-| `sandbox` | `"none"` | `"docker"` is reserved (refused in v0.1 with an explanation; see ROADMAP) |
+| `sandbox` | `"none"` | `"docker"` runs **external/fake agents** in hardened containers (no network, cap-drop ALL, read-only rootfs, non-root, worktree-only mount). Vendor CLIs are refused with an explanation — ADR-0009 |
 
 ## `[verify]`
 

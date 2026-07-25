@@ -4,9 +4,10 @@ Direction, not commitment. Items move as evidence accumulates.
 
 ## v0.2
 
-- Docker sandbox execution mode for agent tasks (worktree mounted into a
-  non-root, resource-limited container). Scaffolding exists behind
-  `sandbox = "docker"`; needs hardening and CI coverage.
+- ~~Docker sandbox~~ shipped post-0.1.2 for external/fake agents
+  (ADR-0009); remaining: vendor-CLI containerization pending
+  vendor-supported container auth, and cidfile-based teardown of
+  daemon-side strays on hard kills.
 - Textual-based TUI (`orkestra watch`) over the same state store.
 - ~~Quota-aware scheduling~~ shipped post-0.1.2: per-agent token
   budgets and global rate-limit cooldowns with immediate fallback.

@@ -31,6 +31,8 @@ class AgentConfig(BaseModel):
     timeout_s: int = Field(default=1800, ge=30, le=24 * 3600)
     token_budget: int | None = Field(default=None, ge=1000)
     """Max input+output tokens this agent may spend per run (None = unlimited)."""
+    sandbox_image: str | None = None
+    """Container image for this agent when policy.sandbox = "docker" (external/fake only)."""
     # external-command adapters only:
     command: list[str] | None = None
 

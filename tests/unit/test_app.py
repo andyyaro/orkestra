@@ -31,10 +31,39 @@ def make(root: Path, extra: str = "") -> None:
 
 
 class TestBuildApp:
-    def test_docker_sandbox_rejected_in_v01(self, tmp_path: Path) -> None:
+    def test_docker_sandbox_requires_images(self, tmp_path: Path) -> None:
         make(tmp_path, '[policy]\nsandbox = "docker"\n')
-        with pytest.raises(ConfigError, match=r"not yet supported in v0\.1"):
+        with pytest.raises(ConfigError, match="sandbox_image"):
             build_app(tmp_path)
+
+    def test_docker_sandbox_rejects_vendor_clis(self, tmp_path: Path) -> None:
+        root = tmp_path / "vendor"
+        root.mkdir()
+        (root / ".orkestra").mkdir()
+        (root / ".orkestra" / "config.toml").write_text(
+            'version = 1\n[project]\nname = "x"\n'
+            '[agents.claude]\nadapter = "claude-code"\n'
+            '[agents.b]\nadapter = "fake"\nsandbox_image = "python:3.12-slim"\n'
+            '[director]\nagent = "claude"\n'
+            '[policy]\nsandbox = "docker"\n'
+        )
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        with pytest.raises(ConfigError, match="vendor CLIs cannot run"):
+            build_app(root)
+
+    def test_docker_sandbox_valid_with_images(self, tmp_path: Path) -> None:
+        make(
+            tmp_path,
+            '[policy]\nsandbox = "docker"\n',
+        )
+        config = tmp_path / ".orkestra" / "config.toml"
+        config.write_text(
+            config.read_text().replace(
+                'adapter = "fake"', 'adapter = "fake"\nsandbox_image = "python:3.12-slim"'
+            )
+        )
+        app = build_app(tmp_path)
+        app.close()
 
     def test_find_project_root_walks_up(self, tmp_path: Path) -> None:
         make(tmp_path)
