@@ -45,11 +45,11 @@ class TestPracticeModeJourney:
         assert "run complete" in result.output
         # Journey continues with the same friendly commands.
         monkeypatch.chdir(root)
-        result = runner.invoke(app, ["diff"])
+        result = runner.invoke(app, ["review"])
         assert result.exit_code == 0, result.output
-        result = runner.invoke(app, ["merge", "--cleanup"])
+        result = runner.invoke(app, ["accept", "--cleanup", "--yes"])
         assert result.exit_code == 0, result.output
-        assert "merged" in result.output
+        assert "accepted" in result.output
 
     def test_no_toml_knowledge_needed(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
