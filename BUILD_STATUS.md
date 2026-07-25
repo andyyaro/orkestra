@@ -6,12 +6,12 @@ historical) and `docs/development/evidence/`.
 
 ## Current state (2026-07-25)
 
-- **Version:** 0.4.1 · latest published: **0.4.1** on
+- **Version:** 0.4.2 · latest published: **0.4.2** on
   [PyPI](https://pypi.org/project/orkestra-runtime/) and
   [GitHub releases](https://github.com/andyyaro/orkestra/releases)
 - **Repository:** https://github.com/andyyaro/orkestra · default branch
   `main` · protected (7 required CI checks, no force pushes)
-- **Quality gates (verified this date):** 385 tests passing · ruff
+- **Quality gates (verified this date):** 405 tests passing · ruff
   format/lint clean · mypy `--strict` clean · bandit 0 findings ·
   pip-audit no known vulnerabilities · gitleaks clean in CI ·
   `twine check --strict` passing
@@ -23,6 +23,7 @@ historical) and `docs/development/evidence/`.
 | Version | Date | Theme |
 |---|---|---|
 | 0.4.1 | 2026-07-25 | Git-safety + review/accept UX correction |
+| 0.4.2 | 2026-07-25 | Fleet-test fixes (wizard, honesty, idempotent accept, error paths) |
 | 0.4.0 | 2026-07-25 | Progressive-disclosure configuration (`orkestra start`, presets, neutral effort, model discovery) |
 | 0.3.0 | 2026-07-25 | Usability (demo, diff/merge, plain-language gates, progress line) |
 | 0.2.0 | 2026-07-25 | Quota-aware scheduling, Docker sandbox (external agents), TUI, session reuse |
