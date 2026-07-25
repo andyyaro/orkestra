@@ -536,10 +536,20 @@ async def test_the_recorded_excerpt_carries_the_actual_error(
         # The marker must exist only in the *output*, never in the command text:
         # `outcome.summary` quotes the command, so a marker visible in the
         # command would make this test pass against the very bug it guards.
-        # The shell concatenates `MARK""ER` into `MARKER`, which the command
-        # string therefore never literally contains.
+        # It lives in a committed helper script — a shell one-liner would be
+        # dropped by `_gate_commands`, which screens plan-derived acceptance
+        # entries for shell syntax because gates run without a shell.
+        from tests.e2e.test_orchestration import GitRepo
+
         marker = "MARKER9c1f"
-        command = "sh -c 'echo MARK\"\"ER9c1f >&2; exit 1'"
+        script = app.root / "emit_marker.py"
+        script.write_text(
+            'import sys\nsys.stderr.write("MARK" + "ER9c1f\\n")\nraise SystemExit(1)\n'
+        )
+        repo = GitRepo(app.root)
+        await repo._git("add", "-A")
+        await repo._git("commit", "-m", "marker script")
+        command = "python3 emit_marker.py"
         assert marker not in command, "the marker leaked into the command — test would be vacuous"
         task = spec("implement", "Add a thing", acceptance=[command])
         run_id = await manual_run(app, [(task, assign("alpha", "beta"))])

@@ -88,7 +88,7 @@ Useful while it runs (from another terminal):
 ```bash
 orkestra status
 orkestra logs --limit 50
-orkestra pause     # finish in-flight tasks, then stop
+orkestra pause     # stop dispatching (tasks and attempts); resume later
 orkestra resume
 ```
 

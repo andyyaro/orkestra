@@ -23,6 +23,7 @@ version = 1                      # config schema version (required)
 | `enabled` | `true` | Disabled agents are ignored entirely |
 | `model` | adapter default | Model override passed to the CLI (easiest: `orkestra agents set NAME --model …`) |
 | `effort` | `auto` | Provider-neutral `auto`/`low`/`medium`/`high`/`max`, validated against the adapter's real capabilities (unsupported levels are rejected with an explanation; e.g. Claude Code has no effort control — pick a model tier instead) |
+| `run_commands` | `false` | Let this agent run shell commands inside its isolated worktree. Off by default: Orkestra runs your `[verify]` commands itself, and headless agents cannot answer permission prompts — leaving it off avoids agents burning turns asking. Turn it on to let an agent self-check before handing work back. |
 | `autonomy` | `"safe"` | `safe` = workspace-scoped edit autonomy via the CLI's own safety system; `unsafe-full` = the CLI's bypass mode (explicit opt-in, logged) |
 | `timeout_s` | `1800` | Per-attempt wall clock (30–86400) |
 | `token_budget` | unlimited | Max input+output tokens this agent may spend per run (≥1000). Once exceeded, the kernel stops dispatching new work to it (reviews still allowed) and uses fallbacks |
@@ -57,7 +58,7 @@ agents with different models).
 
 | Key | Default | Meaning |
 |---|---|---|
-| `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). Tasks may carry their own `acceptance` list from the plan; otherwise these run |
+| `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). These always run and are the authoritative gate; plan-generated `acceptance` entries run in addition to them and only when they validate as runnable commands. A command that cannot start is caught in pre-flight, before any agent is dispatched |
 | `timeout_s` | `900` | Per-command timeout |
 
 ## `[probes]`

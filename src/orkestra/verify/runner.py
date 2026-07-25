@@ -1,7 +1,10 @@
 """Run project-defined verification commands and inspect exit codes.
 
-Commands come only from user configuration (never from agents), are
-parsed with ``shlex.split``, and run without a shell. An agent claiming
+The authoritative gate is the user's ``[verify]`` commands. Plan-derived
+acceptance entries may run *in addition*, but only after
+``gate_command_problem`` confirms they are runnable argv commands —
+LLM-suggested prose or shell one-liners are never exec'd. Everything is
+parsed with ``shlex.split`` and runs without a shell. An agent claiming
 "tests pass" has no effect on this module (threat T14).
 """
 
@@ -33,6 +36,51 @@ _ENV_ALLOWLIST = (
     "GIT_CONFIG_SYSTEM",
     "CI",
 )
+
+
+#: Characters that mean the string relies on a shell (pipes, globs,
+#: substitution) or is prose (parentheses) — either way, not a gate.
+_GATE_FORBIDDEN = set("|&;<>`$()*?{}[]\n")
+
+
+def gate_command_problem(command: str, *, strict: bool = True) -> str | None:
+    """Why this string cannot be exec'd as a verification gate (None = fine).
+
+    ``strict=True`` (plan-derived entries): must be plain argv with a
+    resolvable executable and no shell/prose syntax — anything else is
+    dropped by the caller instead of exec'd or allowed to block a run.
+    ``strict=False`` (user-authored [verify] commands): only checks the
+    string parses and its executable exists, so a broken config is caught
+    *before* an agent is dispatched, without second-guessing the user.
+    """
+    import shutil as _shutil
+
+    stripped = command.strip()
+    if not stripped:
+        return "empty"
+    if strict:
+        bad = sorted({c for c in stripped if c in _GATE_FORBIDDEN})
+        if bad:
+            rendered = " ".join(repr(c) if c.isspace() else c for c in bad)
+            return f"contains shell/prose syntax ({rendered}) — commands run without a shell"
+        # Prose that merely *starts* with a real binary ("python3 -m pytest,
+        # run from the repo root, exits 0") passes a naive check; commas and
+        # sentence length are the reliable tells.
+        if "," in stripped:
+            return "reads as prose (contains a comma), not a command"
+        if len(stripped) > 160:
+            return "too long to be a command — reads as prose"
+    try:
+        argv = shlex.split(stripped)
+    except ValueError as exc:
+        return f"cannot be parsed as a command ({exc})"
+    if not argv:
+        return "empty"
+    if strict and len(argv) > 12:
+        return "too many words to be a command — reads as prose"
+    if _shutil.which(argv[0]) is None:
+        return f"{argv[0]!r} is not an executable on PATH"
+    return None
 
 
 def subprocess_env(extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -74,6 +122,18 @@ class VerificationOutcome:
             for r in self.results
         ]
         return "\n".join(lines)
+
+    def failure_detail(self, max_chars: int = 4000) -> str:
+        """Output of the failing command(s) — what the user and the
+        repairing agent need in order to understand the rejection."""
+        chunks = []
+        for r in self.results:
+            if r.passed:
+                continue
+            body = "\n".join(part for part in (r.stdout_tail, r.stderr_tail) if part.strip())
+            chunks.append(f"$ {r.command}   (exit {r.exit_code})\n{body or '(no output)'}")
+        text = "\n\n".join(chunks)
+        return text[:max_chars] + ("\n… (truncated)" if len(text) > max_chars else "")
 
 
 async def run_verification(

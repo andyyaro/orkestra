@@ -150,11 +150,26 @@ class GitRepo:
         _, out, _ = await self._git("show", "--name-only", "--format=", ref)
         return [line for line in out.splitlines() if line.strip()]
 
+    #: Build artifacts agent test runs generate. Excluded defensively for
+    #: projects whose .gitignore doesn't cover them; never via `git add`
+    #: pathspecs, which turn ignored paths into a hard error.
+    _ARTIFACTS = ("__pycache__", "*.pyc", "node_modules", ".pytest_cache", ".ruff_cache")
+
     async def add_all_and_commit(self, message: str) -> str | None:
-        """Stage everything and commit; returns commit sha or None if clean."""
+        """Stage everything and commit; returns commit sha or None if clean.
+
+        `git add -A` with no pathspec silently skips ignored files; adding
+        `:(exclude)` pathspecs would make git *fail* whenever an ignored
+        path exists (v0.5.0 regression). Artifacts that slip through are
+        unstaged afterwards instead.
+        """
         await self._git("add", "-A")
+        await self._git(
+            "rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", *self._ARTIFACTS, check=False
+        )
         _, out, _ = await self._git("status", "--porcelain")
-        if not out.strip():
+        staged = [line for line in out.splitlines() if line[:1] not in (" ", "?", "")]
+        if not staged:
             return None
         await self._git("commit", "-m", message)
         return await self.head_commit()

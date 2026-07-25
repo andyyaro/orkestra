@@ -42,10 +42,12 @@ def explain_block(reason: str, attempts: list[AttemptRow] | None = None) -> str:
         )
     if "verification setup error" in lower or ("not found" in lower and "command" in lower):
         return (
-            "An acceptance command could not even start (it is not an "
-            "executable command on PATH). Fix [verify] commands in "
+            "A verification command could not even start (it is not an "
+            "executable on PATH). This comes from the \\[verify] commands in "
             ".orkestra/config.toml — each entry must run as-is in a fresh "
-            "checkout — then choose 'retry'."
+            "checkout. Retrying WITHOUT fixing the command will fail "
+            "exactly the same way: edit the config first, then choose "
+            "'retry'."
         )
     if "policy violation" in lower or "protected path" in lower:
         return (

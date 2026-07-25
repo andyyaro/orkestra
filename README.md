@@ -110,7 +110,7 @@ evidence — including to itself.
 |---|---|
 | Your branches are never modified | agents work in isolation; `orkestra accept` is the only step that touches your branch, it always asks first, and it refuses incomplete runs |
 | Agents can't approve their own work | kernel-enforced implementer ≠ reviewer, across vendors |
-| "Tests pass" claims mean nothing | the kernel runs *your* acceptance commands and reads exit codes itself |
+| "Tests pass" claims mean nothing | the kernel runs *your* `[verify]` commands and reads exit codes itself — plan-proposed checks can only be added on top, after validation, never substituted |
 | No surprise costs | per-agent token budgets, rate-limit-aware scheduling, live progress/cost line, everything bounded |
 | Crashes lose nothing | SQLite state + idempotent transitions; `orkestra resume` reconciles and continues |
 | Secrets stay out of logs | credential-shape redaction on everything persisted or exported |
@@ -181,7 +181,7 @@ More diagrams (lifecycle, capability discovery, human gates):
 
 ## Verified vs. experimental
 
-**Verified** — 421 tests plus live cross-vendor runs with real Claude
+**Verified** — 472 tests plus live cross-vendor runs with real Claude
 Code / Codex / Antigravity CLIs (including a gate-caught silent failure,
 automatic fallback repair, and cross-vendor review approvals), and
 dogfooding: Orkestra reviewed its own code, and that review's findings
