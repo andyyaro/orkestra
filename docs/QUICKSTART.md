@@ -11,10 +11,23 @@ orkestra demo
 Scripted fake agents, real engine: planning, parallel isolated tasks,
 a review rejection and repair, integration. No quota, no logins.
 
-## 1. Initialize
+## 1. One command
 
 ```bash
 mkdir hello-orkestra && cd hello-orkestra
+orkestra start
+```
+
+The wizard finds your agents, offers a preset (Faster / Balanced /
+Maximum quality / Custom with per-agent models and effort), confirms
+the verification commands it detected, helps you write SPEC.md, and
+offers to run immediately. Everything below is the manual route the
+wizard automates — useful for scripting (`orkestra start
+--non-interactive --preset balanced`) and for understanding the pieces.
+
+## 1b. Manual: initialize
+
+```bash
 orkestra init .
 ```
 

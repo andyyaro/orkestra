@@ -14,6 +14,25 @@ through planning, parallel isolated tasks, a verification gate, a review
 rejection + repair, and integration — in under a minute. The best first
 command.
 
+## The guided journey
+
+### `orkestra start [PATH] [--preset faster|balanced|max-quality|custom] [--non-interactive] [--run/--no-run]`
+
+Everything from zero to running: Git setup, agent detection, preset or
+per-agent model/effort selection (with live model discovery where the
+CLI supports it), verification-command confirmation, spec assistance,
+and an optional immediate run. With fewer than two signed-in agents it
+configures practice mode (fake agents) so the journey always works.
+Re-running it on an existing project reconfigures without destroying
+your spec. Presets tune models, effort, probes, concurrency — never
+verification or independent review.
+
+### `orkestra models`
+
+Your lineup at a glance: profile, adapter, model, effort, availability,
+and where each model value came from (discovered / documented / manual /
+default).
+
 ## Project setup
 
 ### `orkestra init [PATH] [--non-interactive]`
@@ -42,8 +61,10 @@ readiness, notes (including provider caveats).
 
 Pick an agent's model and reasoning effort without editing TOML — the
 config file is rewritten comment-preservingly and validated (invalid
-changes roll back). Effort applies to `antigravity-cli` and `codex-cli`;
-other adapters store it but tell you it's ignored.
+changes roll back). Effort is provider-neutral (`auto | low | medium |
+high | max`) and hard-validated per adapter: levels a CLI cannot honor
+are rejected with an explanation of what to use instead — never
+silently ignored.
 
 ### `orkestra agents models`
 
