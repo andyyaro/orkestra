@@ -206,3 +206,46 @@ async def test_the_recorded_excerpt_carries_the_actual_error(
     assert any(marker in e for e in excerpts), (
         f"the captured output never reached the excerpt: {excerpts}"
     )
+
+
+async def test_verification_and_review_share_the_attempt_they_concern(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the two halves of the evidence chain were in different scopes.
+
+    Provalume associates a review verdict with the work it examined by attempt
+    id. Verification was recorded with no attempt at all, and the verdict was
+    filed against the *reviewer's* freshly created attempt rather than the
+    attempt under review — two scopes, neither containing the other's records.
+    Nothing was ever stamped, so no memory could climb past `verified` and the
+    top two rungs of the trust ladder were unreachable through a real run.
+    """
+    seen: dict[str, list[str | None]] = {"verification": [], "review": []}
+
+    class AttemptMemory(SpyMemory):
+        def record_verification(self, **kwargs: Any) -> None:
+            self._note("record_verification")
+            seen["verification"].append(kwargs.get("attempt_id"))
+
+        def record_review(self, **kwargs: Any) -> None:
+            self._note("record_review")
+            seen["review"].append(kwargs.get("attempt_id"))
+
+    app = await make_project(tmp_path)
+    monkeypatch.setattr(scheduler_module, "open_memory", lambda *a, **k: AttemptMemory())
+    try:
+        task = spec("implement", "Add a thing", acceptance=["true"])
+        run_id = await manual_run(app, [(task, assign("alpha", "beta"))])
+        await app.orchestrator.execute(run_id)
+    finally:
+        app.close()
+
+    assert seen["verification"], "verification was never recorded"
+    assert seen["review"], "no review verdict was recorded"
+    assert all(a is not None for a in seen["verification"]), (
+        "verification carried no attempt id, so a verdict can never associate with it"
+    )
+    assert set(seen["review"]) == set(seen["verification"]), (
+        f"the verdict was filed against a different attempt than the work it "
+        f"reviewed: review={seen['review']} verification={seen['verification']}"
+    )
