@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 from rich.console import Console
 
+from orkestra.schemas.agent import AgentEvent, EventKind
+
 if TYPE_CHECKING:
     from orkestra.app import App
 
@@ -118,10 +120,7 @@ async def _run_demo(root: Path) -> bool:
             "repair it before anything is integrated. Running now…"
         )
 
-        def print_event(_run: str, event: object) -> None:
-            from orkestra.schemas.agent import AgentEvent, EventKind
-
-            assert isinstance(event, AgentEvent)  # noqa: S101 - callback contract
+        def print_event(_run: str, event: AgentEvent) -> None:
             text = event.text.strip().replace("\n", " ")[:160]
             if not text:
                 return
