@@ -58,11 +58,43 @@ def _fail(message: str) -> None:
 
 
 def _load_app(offline: bool = False) -> App:
+    import sqlite3
+
     try:
-        return build_app(offline=offline)
+        application = build_app(offline=offline)
     except ConfigError as exc:
         _fail(str(exc))
         raise AssertionError from None  # unreachable
+    except (PermissionError, OSError, sqlite3.OperationalError) as exc:
+        _fail(
+            f"cannot open the project state ({exc}) — check permissions on the .orkestra/ directory"
+        )
+        raise AssertionError from None  # unreachable
+    _guard_project_not_nested(application)
+    return application
+
+
+def _guard_project_not_nested(application: App) -> None:
+    """A project must sit at its repository root. A stray .orkestra/ in a
+    subdirectory would make every git operation act on the parent repo."""
+    root = application.root.resolve()
+    git_exe = shutil.which("git") or "git"
+    probe = subprocess.run(  # nosec B603 - fixed argv, no user input
+        [git_exe, "-C", str(root), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    toplevel = Path(probe.stdout.strip()).resolve() if probe.returncode == 0 else None
+    if toplevel is not None and toplevel != root:
+        application.close()
+        _fail(
+            f"this Orkestra project ({root}) sits inside another Git "
+            f"repository ({toplevel}), so git operations would act on that "
+            "parent project. Move the project to its own directory, or if "
+            f"this .orkestra/ folder is a stale leftover, delete it."
+        )
 
 
 def _pick_run(application: App, run_id: str | None) -> str:
@@ -130,9 +162,16 @@ _PRACTICE_NOTE = (
 def _print_completion(application: App, run_id: str) -> None:
     """Friendly end-of-run message: outcomes, not internals."""
     summary = asyncio.run(_gather_run_summary(application, run_id))
-    console.print("\n[green bold]Run complete — your verified result is ready.[/green bold]")
     if _is_practice_mode(application):
+        console.print(
+            "\n[green bold]Practice run complete — the whole workflow works "
+            "end to end.[/green bold]"
+        )
         console.print(_PRACTICE_NOTE)
+    else:
+        # "verified" only when verification actually ran.
+        word = "verified" if application.config.verify.commands else "reviewed"
+        console.print(f"\n[green bold]Run complete — your {word} result is ready.[/green bold]")
     console.print(f"  tasks: {summary.done}/{summary.total} finished")
     if application.config.verify.commands:
         console.print("  verification: passed (your test commands, run by Orkestra)")
@@ -202,14 +241,18 @@ def init(
             console.print("initialized Git repository")
         else:
             _guard_not_nested(root, await repo.toplevel())
+        from orkestra.cli.start import _suggested_ignores
+
         gitignore = root / ".gitignore"
-        marker = ".orkestra/"
         existing = gitignore.read_text() if gitignore.exists() else ""
-        if marker not in existing.split("\n"):
+        additions = [line for line in _suggested_ignores(root) if line not in existing.split("\n")]
+        if additions:
             gitignore.write_text(
                 existing
                 + ("\n" if existing and not existing.endswith("\n") else "")
-                + "# Orkestra local state (never commit)\n.orkestra/\n"
+                + "# Orkestra local state (never commit) + build artifacts\n"
+                + "\n".join(additions)
+                + "\n"
             )
         detected = {
             "claude": shutil.which("claude") is not None,
@@ -342,6 +385,31 @@ def demo(
 @app.command()
 def doctor() -> None:
     """Check Git, configuration, agents, and platform readiness."""
+    from orkestra.app import find_project_root
+
+    try:
+        find_project_root()
+    except ConfigError:
+        # No project here — still useful: check the environment itself so
+        # a first-time user gets real signal instead of a hard error.
+        console.print(
+            "[yellow]No Orkestra project found here[/yellow] — checking the "
+            "environment only. Set one up with [bold]orkestra start[/bold]."
+        )
+        git_path = shutil.which("git")
+        console.print(
+            f"  git: {'[green]ok[/green] ' + git_path if git_path else '[red]missing[/red]'}"
+        )
+        for label, exe in (
+            ("claude (Claude Code)", "claude"),
+            ("codex (Codex CLI)", "codex"),
+            ("agy (Antigravity)", "agy"),
+            ("gemini (Gemini CLI)", "gemini"),
+        ):
+            found = shutil.which(exe)
+            status = "[green]on PATH[/green]" if found else "[dim]not found[/dim]"
+            console.print(f"  {label}: {status}")
+        raise typer.Exit(code=1) from None
     application = _load_app()
 
     async def _run() -> int:
@@ -790,10 +858,10 @@ def run(
         spec_text = _read_spec(application, spec)
         return await prepare_run(application.orchestrator, application.director, spec_text)
 
-    async def _run() -> RunState:
+    async def _run() -> tuple[str, RunState]:
         application.orchestrator._on_event = _progress_callback(application)
         run_id = await _prepare()
-        return await application.orchestrator.execute(run_id)
+        return run_id, await application.orchestrator.execute(run_id)
 
     if watch:
         import sys
@@ -820,23 +888,24 @@ def run(
         application.close()
         if state is RunState.WAITING_HUMAN:
             raise typer.Exit(code=2)
+        if state is RunState.CANCELLED:
+            raise typer.Exit(code=3)
         raise typer.Exit(code=1 if state is RunState.FAILED else 0)
 
     try:
-        state = asyncio.run(_run())
+        executed_run, state = asyncio.run(_run())
     except OrkestraError as exc:
         application.close()
         _fail(str(exc))
         return
-    latest = application.store.latest_run()
-    if latest is None:  # pragma: no cover - run() just created one
-        raise RuntimeError("no run recorded after execution")
-    _show_status(application, latest.run_id)
+    # Always report on the run THIS process executed — a concurrent
+    # process may have created a newer run in the meantime.
+    _show_status(application, executed_run)
     application.close()
     if state is RunState.COMPLETE:
         reopened = build_app(root=None)
         try:
-            _print_completion(reopened, latest.run_id)
+            _print_completion(reopened, executed_run)
         finally:
             reopened.close()
     elif state is RunState.WAITING_HUMAN:
@@ -845,6 +914,9 @@ def run(
             "see `orkestra decisions`, then `orkestra resume`"
         )
         raise typer.Exit(code=2)
+    elif state is RunState.CANCELLED:
+        console.print("[yellow]run was cancelled[/yellow]")
+        raise typer.Exit(code=3)
     else:
         raise typer.Exit(code=1 if state is RunState.FAILED else 0)
 
@@ -1324,7 +1396,14 @@ def _accept_impl(
             check=False,
         )
         run_files = {line for line in names.splitlines() if line.strip()}
-        collisions = sorted(run_files & set(untracked))
+        colliding = set(run_files) & set(untracked)
+        # On case-insensitive filesystems (macOS default), README.md and
+        # readme.md are the same file — compare casefolded too.
+        root_l = application.root
+        if (root_l / ".orkestra").exists() and (root_l / ".ORKESTRA").exists():
+            by_fold = {f.casefold(): f for f in run_files}
+            colliding |= {by_fold[u.casefold()] for u in untracked if u.casefold() in by_fold}
+        collisions = sorted(colliding)
         head = await repo.head_commit()
         branch_moved = head != run.base_commit
         return summary, current, tracked, collisions, branch_moved, "pending"
@@ -1386,6 +1465,8 @@ def _accept_impl(
     # ---- preflight summary + explicit confirmation ----------------------
     commits = summary.commits
     console.print(f"\n[bold]About to accept run {resolved} into [cyan]{current}[/cyan][/bold]")
+    if _is_practice_mode(application):
+        console.print(_PRACTICE_NOTE)
     console.print(
         f"  run state: {run.state.value} · tasks finished: {summary.done}/{summary.total}"
     )
@@ -1437,7 +1518,22 @@ def _accept_impl(
             f"Accept orkestra run {resolved} ({run.project_name})",
         )
 
-    merged = asyncio.run(_merge())
+    try:
+        merged = asyncio.run(_merge())
+    except OrkestraError as exc:
+
+        async def _abort() -> None:
+            from orkestra.workspace.git import GitRepo
+
+            await GitRepo(application.root)._git("merge", "--abort", check=False)
+
+        asyncio.run(_abort())
+        application.close()
+        _fail(
+            "the merge hit an unexpected git error and was aborted — "
+            f"nothing on your branch was kept from it. Detail: {exc}"
+        )
+        return
     if not merged:
         application.close()
         _fail(
@@ -1537,7 +1633,11 @@ def report(
         bool,
         typer.Option(
             "--save",
-            help="Write markdown + JSON under .orkestra/reports/ (git-ignored).",
+            help=(
+                "Write markdown + JSON under .orkestra/reports/ (git-ignored). "
+                "An explicit --out/--json-out keeps its own path; --save fills "
+                "in whichever outputs weren't given one."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -1554,10 +1654,12 @@ def report(
         out = out or reports_dir / f"{resolved}.md"
         json_out = json_out or reports_dir / f"{resolved}.json"
     if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(markdown, encoding="utf-8")
         console.print(f"wrote {out}")
         _report_location_note(application.root, out)
     if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
         json_out.write_text(render_json(document), encoding="utf-8")
         console.print(f"wrote {json_out}")
         _report_location_note(application.root, json_out)

@@ -137,9 +137,11 @@ class TestWorkflow:
 
         result = runner.invoke(app, ["run", "--offline"])
         assert result.exit_code == 0, result.output
-        assert "Run complete" in result.output
+        lowered = result.output.lower()
+        assert "run complete" in lowered  # practice or real headline
         assert "orkestra review" in result.output  # journey guidance
-        assert "ork/run_" not in result.output.split("Run complete")[1]
+        # the friendly completion summary never mentions internal branches
+        assert "ork/run_" not in lowered.split("run complete", 1)[1]
 
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 0

@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-07-25
+
+Fixes for the second simulated-user fleet test of 0.4.4
+(report: docs/development/FLEET_TEST_REPORT_v0.4.4.md).
+
+### Fixed
+- `orkestra start --agents ...` with a recognized-but-not-signed-in
+  agent now refuses BEFORE creating the repository/.gitignore — every
+  `--agents` failure leaves the directory untouched; an empty
+  `--agents ""` is rejected instead of silently ignored.
+- The nested-project guard now covers every command: `status`, `run`,
+  `doctor`, etc. refuse to operate on a stray `.orkestra/` inside a
+  subdirectory of another repository.
+- Practice-mode honesty completed: the completion headline now says
+  "Practice run complete" (no more "verified result" contradiction),
+  real runs say "verified" only when verify commands actually ran, and
+  the accept confirmation shows the practice notice.
+- `report --out` into a missing directory creates it instead of
+  crashing; report's Agents section is populated for demo projects;
+  `--save`'s interplay with explicit paths is documented in --help.
+- `orkestra run` exits 3 on a cancelled run (was 0); the completion
+  summary always describes the run this process executed, not the
+  newest run (parallel-invocation mix-up).
+- Config validation errors now read "must be one of ..." (no pydantic
+  phrasing); the generated config's effort comment states the real
+  per-adapter support instead of contradicting the docs.
+- `accept` detects untracked-file collisions case-insensitively on
+  case-insensitive filesystems and aborts cleanly (with
+  `git merge --abort`) on unexpected merge errors.
+- Non-ASCII project directory names are slugified into valid config
+  names; a read-only `.orkestra/` fails with a clean message; `doctor`
+  without a project checks the environment instead of hard-failing.
+
+### Added
+- Generated `.gitignore` seeds language build artifacts
+  (`__pycache__/`, `*.pyc` for Python projects; `node_modules/` for
+  Node) so agent test runs can't commit binary noise.
+
 ## [0.4.4] - 2026-07-25
 
 ### Fixed

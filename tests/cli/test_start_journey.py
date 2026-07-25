@@ -42,7 +42,7 @@ class TestPracticeModeJourney:
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--run"])
         assert result.exit_code == 0, result.output
         assert "practice mode" in result.output
-        assert "Run complete" in result.output
+        assert "run complete" in result.output.lower()  # practice or real headline
         # Journey continues with the same friendly commands.
         monkeypatch.chdir(root)
         result = runner.invoke(app, ["review"])
