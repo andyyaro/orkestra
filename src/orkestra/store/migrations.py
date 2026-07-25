@@ -123,4 +123,9 @@ MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL
     );
     """,
+    # v0.5.0: cache-read/creation tokens are most of a coding agent's real
+    # input volume; without them the usage table understates input wildly.
+    """
+    ALTER TABLE usage_log ADD COLUMN cached_input_tokens INTEGER NOT NULL DEFAULT 0;
+    """,
 ]

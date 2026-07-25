@@ -11,10 +11,12 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from orkestra.adapters.jsonl import extract_json_object
 from orkestra.adapters.runner import run_invocation
+from orkestra.schemas.agent import Usage
 from orkestra.schemas.capability import CapabilityObservation, CapabilityProbe
 from orkestra.schemas.common import TaskKind
 from orkestra.schemas.task import TaskBrief
@@ -98,6 +100,7 @@ async def run_probes(
     mode: str = "cached",
     budget: int = 6,
     timeout_s: int = 240,
+    usage_sink: Callable[[str, Usage], None] | None = None,
     probes: list[CapabilityProbe] | None = None,
 ) -> list[CapabilityObservation]:
     """Run (or reuse) probes for each agent within the budget."""
@@ -145,6 +148,8 @@ async def run_probes(
                 raise
             except Exception:
                 result = None
+            if usage_sink is not None and result is not None and result.usage is not None:
+                usage_sink(agent_name, result.usage)
             passed = False
             if result is not None and result.ok:
                 text = result.final_text

@@ -9,6 +9,7 @@ bound, and falls back deterministically where a fallback exists.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -19,6 +20,7 @@ from orkestra.director import prompts
 from orkestra.director.heuristic import heuristic_analysis, heuristic_plan
 from orkestra.errors import DirectorError
 from orkestra.kernel.dag import TaskDag
+from orkestra.schemas.agent import Usage
 from orkestra.schemas.common import TaskKind
 from orkestra.schemas.director import (
     DirectorAnalysis,
@@ -51,6 +53,9 @@ class DirectorService:
         offline: bool = False,
     ) -> None:
         self.director_name = director_name
+        #: optional (agent_name, usage) sink so preparation-phase LLM
+        #: spend (analysis, planning, challenges) is accounted like tasks.
+        self.usage_sink: Callable[[str, Usage], None] | None = None
         self.adapter = adapter
         self.policy = policy
         self.work_dir = work_dir
@@ -85,6 +90,8 @@ class DirectorService:
                 self.adapter.make_parser(brief),
                 lambda _e: None,
             )
+            if self.usage_sink is not None and result.usage is not None:
+                self.usage_sink(self.director_name, result.usage)
             if not result.ok:
                 last_error = f"{result.error_kind.value}: {result.error_detail[:300]}"
                 continue
@@ -154,6 +161,7 @@ class DirectorService:
             timeout_s=self.timeout_s,
             offline=self.offline,
         )
+        service.usage_sink = self.usage_sink  # challengers are billed too
         if self.offline:
             return PlanChallenge(agent=challenger_name, verdict="accept")
         try:
