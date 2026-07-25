@@ -39,7 +39,11 @@ dependencies = [
 
 [project.optional-dependencies]
 tui = ["textual>=1.0"]
-memory = ["provalume>=0.1.0"]
+# >=0.1.1 deliberately: 0.1.0 cannot link a fix to the failure it resolved
+# (the field that triggers it had no writer) and rejects the non-recording
+# preflight lookup, so on 0.1.0 resolution linking is silently inert rather
+# than merely absent.
+memory = ["provalume>=0.1.1"]
 
 [project.urls]
 Homepage = "https://github.com/andyyaro/orkestra"

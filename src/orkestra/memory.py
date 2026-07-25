@@ -128,7 +128,15 @@ class Memory:
 
         A failure becomes a gotcha keyed on a deterministic signature; a success
         becomes a procedural candidate keyed on the exact command.
+
+        A success also names the failure it resolves, when there is one. Without
+        that, resolution is only inferred within a single task or run — and
+        Orkestra's real recovery path is to block a task, escalate to a human,
+        and do the work in a *later* run. The failure and its fix therefore land
+        in different runs, nothing links them, and the gate goes on warning about
+        something that was fixed.
         """
+        resolves = self._unresolved_signature(command) if passed else ""
         self._safe(
             lambda: self._adapter.verification(
                 command=command,
@@ -138,8 +146,33 @@ class Memory:
                 task_id=task_id,
                 attempt_id=attempt_id,
                 agent=agent,
+                resolves_signature=resolves,
             )
         )
+
+    def _unresolved_signature(self, command: str) -> str:
+        """The signature of an unresolved prior failure of this command, if any.
+
+        Read through the same pre-action gate the brief uses, so a success is
+        matched to a failure by exactly the criteria that would have warned about
+        it. Returns "" on any failure or no match — linking a resolution is an
+        improvement, never a precondition for recording the success.
+        """
+        try:
+            from provalume.integrations.orkestra import safe_preflight
+
+            # record=False: this is a lookup, not a warning shown to anyone.
+            # Recording here would inflate the warning count that warning
+            # usefulness is measured from.
+            result = safe_preflight(self._adapter, command=command, record=False)
+            if result is None or not result.matched:
+                return ""
+            for match in result.matches:
+                if not match.what_later_worked and match.failure_signature:
+                    return str(match.failure_signature)
+            return ""
+        except Exception:
+            return ""
 
     def record_review(
         self,

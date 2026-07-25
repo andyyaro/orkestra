@@ -588,7 +588,7 @@ class Orchestrator:
             self.store.set_task_state(
                 task.task_id, TaskState.VERIFYING, expected=(TaskState.RUNNING,)
             )
-            verify_ok = await self._verify(run_id, task, workspace, agent)
+            verify_ok = await self._verify(run_id, task, workspace, agent, attempt_id)
             if not verify_ok:
                 record_task_outcome(
                     self.store,
@@ -620,7 +620,7 @@ class Orchestrator:
                 self.store.set_task_state(
                     task.task_id, TaskState.REVIEWING, expected=(TaskState.VERIFYING,)
                 )
-                verdict = await self._review(run_id, task, workspace, agent)
+                verdict = await self._review(run_id, task, workspace, agent, attempt_id)
                 if verdict is None:
                     self._block_task(
                         run_id,
@@ -866,7 +866,12 @@ class Orchestrator:
         return "\n".join(parts)
 
     async def _verify(
-        self, run_id: str, task: TaskRow, workspace: Workspace, agent: str | None = None
+        self,
+        run_id: str,
+        task: TaskRow,
+        workspace: Workspace,
+        agent: str | None = None,
+        attempt_id: str | None = None,
     ) -> bool:
         commands = task.spec.acceptance or self.config.verify.commands
         if not commands:
@@ -899,12 +904,18 @@ class Orchestrator:
                         exit_code=result.exit_code,
                         excerpt=_failure_excerpt(result),
                         task_id=task.task_id,
+                        attempt_id=attempt_id,
                         agent=agent,
                     )
         return outcome.passed
 
     async def _review(
-        self, run_id: str, task: TaskRow, workspace: Workspace, implementer: str
+        self,
+        run_id: str,
+        task: TaskRow,
+        workspace: Workspace,
+        implementer: str,
+        reviewed_attempt_id: str | None = None,
     ) -> ReviewVerdict | None:
         assignment = task.assignment
         if assignment is None:  # pragma: no cover - guarded by caller
@@ -993,7 +1004,13 @@ class Orchestrator:
                         subject=task.spec.title,
                         finding="; ".join(verdict.findings or verdict.required_changes),
                         task_id=task.task_id,
-                        attempt_id=attempt_id,
+                        # The attempt under review, not the reviewer's own. A
+                        # verdict is about the work it examined, and Provalume
+                        # associates evidence by attempt: filing it against the
+                        # reviewer's attempt puts the verdict in a scope that
+                        # holds none of the reviewed work, so nothing is ever
+                        # stamped and the ladder stops at `verified`.
+                        attempt_id=reviewed_attempt_id,
                     )
             record_task_outcome(
                 self.store,

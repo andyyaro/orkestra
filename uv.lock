@@ -570,7 +570,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "provalume", marker = "extra == 'memory'", specifier = ">=0.1.0" },
+    { name = "provalume", marker = "extra == 'memory'", specifier = ">=0.1.1" },
     { name = "pydantic", specifier = ">=2.9,<3" },
     { name = "rich", specifier = ">=13.9" },
     { name = "textual", marker = "extra == 'tui'", specifier = ">=1.0" },
@@ -693,16 +693,16 @@ wheels = [
 
 [[package]]
 name = "provalume"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/42/7f2a394f2bff505b63a4cbf0e2ddbc483b49e2b564dc0a208265daa31f7c/provalume-0.1.0.tar.gz", hash = "sha256:6c3cecc1b5286cb0934d726a6e5aba757d0e409e92406077f80888db5d127b8b", size = 360127, upload-time = "2026-07-25T17:01:00.229Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/28/28f6f647ad833dbcd133a2e206e7b1af833b4a30553eeed1aa7ebc25d407/provalume-0.1.1.tar.gz", hash = "sha256:01b1e144d476a88495ef7b1943c109825f1a311b940037816f2e0217b36e54f6", size = 364581, upload-time = "2026-07-25T18:41:05.179Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/38/9224361a32f09f95cd71aa5f10af13389d95849a8a7dfccbd9852f4ab547/provalume-0.1.0-py3-none-any.whl", hash = "sha256:a69bfbed0b9d01fcce4e837c8af54720b089708de258a68fbaadb6b9ce31a64e", size = 205284, upload-time = "2026-07-25T17:00:58.735Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/c2/76fd3c1ab458f184779b7b203ed7caa06be36d9894fc52f43ea8697a0326/provalume-0.1.1-py3-none-any.whl", hash = "sha256:3e190058be60df0394e3ebb549c3b20b7a6f6b143f011c7c3d762edc63b81adc", size = 206339, upload-time = "2026-07-25T18:41:03.619Z" },
 ]
 
 [[package]]
