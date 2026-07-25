@@ -8,6 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-25
+
+Hotfix for a critical regression introduced in 0.5.0, found by the
+fourth fleet test (real agents). **0.5.0 users should upgrade
+immediately**: in any repository whose `.gitignore` covers build
+artifacts — including the `.gitignore` `orkestra init` itself writes —
+every task failed to commit.
+
+### Fixed
+- **Critical**: `git add -A -- . :(exclude)__pycache__ …` (added in
+  0.5.0 to keep build artifacts out of commits) makes git *fail* when
+  those paths are ignored, so no task could stage its work. Staging now
+  uses plain `git add -A` (which skips ignored files silently) and
+  unstages artifacts afterwards — same protection, no failure mode.
+- **Critical**: the offered `retry` could not resolve that block, and
+  workspace re-creation deleted a branch its own worktree still held.
+  Worktrees are now removed before their branch, with a fresh branch
+  name as a last resort, so retry always makes progress.
+- Work produced by a non-mutating task (research/plan/review) is no
+  longer discarded silently: the files that will not be kept are named
+  in a warning.
+- The acceptance-entry validator no longer accepts prose that merely
+  starts with a real binary ("python3 -m unittest …, run from the repo
+  root, exits with code 0"); commas, sentence length and word count are
+  rejected, so a plan sentence can never fail a task whose real gate
+  passed.
+- `orkestra logs --full` shows complete event text (0.5.0's captured
+  verification output was truncated at 200 characters in every CLI
+  rendering); log text is escaped so markup-like content survives.
+- The blocked-task explanation no longer loses the word "[verify]".
+- Report JSON documents that an attempt's `state` is the agent call's
+  own outcome, not the task's verification result, and adds
+  `agent_call_state` plus `field_notes` explaining usage coverage.
+
 ## [0.5.0] - 2026-07-25
 
 Correction release driven by the third fleet test — the first run with
