@@ -1065,6 +1065,10 @@ def logs(
     run_id: Annotated[str | None, typer.Option("--run")] = None,
     task: Annotated[str | None, typer.Option("--task", help="Filter by task key.")] = None,
     limit: Annotated[int, typer.Option("--limit")] = 100,
+    full: Annotated[
+        bool,
+        typer.Option("--full", help="Show complete event text (e.g. verification output)."),
+    ] = False,
 ) -> None:
     """Show recent run events (redacted at write time)."""
     application = _load_app()
@@ -1076,8 +1080,10 @@ def logs(
             _fail(f"no task with key {task!r} in run {resolved}")
         task_id = matching[0].task_id
     for event in application.store.events_for_run(resolved, limit=limit, task_id=task_id):
+        text = str(event["text"])
+        body = text if full else text[:200] + ("…" if len(text) > 200 else "")
         console.print(
-            f"[dim]{event['ts'][:19]}[/dim] {event['kind']:>9} {event['text'][:200]}",
+            f"[dim]{event['ts'][:19]}[/dim] {event['kind']:>9} {escape(body)}",
             highlight=False,
         )
     application.close()
