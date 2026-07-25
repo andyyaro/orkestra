@@ -98,12 +98,21 @@ class Memory:
 
         **Advisory only.** The caller appends it to the brief; nothing here can
         block a dispatch.
+
+        Deliberately no ``subsystem``. Provalume matches it as a substring of a
+        gotcha's text (``retrieval/preflight.py:_overlap``), so the obvious
+        candidate — ``spec.kind.value`` — is worse than nothing: it is a task
+        *kind*, not a component, and the kind ``test`` is a substring of
+        ``pytest``, which made every recorded pytest gotcha match every test task
+        at the "previously failed in test" tier. Orkestra has no component
+        taxonomy to put here instead, and inventing one would be guessing, so the
+        argument is omitted and matching rests on the command alone.
         """
         try:
             from provalume.integrations.orkestra import safe_preflight
 
             command = spec.acceptance[0] if spec.acceptance else ""
-            result = safe_preflight(self._adapter, command=command, subsystem=spec.kind.value)
+            result = safe_preflight(self._adapter, command=command)
             if result is None or not result.matched:
                 return ""
             summary: str = result.summary
@@ -221,8 +230,14 @@ class Memory:
         adapter_id: str = "",
         model: str = "",
         error_kind: str = "",
+        fallback: bool = False,
     ) -> None:
-        """Feed performance memory: which agent profile succeeds at what."""
+        """Feed performance memory: which agent profile succeeds at what.
+
+        ``fallback`` is threaded through rather than left at its default: an
+        aggregate that cannot say how often an agent needed rescuing describes a
+        different agent from the one that ran.
+        """
         self._safe(
             lambda: self._adapter.attempt_completed(
                 task_id=task_id,
@@ -233,6 +248,7 @@ class Memory:
                 adapter=adapter_id or None,
                 model=model or None,
                 kind=kind,
+                fallback=fallback,
             )
         )
 
