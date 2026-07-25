@@ -27,7 +27,10 @@ configures practice mode (fake agents) so the journey always works.
 every signed-in CLI (friendly names accepted: claude, codex,
 antigravity/agy, gemini — at least two required); if a requested agent
 isn't signed in, start stops with an explanation rather than silently
-substituting.
+substituting. Both `start` and `init` refuse to set up a project inside
+a subdirectory of an existing Git repository (git would resolve every
+command to the parent repo) — run them at that repository's root or
+place the project elsewhere.
 Re-running it on an existing project reconfigures without destroying
 your spec. Presets tune models, effort, probes, concurrency — never
 verification or independent review.
