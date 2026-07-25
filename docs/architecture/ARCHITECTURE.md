@@ -88,7 +88,9 @@ The kernel is an async single-writer event loop over persistent state:
 3. For each ready task, evaluate policy, acquire a workspace, dispatch to
    the assigned adapter with a rendered task brief.
 4. Consume the adapter's normalized event stream; persist events.
-5. On completion, run deterministic verification in the workspace.
+5. On completion, run deterministic verification in the workspace: the
+   user's `[verify]` commands (authoritative) plus any plan-proposed
+   acceptance commands that pass validation.
 6. Route to review (independent reviewer ≠ implementer), then integration.
 7. Record outcomes in the performance ledger; ask the director for
    reassignment recommendations when policy triggers allow.

@@ -64,7 +64,8 @@ For each attempt, Orkestra runs your command with:
   "structured": null,
   "error_kind": "none",
   "error_detail": "",
-  "usage": {"input_tokens": 0, "output_tokens": 0}
+  "usage": {"input_tokens": 0, "output_tokens": 0,
+            "cached_input_tokens": 0, "total_cost_usd": null}
 }
 ```
 

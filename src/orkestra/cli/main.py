@@ -13,6 +13,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 import orkestra
@@ -134,7 +135,12 @@ def _progress_callback(application: App) -> Callable[[str, AgentEvent], None]:
             tasks = application.store.tasks_for_run(run_id)
             done = sum(1 for t in tasks if t.state.value == "done")
             usage = application.store.usage_summary(run_id)
-            tokens = sum((row["input_tokens"] or 0) + (row["output_tokens"] or 0) for row in usage)
+            tokens = sum(
+                (row["input_tokens"] or 0)
+                + (row.get("cached_input_tokens") or 0)
+                + (row["output_tokens"] or 0)
+                for row in usage
+            )
             cost = sum(row["total_cost_usd"] or 0 for row in usage)
             cost_text = f" · ${cost:.2f}" if cost else ""
             console.print(
@@ -185,7 +191,12 @@ def _print_completion(application: App, run_id: str) -> None:
     if summary.open_decisions:
         console.print("  decisions you resolved along the way: see `orkestra decisions --all`")
     usage = application.store.usage_summary(run_id)
-    tokens = sum((row["input_tokens"] or 0) + (row["output_tokens"] or 0) for row in usage)
+    tokens = sum(
+        (row["input_tokens"] or 0)
+        + (row.get("cached_input_tokens") or 0)
+        + (row["output_tokens"] or 0)
+        for row in usage
+    )
     cost = sum(row["total_cost_usd"] or 0 for row in usage)
     line = f"  usage: {tokens / 1000:.0f}k tokens"
     if cost:
@@ -202,14 +213,20 @@ def _print_event(_run_id: str, event: AgentEvent) -> None:
         EventKind.STARTED: "cyan",
     }
     style = styles.get(event.kind)
-    text = event.text.strip().replace("\n", " ")[:220]
+    text = escape(event.text.strip().replace("\n", " ")[:220])
     if not text:
         return
     label = event.kind.value
+    # Attribute streamed events to the agent that produced them; without
+    # this, non-TTY logs are unattributable "tool Bash" lines.
+    who = str(event.data.get("agent") or "") if event.data else ""
+    prefix = f"{label:>9}"
+    if who:
+        prefix = f"{label:>9} [{escape(who)}]"
     if style:
-        console.print(f"[{style}]{label:>9}[/{style}] {text}", highlight=False)
+        console.print(f"[{style}]{prefix}[/{style}] {text}", highlight=False)
     elif event.kind in (EventKind.TEXT, EventKind.TOOL):
-        console.print(f"[dim]{label:>9} {text}[/dim]", highlight=False)
+        console.print(f"[dim]{prefix} {text}[/dim]", highlight=False)
 
 
 # ------------------------------------------------------------------ init
@@ -965,12 +982,38 @@ def _execute_with_watch(root: Path, run_id: str, *, offline: bool) -> RunState:
 # ------------------------------------------------------------ status/logs
 
 
+def _run_timing(application: App, run_id: str) -> str:
+    """'started 12:01:10 · 3m20s elapsed' from the event trail."""
+    from datetime import datetime
+
+    events = application.store.events_for_run(run_id, limit=1_000_000)
+    stamps = [str(e["ts"]) for e in events if e.get("ts")]
+    if not stamps:
+        return ""
+    try:
+        first = datetime.fromisoformat(min(stamps))
+        last = datetime.fromisoformat(max(stamps))
+    except ValueError:  # pragma: no cover - defensive
+        return ""
+    seconds = int((last - first).total_seconds())
+    span = f"{seconds // 60}m{seconds % 60:02d}s" if seconds >= 60 else f"{seconds}s"
+    return f"started {first.strftime('%H:%M:%S')} · {span} of activity"
+
+
 def _show_status(application: App, run_id: str) -> None:
     run = application.store.get_run(run_id)
     console.print(f"\n[bold]run {run.run_id}[/bold] — state: {run.state.value}")
+    timing = _run_timing(application, run_id)
+    if timing:
+        console.print(f"[dim]{timing}[/dim]")
+    if run.state.value in ("created", "analyzing", "probing", "planning"):
+        console.print(
+            "[dim]still preparing (analysis → capability probes → plan → "
+            "cross-challenge); tasks appear once planning finishes[/dim]"
+        )
     table = Table(show_lines=False)
     for column in ("Task", "Kind", "State", "Primary", "Reviewers", "Attempts"):
-        table.add_column(column)
+        table.add_column(column, overflow="fold")
     for task in application.store.tasks_for_run(run_id):
         assignment = task.assignment
         state_style = {
@@ -1168,13 +1211,36 @@ def resume(
     application = _load_app(offline=offline)
     resolved = _pick_run(application, run_id)
 
-    async def _run() -> RunState:
-        application.orchestrator._on_event = _progress_callback(application)
-        await application.orchestrator.reconcile(resolved)
-        return await application.orchestrator.execute(resolved)
+    async def _run() -> tuple[str, RunState]:
+        from orkestra.kernel.prepare import prepare_run
 
-    state = asyncio.run(_run())
-    _show_status(application, resolved)
+        application.orchestrator._on_event = _progress_callback(application)
+        run = application.store.get_run(resolved)
+        tasks = application.store.tasks_for_run(resolved)
+        prep_states = (
+            RunState.CREATED,
+            RunState.ANALYZING,
+            RunState.PROBING,
+            RunState.PLANNING,
+        )
+        if run.state in prep_states and not tasks:
+            # Interrupted before planning produced tasks: nothing partial
+            # exists to reconcile — re-plan cleanly from the spec, exactly
+            # as the docs promise.
+            console.print(
+                f"[yellow]run {resolved} was interrupted before planning "
+                "finished[/yellow] — nothing was half-done; re-planning "
+                "from your spec as a fresh run"
+            )
+            application.store.set_run_state(resolved, RunState.FAILED)
+            spec_text = _read_spec(application, None)
+            fresh = await prepare_run(application.orchestrator, application.director, spec_text)
+            return fresh, await application.orchestrator.execute(fresh)
+        await application.orchestrator.reconcile(resolved)
+        return resolved, await application.orchestrator.execute(resolved)
+
+    resumed_run, state = asyncio.run(_run())
+    _show_status(application, resumed_run)
     application.close()
     if state is RunState.WAITING_HUMAN:
         console.print("[yellow]still waiting on decisions[/yellow]")
@@ -1291,8 +1357,8 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
         f"\n  result: {len(commits)} commit(s)"
         + (f" · {summary.shortstat}" if summary.shortstat else "")
     )
-    for line in commits[:20]:
-        console.print(f"    {line}")
+    for line in commits[:20]:  # escaped: subjects contain [agent] tags
+        console.print(f"    {escape(line)}")
     if len(commits) > 20:
         console.print(f"    … and {len(commits) - 20} more")
     if summary.stat:
@@ -1369,7 +1435,7 @@ def _accept_impl(
         _fail(f"run {resolved} has no results to accept")
         return
 
-    async def _preflight() -> tuple[_RunSummary, str, list[str], list[str], bool, str]:
+    async def _preflight() -> tuple[_RunSummary, str, list[str], list[str], bool, str, bool]:
         from orkestra.workspace.git import GitRepo
 
         repo = GitRepo(application.root)
@@ -1379,13 +1445,13 @@ def _accept_impl(
                 "log", "--oneline", "--grep", f"Accept orkestra run {resolved}", check=False
             )
             state = "accepted" if code == 0 and log.strip() else "missing"
-            return _RunSummary(run=None), current, [], [], False, state
+            return _RunSummary(run=None), current, [], [], False, state, False
         code, _, _ = await repo._git(
             "merge-base", "--is-ancestor", run.integration_branch, "HEAD", check=False
         )
         branch_tip = await repo.head_commit(run.integration_branch)
         if code == 0 and branch_tip != run.base_commit:
-            return _RunSummary(run=None), current, [], [], False, "accepted"
+            return _RunSummary(run=None), current, [], [], False, "accepted", False
         summary = await _gather_run_summary(application, resolved)
         tracked = await repo.tracked_changes()
         untracked = await repo.untracked_files()
@@ -1406,9 +1472,17 @@ def _accept_impl(
         collisions = sorted(colliding)
         head = await repo.head_commit()
         branch_moved = head != run.base_commit
-        return summary, current, tracked, collisions, branch_moved, "pending"
+        return summary, current, tracked, collisions, branch_moved, "pending", bool(untracked)
 
-    summary, current, tracked, collisions, branch_moved, accept_state = asyncio.run(_preflight())
+    (
+        summary,
+        current,
+        tracked,
+        collisions,
+        branch_moved,
+        accept_state,
+        untracked_present,
+    ) = asyncio.run(_preflight())
     if current.startswith("ork/"):
         application.close()
         _fail(
@@ -1482,7 +1556,10 @@ def _accept_impl(
         )
     if summary.open_decisions:
         console.print(f"  [yellow]note: {summary.open_decisions} decision(s) still open[/yellow]")
-    console.print("  working tree: clean")
+    console.print(
+        "  working tree: no uncommitted changes to tracked files"
+        + (" (untracked files are left alone)" if untracked_present else "")
+    )
     if branch_moved:
         console.print(
             f"  [yellow]note: {current} moved since the run started — a "
@@ -1550,6 +1627,11 @@ def _accept_impl(
     console.print(
         f"[green]✓ accepted[/green] — run {resolved} is now part of [bold]{current}[/bold]"
     )
+    if not cleanup:
+        console.print(
+            "[dim]Orkestra's internal branches are still around; "
+            "`orkestra accept --cleanup` removes them next time[/dim]"
+        )
 
     if cleanup:
 

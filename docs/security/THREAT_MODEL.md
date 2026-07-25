@@ -46,7 +46,10 @@ Trust boundaries:
   as single argv elements or via stdin. Branch/worktree names are generated
   by Orkestra from a validated `[a-z0-9._/-]` alphabet with length limits —
   never derived from raw agent output. Verification commands come only from
-  user configuration, are parsed with `shlex.split`, and run without a shell.
+  user configuration and are authoritative; plan-proposed additions run
+  only if they contain no shell metacharacters and their executable
+  resolves on PATH. All are parsed with `shlex.split` and run without a
+  shell.
 
 ### T2. Path traversal and symlink attacks
 

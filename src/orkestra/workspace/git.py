@@ -151,10 +151,25 @@ class GitRepo:
         return [line for line in out.splitlines() if line.strip()]
 
     async def add_all_and_commit(self, message: str) -> str | None:
-        """Stage everything and commit; returns commit sha or None if clean."""
-        await self._git("add", "-A")
+        """Stage everything and commit; returns commit sha or None if clean.
+
+        Common build artifacts are excluded defensively — agent test runs
+        generate them, .gitignore may not cover them (older projects), and
+        reviewers should never see binary noise in diffs.
+        """
+        await self._git(
+            "add",
+            "-A",
+            "--",
+            ".",
+            ":(exclude)__pycache__",
+            ":(exclude)*.pyc",
+            ":(exclude)node_modules",
+            ":(exclude).pytest_cache",
+        )
         _, out, _ = await self._git("status", "--porcelain")
-        if not out.strip():
+        staged = [line for line in out.splitlines() if line[:1] not in (" ", "?", "")]
+        if not staged:
             return None
         await self._git("commit", "-m", message)
         return await self.head_commit()

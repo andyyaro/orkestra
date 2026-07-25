@@ -7,7 +7,7 @@ Two integration paths exist:
    an adapter today without touching Orkestra's codebase.
 2. **Built-in adapter** (contribution to Orkestra): subclass
    `orkestra.adapters.base.AgentAdapter` and register it in
-   `orkestra/adapters/registry.py`.
+   `src/orkestra/adapters/registry.py`.
 
 ## Built-in adapter contract
 
@@ -39,11 +39,17 @@ Design rules, learned from the first-party adapters:
   `structured_output`, `resume`, `stream`, `os_sandbox`,
   `structured_director`. The kernel adapts (a director needs
   `structured_director` or the run falls back to heuristic planning).
-- **Map Orkestra autonomy to the CLI's own safety system**: `safe` mode
-  should confine edits to the workspace (`--permission-mode acceptEdits`,
-  `--sandbox workspace-write`, `--mode accept-edits`, …); the explicit
+- **Map Orkestra autonomy to the CLI's own safety system**: the explicit
   `unsafe-full` autonomy maps to the CLI's bypass flag and nothing else
-  does.
+  does; for `research`/`plan`/`review` task kinds prefer the CLI's
+  read-only or plan mode where it has one (codex, gemini and antigravity
+  adapters do this; Claude Code has no read-only mode); otherwise confine
+  edits to the workspace (`--permission-mode acceptEdits`,
+  `--sandbox workspace-write`, `--mode accept-edits`, …).
+- **Surface permission stalls instead of hanging.** A headless CLI that
+  asks for approval it cannot receive should emit an `EventKind.WARNING`
+  (see `_PERMISSION_MARKERS` in the Claude Code adapter) rather than
+  waiting for the task timeout.
 - **Version-pin expectations.** Capture golden output samples (see
   `docs/research/samples/`) and unit-test your parser against them, plus
   rate-limit/auth/garbage cases.

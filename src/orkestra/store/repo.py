@@ -510,12 +510,14 @@ class Store:
         with self.db.tx() as conn:
             conn.execute(
                 "INSERT INTO usage_log (run_id, agent, attempt_id, input_tokens,"
-                " output_tokens, total_cost_usd, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                " cached_input_tokens, output_tokens, total_cost_usd, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run_id,
                     agent,
                     attempt_id,
                     usage.input_tokens,
+                    usage.cached_input_tokens,
                     usage.output_tokens,
                     usage.total_cost_usd,
                     _now(),
@@ -525,6 +527,7 @@ class Store:
     def usage_summary(self, run_id: str) -> list[dict[str, Any]]:
         rows = self.db.query(
             "SELECT agent, SUM(input_tokens) AS input_tokens,"
+            " SUM(cached_input_tokens) AS cached_input_tokens,"
             " SUM(output_tokens) AS output_tokens, SUM(total_cost_usd) AS total_cost_usd,"
             " COUNT(*) AS calls FROM usage_log WHERE run_id = ? GROUP BY agent",
             (run_id,),
