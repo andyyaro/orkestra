@@ -1,7 +1,7 @@
 # Orkestra Build Status
 
 **Status:** COMPLETE
-**Phase:** Released and published (v0.1.2 on PyPI)
+**Phase:** Released and published (v0.2.0 on PyPI)
 **Last updated:** 2026-07-24
 
 ## Phase checklist
@@ -51,5 +51,9 @@
 - v0.1.2: published to PyPI as `orkestra-runtime` via Trusted
   Publishing (OIDC, approval-gated `pypi` environment, no tokens);
   install verified from PyPI (`uv tool install orkestra-runtime`).
+- v0.2.0: session reuse on fix cycles; quota-aware scheduling (token
+  budgets + rate-limit cooldowns); Docker sandbox for external/fake
+  agents (ADR-0009, live-container verified); `orkestra watch` TUI
+  ([tui] extra). 285 tests; published to PyPI and install-verified.
 
 See FINAL_BUILD_REPORT.md for the complete evidence trail.
