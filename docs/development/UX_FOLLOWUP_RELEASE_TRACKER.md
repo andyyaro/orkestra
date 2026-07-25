@@ -45,7 +45,7 @@ hygiene. No kernel changes, no compatibility breaks.
       historical; release report written
 - [x] P5 full gates + fresh wheel/sdist installs
 - [x] P6 dogfood scenarios A–D recorded below
-- [ ] P7 version 0.4.1, PR through protected main, tag, GitHub release,
+- [x] P7 version 0.4.1, PR through protected main, tag, GitHub release,
       publish → pypi approval gate
 
 ## Tests required
@@ -78,3 +78,10 @@ hygiene. No kernel changes, no compatibility breaks.
 ## Outcome
 
 (pending)
+
+- P7 (2026-07-25): PR #1 merged after all 7 required checks passed;
+  merge commit 898b419; annotated tag v0.4.1; GitHub release published;
+  publish-to-pypi run 30141461497 succeeded after operator-approved
+  `pypi` deployment; fresh-env verify: `uv tool install
+  orkestra-runtime==0.4.1` → `orkestra 0.4.1`; --help / start / review /
+  accept / demo all OK; pypi.org reports version 0.4.1.

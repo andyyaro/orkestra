@@ -6,7 +6,7 @@ historical) and `docs/development/evidence/`.
 
 ## Current state (2026-07-25)
 
-- **Version:** 0.4.1 (in release) · latest published: **0.4.0** on
+- **Version:** 0.4.1 · latest published: **0.4.1** on
   [PyPI](https://pypi.org/project/orkestra-runtime/) and
   [GitHub releases](https://github.com/andyyaro/orkestra/releases)
 - **Repository:** https://github.com/andyyaro/orkestra · default branch
