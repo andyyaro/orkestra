@@ -229,8 +229,12 @@ class AntigravityCliAdapter(AgentAdapter):
             argv += ["--mode", "accept-edits"]
         if self.model:
             argv += ["--model", self.model]
-        if self.effort:
-            argv += ["--effort", self.effort]
+        if self.effort and self.effort != "auto":
+            from orkestra.schemas.effort import ADAPTER_EFFORT
+
+            cli_value = ADAPTER_EFFORT["antigravity-cli"].cli_value(self.effort)
+            if cli_value:
+                argv += ["--effort", cli_value]
         if brief.resume_session_id:
             argv += ["--conversation", brief.resume_session_id]
         return InvocationSpec(argv=argv, cwd=brief.cwd, timeout_s=brief.timeout_s + 30)

@@ -440,7 +440,7 @@ def agents_set(
     model: Annotated[str | None, typer.Option("--model", help="Model for this agent.")] = None,
     effort: Annotated[
         str | None,
-        typer.Option("--effort", help="Reasoning effort: low | medium | high (agy/codex)."),
+        typer.Option("--effort", help="Reasoning effort: auto | low | medium | high | max."),
     ] = None,
     clear: Annotated[
         bool, typer.Option("--clear", help="Remove model and effort overrides.")
@@ -484,18 +484,11 @@ def agents_set(
         _fail(f"change rejected (config rolled back):\n{exc}")
         return
     agent = config.agents[name]
-    adapter = agent.adapter
     console.print(
-        f"[green]✓[/green] {name} ({adapter}): model="
+        f"[green]✓[/green] {name} ({agent.adapter}): model="
         f"{agent.model or '[dim]adapter default[/dim]'} · effort="
-        f"{agent.effort or '[dim]default[/dim]'}"
+        f"{agent.effort or '[dim]auto[/dim]'}"
     )
-    if agent.effort and adapter not in ("antigravity-cli", "codex-cli"):
-        console.print(
-            f"[yellow]note:[/yellow] {adapter} has no effort control — the "
-            "setting is stored but will be ignored (supported: "
-            "antigravity-cli, codex-cli)"
-        )
 
 
 @agents_app.command("models")

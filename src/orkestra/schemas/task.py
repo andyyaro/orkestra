@@ -46,3 +46,5 @@ class TaskBrief(BaseModel):
     timeout_s: int
     json_schema: dict[str, object] | None = None
     resume_session_id: str | None = None
+    effort: str | None = None
+    """Neutral effort level, forwarded to external agents in the brief."""

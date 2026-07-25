@@ -299,8 +299,6 @@ class TestAgentsSetModels:
         assert "# my precious comment" in text
         assert 'model = "sonnet"' in text
         assert 'effort = "high"' in text
-        # fake adapter has no effort control — honest note
-        assert "no effort control" in result.output
 
     def test_invalid_effort_rolls_back(self, project: Path) -> None:
         config = project / ".orkestra" / "config.toml"
