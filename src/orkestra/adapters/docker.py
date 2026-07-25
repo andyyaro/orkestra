@@ -54,7 +54,7 @@ def wrap_in_docker(
         "no-new-privileges",
         "--read-only",
         "--tmpfs",
-        "/tmp:rw,noexec,nosuid,size=256m",  # noqa: S108 - container-internal tmpfs, not host /tmp
+        "/tmp:rw,noexec,nosuid,size=256m",  # noqa: S108  # nosec B108 - container tmpfs, not host
         "--memory",
         memory,
         "--cpus",
