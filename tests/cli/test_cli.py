@@ -204,9 +204,18 @@ class TestDecisionFlow:
         assert result.exit_code == 1
 
     def test_pause_and_cancel_flags(self, project: Path) -> None:
-        runner.invoke(app, ["run", "--offline"])
+        # active (waiting on a human) run: pause/cancel are legitimate
+        (project / "SPEC.md").write_text("# Doomed\nFAKE:fail:always\n")
+        git_commit_all(project)
+        assert runner.invoke(app, ["run", "--offline"]).exit_code == 2
         assert runner.invoke(app, ["pause"]).exit_code == 0
         assert runner.invoke(app, ["cancel"]).exit_code == 0
+        # a finished run has nothing to pause or cancel
+        (project / "SPEC.md").write_text("# Fine\nBuild a widget.\n")
+        git_commit_all(project)
+        assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+        assert runner.invoke(app, ["pause"]).exit_code == 1
+        assert runner.invoke(app, ["cancel"]).exit_code == 1
 
 
 class TestDiffMerge:

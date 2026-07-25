@@ -74,8 +74,8 @@ class GitRepo:
         code, out, _ = await self._git("rev-parse", "--is-inside-work-tree", check=False)
         return code == 0 and out.strip() == "true"
 
-    async def head_commit(self) -> str:
-        _, out, _ = await self._git("rev-parse", "HEAD")
+    async def head_commit(self, ref: str = "HEAD") -> str:
+        _, out, _ = await self._git("rev-parse", ref)
         return out.strip()
 
     async def has_commits(self) -> bool:

@@ -49,7 +49,7 @@ class TestReview:
         assert "status:" in out and "complete" in out
         assert "tasks finished" in out
         assert "starting point: your code as of commit" in out
-        assert "verification: every finished task passed" in out
+        assert "verification:" in out  # honest wording tested in test_fleet_fixes
         assert "independent review" in out
         assert "commit(s)" in out
         assert "orkestra accept" in out

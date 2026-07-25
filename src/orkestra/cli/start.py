@@ -67,6 +67,13 @@ def _choose_preset(interactive: bool, preset_key: str | None) -> Preset:
             _fail(f"unknown preset {preset_key!r} — options: " + ", ".join([*PRESETS, "custom"]))
         if preset_key != "custom":
             return PRESETS[preset_key]
+        if not interactive:
+            _fail(
+                "--preset custom means picking models and effort yourself, "
+                "which needs the interactive wizard. Drop --non-interactive, "
+                "or use faster | balanced | max-quality and edit "
+                ".orkestra/config.toml afterwards."
+            )
     if not interactive:
         return PRESETS["balanced"]
     console.print("\n[bold]How should the agents be tuned?[/bold]")
@@ -196,7 +203,16 @@ def _spec_assist(root: Path, interactive: bool) -> bool:
         "\n[bold]Describe the work[/bold] [dim](plain sentences; you can edit "
         "SPEC.md any time)[/dim]"
     )
-    goal = typer.prompt("  what should the agents build or change?")
+    goal = ""
+    while not goal.strip():
+        goal = typer.prompt(
+            "  what should the agents build or change?", default="", show_default=False
+        )
+        if not goal.strip():
+            console.print(
+                "  [yellow]one plain sentence is enough — this can't be "
+                "blank (Ctrl-C to stop and edit SPEC.md yourself)[/yellow]"
+            )
     boundaries = typer.prompt("  anything they must NOT touch?", default="nothing in particular")
     success = typer.prompt("  how will you judge it's done?", default="the verify commands pass")
     spec_path.write_text(
