@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Quota-aware scheduling: optional per-agent, per-run token budgets
+  (`agents.<name>.token_budget`) computed from the kernel's own usage
+  ledger — exhausted agents stop receiving new dispatches and fallbacks
+  take over; and global per-agent rate-limit cooldowns with exponential
+  escalation — when one agent is rate-limited, eligible alternatives
+  dispatch immediately instead of the task sleeping through a backoff.
 - Agent session reuse on fix cycles: when verification fails or a
   reviewer requests changes, the retry by the same agent in the same
   workspace resumes the agent's prior CLI session (`--resume` /

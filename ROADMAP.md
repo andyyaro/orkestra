@@ -8,7 +8,8 @@ Direction, not commitment. Items move as evidence accumulates.
   non-root, resource-limited container). Scaffolding exists behind
   `sandbox = "docker"`; needs hardening and CI coverage.
 - Textual-based TUI (`orkestra watch`) over the same state store.
-- Quota-aware scheduling using recorded usage observations per agent.
+- ~~Quota-aware scheduling~~ shipped post-0.1.2: per-agent token
+  budgets and global rate-limit cooldowns with immediate fallback.
 - ~~Adapter session reuse~~ shipped for fix cycles (post-0.1.2);
   remaining: cross-task session forking (Claude `--fork-session`).
 

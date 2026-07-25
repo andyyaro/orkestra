@@ -380,3 +380,62 @@ class TestSessionReuse:
         task = app.store.tasks_for_run(run_id)[0]
         events = app.store.events_for_run(run_id, limit=500, task_id=task.task_id)
         assert not any(e["text"].startswith("RESUMED:") for e in events)
+
+
+class TestQuotaAwareScheduling:
+    async def test_rate_limited_primary_switches_immediately(self, app: App) -> None:
+        # alpha reports a rate limit; the kernel must cool it down and
+        # dispatch beta right away instead of sleeping through a backoff.
+        run_id = await manual_run(
+            app,
+            [
+                (
+                    spec("feat", "FAKE:rate_limit:alpha\nFAKE:write:out.txt:done"),
+                    assign("alpha", "beta", ["beta"]),
+                )
+            ],
+        )
+        import time
+
+        start = time.monotonic()
+        state = await app.orchestrator.execute(run_id)
+        elapsed = time.monotonic() - start
+        assert state is RunState.COMPLETE
+        assert elapsed < 30, "fallback should not wait out the 60s rate-limit cooldown"
+        task = app.store.tasks_for_run(run_id)[0]
+        events = app.store.events_for_run(run_id, limit=500, task_id=task.task_id)
+        assert any("rate-limited; cooling down" in e["text"] for e in events)
+        primary_agents = [
+            a.agent for a in app.store.attempts_for_task(task.task_id) if a.role == "primary"
+        ]
+        assert primary_agents[0] == "alpha"
+        assert "beta" in primary_agents
+
+    async def test_token_budget_excludes_agent_from_later_tasks(self, tmp_path: Path) -> None:
+        # alpha has a 1000-token budget; the fake worker reports
+        # len(instructions)//4 input tokens, so one task with a ~6000-char
+        # description exhausts alpha before the second task dispatches.
+        app = await make_project(
+            tmp_path,
+            ["beta"],
+            extra_agents=('[agents.alpha]\nadapter = "fake"\ntoken_budget = 1000'),
+        )
+        big = "FAKE:write:one.txt:done\n" + ("filler context. " * 400)
+        run_id = await manual_run(
+            app,
+            [
+                (spec("big", big), assign("alpha", "beta")),
+                (
+                    spec("after", "FAKE:write:two.txt:done", deps=["big"]),
+                    assign("alpha", "beta", ["beta"]),
+                ),
+            ],
+        )
+        state = await app.orchestrator.execute(run_id)
+        assert state is RunState.COMPLETE
+        after = next(t for t in app.store.tasks_for_run(run_id) if t.key == "after")
+        primary_agents = {
+            a.agent for a in app.store.attempts_for_task(after.task_id) if a.role == "primary"
+        }
+        assert primary_agents == {"beta"}, "budget-exhausted alpha must not implement"
+        app.close()
