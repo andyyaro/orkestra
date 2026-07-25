@@ -158,9 +158,15 @@ class CodexCliAdapter(AgentAdapter):
     adapter_id = "codex-cli"
     executable = "codex"
 
-    def __init__(self, model: str | None = None, autonomy: str = "safe") -> None:
+    def __init__(
+        self,
+        model: str | None = None,
+        autonomy: str = "safe",
+        effort: str | None = None,
+    ) -> None:
         self.model = model
         self.autonomy = autonomy
+        self.effort = effort
         self._schema_dir = Path(tempfile.gettempdir())
 
     async def detect(self) -> AdapterInfo:

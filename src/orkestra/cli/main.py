@@ -343,14 +343,26 @@ def agents_list() -> None:
 
     async def _run() -> None:
         table = Table(title="agents")
-        for column in ("Name", "Adapter", "Version", "Available", "Auth", "Notes"):
-            table.add_column(column, overflow="fold", max_width=50)
+        for column in (
+            "Name",
+            "Adapter",
+            "Model",
+            "Effort",
+            "Version",
+            "Available",
+            "Auth",
+            "Notes",
+        ):
+            table.add_column(column, overflow="fold", max_width=44)
         for name, adapter in application.adapters.items():
             info = await adapter.detect()
             auth = await adapter.check_auth()
+            agent_config = application.config.agents[name]
             table.add_row(
                 name,
                 adapter.adapter_id,
+                agent_config.model or "default",
+                agent_config.effort or "—",
                 info.version,
                 "yes" if info.available else "no",
                 "ready" if auth.ready else "not ready",
@@ -417,6 +429,111 @@ def agents_probe(
                     str(len(score.evidence)),
                 )
         console.print(table)
+
+    asyncio.run(_run())
+    application.close()
+
+
+@agents_app.command("set")
+def agents_set(
+    name: Annotated[str, typer.Argument(help="Agent name from your config.")],
+    model: Annotated[str | None, typer.Option("--model", help="Model for this agent.")] = None,
+    effort: Annotated[
+        str | None,
+        typer.Option("--effort", help="Reasoning effort: low | medium | high (agy/codex)."),
+    ] = None,
+    clear: Annotated[
+        bool, typer.Option("--clear", help="Remove model and effort overrides.")
+    ] = False,
+) -> None:
+    """Pick an agent's model and effort without hand-editing TOML."""
+    import tomlkit
+
+    from orkestra.app import find_project_root
+    from orkestra.schemas.config import load_config
+
+    try:
+        root = find_project_root(None)
+    except ConfigError as exc:
+        _fail(str(exc))
+        return
+    config_path = root / CONFIG_RELPATH
+    original = config_path.read_text(encoding="utf-8")
+    document = tomlkit.parse(original)
+    agents_table = document.get("agents")
+    if agents_table is None or name not in agents_table:
+        configured = ", ".join(agents_table.keys()) if agents_table else "none"
+        _fail(f"no agent named {name!r} in your config (configured: {configured})")
+        return
+    if not clear and model is None and effort is None:
+        _fail("nothing to change — pass --model and/or --effort (or --clear)")
+        return
+    entry = agents_table[name]
+    if clear:
+        entry.pop("model", None)
+        entry.pop("effort", None)
+    if model is not None:
+        entry["model"] = model
+    if effort is not None:
+        entry["effort"] = effort
+    config_path.write_text(tomlkit.dumps(document), encoding="utf-8")
+    try:
+        config = load_config(config_path)
+    except ConfigError as exc:
+        config_path.write_text(original, encoding="utf-8")  # rollback
+        _fail(f"change rejected (config rolled back):\n{exc}")
+        return
+    agent = config.agents[name]
+    adapter = agent.adapter
+    console.print(
+        f"[green]✓[/green] {name} ({adapter}): model="
+        f"{agent.model or '[dim]adapter default[/dim]'} · effort="
+        f"{agent.effort or '[dim]default[/dim]'}"
+    )
+    if agent.effort and adapter not in ("antigravity-cli", "codex-cli"):
+        console.print(
+            f"[yellow]note:[/yellow] {adapter} has no effort control — the "
+            "setting is stored but will be ignored (supported: "
+            "antigravity-cli, codex-cli)"
+        )
+
+
+@agents_app.command("models")
+def agents_models() -> None:
+    """What you can pass to `orkestra agents set --model` per agent."""
+    application = _load_app()
+
+    async def _run() -> None:
+        from orkestra.adapters.runner import run_capture
+
+        for name, agent_config in application.config.enabled_agents.items():
+            adapter = agent_config.adapter
+            current = agent_config.model or "(adapter default)"
+            console.print(f"\n[bold]{name}[/bold] ({adapter}) — current: {current}")
+            if adapter == "antigravity-cli":
+                executable = application.adapters[name].which()
+                if executable:
+                    code, out, _ = await run_capture([executable, "models"], timeout_s=30)
+                    if code == 0 and out.strip():
+                        for line in out.strip().splitlines():
+                            console.print(f"  {line}")
+                        console.print("  [dim]effort: low | medium | high[/dim]")
+                        continue
+                console.print("  [dim](sign in to agy to list models live)[/dim]")
+            elif adapter == "claude-code":
+                console.print(
+                    "  aliases: fable | opus | sonnet | haiku  "
+                    "[dim](or any full model name your plan supports)[/dim]"
+                )
+            elif adapter == "codex-cli":
+                console.print(
+                    "  any model id your ChatGPT plan supports "
+                    "[dim](see /model inside codex; effort: low | medium | high)[/dim]"
+                )
+            elif adapter == "gemini-cli":
+                console.print("  aliases: auto | pro | flash | flash-lite")
+            else:
+                console.print("  [dim]model selection is up to your external agent[/dim]")
 
     asyncio.run(_run())
     application.close()

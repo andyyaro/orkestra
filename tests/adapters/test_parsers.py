@@ -341,3 +341,62 @@ class TestCodexStrictSchema:
                     check(item)
 
         check(schema)
+
+
+class TestEffortWiring:
+    def test_antigravity_effort_flag(self) -> None:
+        from orkestra.adapters.antigravity_cli import AntigravityCliAdapter
+        from orkestra.schemas.common import TaskKind
+        from orkestra.schemas.task import TaskBrief
+
+        adapter = AntigravityCliAdapter(model="gemini-3.1-pro-high", effort="high")
+        brief = TaskBrief(
+            task_id="t",
+            run_id="r",
+            title="x",
+            kind=TaskKind.IMPLEMENT,
+            instructions="do",
+            cwd="/tmp",
+            timeout_s=60,
+        )
+        argv = adapter.build_invocation(brief).argv
+        assert "--effort" in argv and argv[argv.index("--effort") + 1] == "high"
+        assert "--model" in argv
+
+    def test_codex_effort_config_override(self) -> None:
+        from orkestra.adapters.codex_cli import CodexCliAdapter
+        from orkestra.schemas.common import TaskKind
+        from orkestra.schemas.task import TaskBrief
+
+        adapter = CodexCliAdapter(effort="low")
+        brief = TaskBrief(
+            task_id="t",
+            run_id="r",
+            title="x",
+            kind=TaskKind.IMPLEMENT,
+            instructions="do",
+            cwd="/tmp",
+            timeout_s=60,
+        )
+        argv = adapter.build_invocation(brief).argv
+        assert 'model_reasoning_effort="low"' in argv
+
+    def test_no_effort_no_flags(self) -> None:
+        from orkestra.adapters.antigravity_cli import AntigravityCliAdapter
+        from orkestra.adapters.codex_cli import CodexCliAdapter
+        from orkestra.schemas.common import TaskKind
+        from orkestra.schemas.task import TaskBrief
+
+        brief = TaskBrief(
+            task_id="t",
+            run_id="r",
+            title="x",
+            kind=TaskKind.IMPLEMENT,
+            instructions="do",
+            cwd="/tmp",
+            timeout_s=60,
+        )
+        assert "--effort" not in AntigravityCliAdapter().build_invocation(brief).argv
+        assert not any(
+            "model_reasoning_effort" in a for a in CodexCliAdapter().build_invocation(brief).argv
+        )

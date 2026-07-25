@@ -152,9 +152,7 @@ async def _run_demo(root: Path) -> bool:
             f"  • results merged commit-by-commit onto "
             f"[bold]{integration}[/bold]; the demo's 'main' was never touched"
         )
-        _, files, _ = await repo._git(
-            "ls-tree", "-r", "--name-only", integration
-        )
+        _, files, _ = await repo._git("ls-tree", "-r", "--name-only", integration)
         built = [
             f
             for f in files.splitlines()

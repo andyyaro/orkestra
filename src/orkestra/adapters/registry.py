@@ -23,9 +23,11 @@ def build_adapter(agent_name: str, config: AgentConfig) -> AgentAdapter:
     if adapter_id == "claude-code":
         return ClaudeCodeAdapter(model=config.model, autonomy=config.autonomy)
     if adapter_id == "codex-cli":
-        return CodexCliAdapter(model=config.model, autonomy=config.autonomy)
+        return CodexCliAdapter(model=config.model, autonomy=config.autonomy, effort=config.effort)
     if adapter_id == "antigravity-cli":
-        return AntigravityCliAdapter(model=config.model, autonomy=config.autonomy)
+        return AntigravityCliAdapter(
+            model=config.model, autonomy=config.autonomy, effort=config.effort
+        )
     if adapter_id == "gemini-cli":
         return GeminiCliAdapter(model=config.model, autonomy=config.autonomy)
     if adapter_id == "fake":
