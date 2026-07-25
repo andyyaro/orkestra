@@ -74,6 +74,29 @@ def _fail(message: str) -> None:
     raise typer.Exit(code=1)
 
 
+def _suggested_ignores(root: Path) -> list[str]:
+    """Ignore entries Orkestra seeds: its own state, plus the build
+    artifacts of detected languages (agents' test runs generate them,
+    and reviewers shouldn't see binary noise in diffs)."""
+    entries = [".orkestra/"]
+    if any(root.glob("*.py")) or any(root.glob("**/*.py")):
+        entries += ["__pycache__/", "*.pyc"]
+    if (root / "package.json").exists():
+        entries.append("node_modules/")
+    return entries
+
+
+def _slugify_project_name(raw: str) -> str:
+    """Directory name -> valid config slug (ascii, lowercase)."""
+    cleaned = "".join(
+        c if c.isascii() and (c.isalnum() or c in "._-") else "-" for c in raw.lower()
+    )
+    cleaned = cleaned.strip("._-")
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned[:64] if cleaned and cleaned[0].isalnum() else "project"
+
+
 def _guard_not_nested(root: Path, toplevel: Path | None) -> None:
     """Refuse to set up a project in a subdirectory of an existing repo.
 
@@ -281,9 +304,9 @@ async def start_flow(
     """Returns (run_now, practice_mode)."""
     from orkestra.workspace.git import GitRepo
 
-    # Pure validation first: a bad --agents value must fail before any
-    # file or repository mutation happens.
-    if agent_filter:
+    # Pure validation first: a bad --agents value (including an empty
+    # one) must fail before any file or repository mutation happens.
+    if agent_filter is not None:
         _resolve_agent_filter(agent_filter)
 
     root = root.resolve()
@@ -327,22 +350,10 @@ async def start_flow(
             for path in root.rglob("*")
             if path.is_file() and ".git" not in path.parts
         ]
-        await repo.init()
-        console.print("[green]✓[/green] Git repository created")
 
-    # Files Orkestra itself creates/updates in this invocation — the ONLY
-    # things its setup commit may ever contain.
-    orkestra_owned: list[str] = []
-    gitignore = root / ".gitignore"
-    existing_ignore = gitignore.read_text() if gitignore.exists() else ""
-    if ".orkestra/" not in existing_ignore.split("\n"):
-        gitignore.write_text(
-            existing_ignore
-            + ("\n" if existing_ignore and not existing_ignore.endswith("\n") else "")
-            + ".orkestra/\n"
-        )
-        orkestra_owned.append(".gitignore")
-
+    # Agent detection + --agents readiness happen BEFORE any mutation, so
+    # a refusal (requested agent not signed in) leaves the directory
+    # exactly as it was — no repo, no .gitignore, nothing.
     console.print("\n[bold]Looking for coding agents on this machine…[/bold]")
     ready = await _detect_ready_adapters()
     table = Table(show_header=True)
@@ -353,7 +364,7 @@ async def start_flow(
     if ready:
         console.print(table)
     usable = [a for a, info in ready.items() if info["ready"] == "yes"]
-    if agent_filter:
+    if agent_filter is not None:
         requested = _resolve_agent_filter(agent_filter)
         missing = [a for a in requested if a not in usable]
         if missing:
@@ -362,7 +373,8 @@ async def start_flow(
                 f"you asked for {', '.join(missing)}, but "
                 f"{'they are' if len(missing) > 1 else 'it is'} not signed in "
                 f"on this machine (ready: {ready_list}). Sign in with the "
-                "vendor's own CLI first, or pick from the ready agents."
+                "vendor's own CLI first, or pick from the ready agents. "
+                "Nothing was set up."
             )
         usable = [a for a in usable if a in requested]
         console.print(f"[green]✓[/green] using only: {', '.join(usable)}")
@@ -374,6 +386,27 @@ async def start_flow(
             "try the whole journey now. Sign in to real CLIs later and rerun "
             "`orkestra start`."
         )
+
+    # ---- first mutations happen only after every refusal path is past ----
+    if not was_repo:
+        await repo.init()
+        console.print("[green]✓[/green] Git repository created")
+
+    # Files Orkestra itself creates/updates in this invocation — the ONLY
+    # things its setup commit may ever contain.
+    orkestra_owned: list[str] = []
+    gitignore = root / ".gitignore"
+    existing_ignore = gitignore.read_text() if gitignore.exists() else ""
+    ignore_lines = existing_ignore.split("\n")
+    additions = [line for line in _suggested_ignores(root) if line not in ignore_lines]
+    if additions:
+        gitignore.write_text(
+            existing_ignore
+            + ("\n" if existing_ignore and not existing_ignore.endswith("\n") else "")
+            + "\n".join(additions)
+            + "\n"
+        )
+        orkestra_owned.append(".gitignore")
 
     preset = _choose_preset(interactive, preset_key)
     console.print(f"[green]✓[/green] preset: {preset.label}")
@@ -413,7 +446,7 @@ async def start_flow(
         )
         verify_commands = [c.strip() for c in raw.split(",") if c.strip()]
 
-    project_name = root.name.lower().replace(" ", "-") or "project"
+    project_name = _slugify_project_name(root.name)
     _write_config(root, project_name, profiles, preset, verify_commands)
     console.print(
         "[green]✓[/green] .orkestra/config.toml written "

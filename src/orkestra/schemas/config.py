@@ -167,7 +167,10 @@ def load_config(path: Path) -> ProjectConfig:
         details = []
         for err in exc.errors():
             loc = ".".join(str(part) for part in err["loc"])
-            reason = err["msg"].removeprefix("Value error, ")
+            if err.get("type") == "literal_error" and err.get("ctx", {}).get("expected"):
+                reason = f"must be one of {err['ctx']['expected']}"
+            else:
+                reason = err["msg"].removeprefix("Value error, ")
             details.append(f"  {loc}: {reason}" if loc else f"  {reason}")
         msg = f"{path}: invalid configuration:\n" + "\n".join(details)
         raise ConfigError(msg) from exc

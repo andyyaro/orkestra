@@ -1,6 +1,6 @@
 [project]
 name = "orkestra-runtime"
-version = "0.4.4"
+version = "0.4.5"
 description = "Local-first orchestration runtime for multiple autonomous coding agents (Claude Code, Codex CLI, Gemini CLI, and more) collaborating on one software project."
 readme = "README.md"
 requires-python = ">=3.12"
