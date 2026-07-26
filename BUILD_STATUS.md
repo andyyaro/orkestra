@@ -4,14 +4,16 @@
 original autonomous build lives in `FINAL_BUILD_REPORT.md` (labeled
 historical) and `docs/development/evidence/`.
 
-## Current state (2026-07-25)
+## Current state (2026-07-26)
 
-- **Version:** 0.5.3 · latest published: **0.5.2** on
+- **Version:** 0.5.3 · latest published: **0.5.3** on
   [PyPI](https://pypi.org/project/orkestra-runtime/) and
   [GitHub releases](https://github.com/andyyaro/orkestra/releases)
 - **Repository:** https://github.com/andyyaro/orkestra · default branch
   `main` · protected (7 required CI checks, no force pushes)
-- **Quality gates (verified this date):** 472 tests passing · ruff
+- **Quality gates (verified this date):** 478 tests collected, suite
+  green locally and across the CI matrix (docker-gated tests skip
+  without a daemon) · ruff
   format/lint clean · mypy `--strict` clean · bandit 0 findings ·
   pip-audit no known vulnerabilities · gitleaks clean in CI ·
   `twine check --strict` passing
