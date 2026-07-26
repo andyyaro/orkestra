@@ -128,11 +128,11 @@ class WorkspaceManager:
             raise PolicyViolation(msg)
         return changed
 
-    async def integrate(self, run_id: str, workspace: Workspace, title: str) -> bool:
+    async def integrate(self, run_id: str, workspace: Workspace, title: str) -> str | None:
         """Merge the task branch into the integration branch (no-ff).
 
-        Returns False on merge conflict (workspace preserved for
-        inspection and replanning).
+        Returns the merge commit sha, or None on merge conflict
+        (workspace preserved for inspection and replanning).
         """
         integration = integration_branch(run_id)
         async with self._integration_lock:

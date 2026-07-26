@@ -223,16 +223,19 @@ class GitRepo:
 
     # ------------------------------------------------------ integration
 
-    async def merge_no_ff(self, branch: str, message: str) -> bool:
-        """Merge *branch*; True on success, False on conflict (aborted)."""
+    async def merge_no_ff(self, branch: str, message: str) -> str | None:
+        """Merge *branch*; the merge commit sha on success, None on
+        conflict (aborted). The sha is what downstream consumers (reports,
+        memory systems) need to anchor "this work actually landed"."""
         code, stdout, stderr = await self._git(
             "merge", "--no-ff", "-m", message, branch, check=False
         )
         if code == 0:
-            return True
+            _, sha, _ = await self._git("rev-parse", "HEAD")
+            return sha.strip()
         await self._git("merge", "--abort", check=False)
         combined = (stdout + stderr).lower()
         if "conflict" in combined or "automatic merge failed" in combined:
-            return False
+            return None
         msg = f"merge of {branch} failed unexpectedly: {(stderr or stdout).strip()[:500]}"
         raise WorkspaceError(msg)
