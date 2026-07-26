@@ -418,6 +418,11 @@ def test_a_later_run_resolves_an_earlier_runs_failure(
     on warning about a trap that was fixed weeks ago. Provalume's own suite
     passes that field by hand, so it pins the writer, not the bridge that has to
     supply it.
+
+    The claim rides on the *landing*, not on the verification that passed. A
+    pass only proves a command succeeded in some worktree, and worktrees are
+    discarded for merge conflicts, rejected reviews and exhausted budgets — so a
+    resolution claimed at verification time can outlive the work behind it.
     """
     command = "pytest -q tests/integration"
 
@@ -434,6 +439,15 @@ def test_a_later_run_resolves_an_earlier_runs_failure(
     second = memory_module.open_memory(tmp_path, config, run_id="run-2", branch="main")
     assert second is not None
     second.record_verification(command=command, passed=True, excerpt="", task_id="task-B")
+    # The pass alone must not resolve anything. The "What later worked" row is
+    # always rendered, so the tell is its value, not the label.
+    assert "nothing recorded yet" in second.preflight_warning(commands=[command]), (
+        "a pass with no landing behind it was accepted as what later worked"
+    )
+    # ...only the landing does.
+    second.record_integration(
+        commit_sha="b" * 40, task_id="task-B", branch="ork/run-2/integration", commands=[command]
+    )
     warning = second.preflight_warning(commands=[command])
     second.close()
 

@@ -222,14 +222,13 @@ class Memory:
         A failure becomes a gotcha keyed on a deterministic signature; a success
         becomes a procedural candidate keyed on the exact command.
 
-        A success also names the failure it resolves, when there is one. Without
-        that, resolution is only inferred within a single task or run — and
-        Orkestra's real recovery path is to block a task, escalate to a human,
-        and do the work in a *later* run. The failure and its fix therefore land
-        in different runs, nothing links them, and the gate goes on warning about
-        something that was fixed.
+        Deliberately does *not* claim to resolve anything. A pass proves a
+        command succeeded in some worktree, and worktrees are discarded for
+        merge conflicts, rejected reviews and exhausted budgets — so a
+        resolution claimed here can outlive the work that justified it. The
+        claim belongs on the landing, which is the only event that proves the
+        repository changed; see :meth:`record_integration`.
         """
-        resolves = self._unresolved_signature(command) if passed else ""
         self._safe(
             lambda: self._adapter.verification(
                 command=command,
@@ -239,7 +238,6 @@ class Memory:
                 task_id=task_id,
                 attempt_id=attempt_id,
                 agent=agent,
-                resolves_signature=resolves,
             )
         )
 
@@ -295,11 +293,33 @@ class Memory:
             )
         )
 
-    def record_integration(self, *, commit_sha: str, task_id: str) -> None:
-        """Record that work landed — what semantic truth requires."""
+    def record_integration(
+        self, *, commit_sha: str, task_id: str, branch: str = "", commands: Sequence[str] = ()
+    ) -> None:
+        """Record that work landed — what semantic truth requires.
+
+        This is also where a resolution is claimed. Landing is the first moment
+        anything is known to have changed in the repository, so it is the only
+        honest place to say a prior failure is fixed: every earlier point still
+        has paths that throw the work away.
+
+        ``branch`` names what the commit actually landed on. Left empty the
+        record reads as though it landed on the checked-out branch, which for an
+        Orkestra run is never true — the work is on `ork/<run>/integration` and
+        reaches the user's branch only if `orkestra accept` is run later.
+        """
+        resolves = ""
+        for command in commands:
+            resolves = self._unresolved_signature(command)
+            if resolves:
+                break
         self._safe(
             lambda: self._adapter.integration_landed(
-                commit_sha=commit_sha, target="run", task_id=task_id
+                commit_sha=commit_sha,
+                target="run",
+                task_id=task_id,
+                branch=branch or None,
+                resolves_signature=resolves,
             )
         )
 

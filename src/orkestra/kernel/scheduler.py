@@ -778,7 +778,16 @@ class Orchestrator:
                 if commit is not None:
                     with self._remember() as mem:
                         if mem is not None:
-                            mem.record_integration(commit_sha=commit, task_id=task.task_id)
+                            # The resolution claim lives here, not on the
+                            # verification that passed: this is the first point
+                            # at which the work is known to have survived review,
+                            # the merge, and the retry budget.
+                            mem.record_integration(
+                                commit_sha=commit,
+                                task_id=task.task_id,
+                                branch=self.store.get_run(run_id).integration_branch,
+                                commands=self._gate_commands(run_id, task, quiet=True),
+                            )
                 await self.workspaces.remove_workspace(workspace, keep_branch=True)
             else:
                 # Non-mutating task: nothing to integrate. If the agent wrote
