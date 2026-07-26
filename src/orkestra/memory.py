@@ -48,12 +48,15 @@ _UNAVAILABLE_REASON = ""
 
 
 def is_available() -> bool:
-    """Whether Provalume is importable."""
-    global _UNAVAILABLE_REASON
+    """Whether Provalume is importable.
+
+    A pure query: it reports, and records nothing. An earlier version assigned
+    the module-level reason as a side effect of being asked, so one project's
+    call could overwrite another's reason in a process running both.
+    """
     try:
         import provalume  # noqa: F401
-    except ImportError as exc:
-        _UNAVAILABLE_REASON = str(exc)
+    except ImportError:
         return False
     return True
 
@@ -61,7 +64,11 @@ def is_available() -> bool:
 def unavailable_reason() -> str:
     """Why memory is off. Empty when it is available and last opened cleanly."""
     if not is_available():
-        return _UNAVAILABLE_REASON or "provalume is not installed"
+        try:
+            import provalume  # noqa: F401
+        except ImportError as exc:
+            return str(exc) or "provalume is not installed"
+        return "provalume is not installed"
     # Importable, but the last open may still have failed. Reported rather than
     # cleared: "provalume imports fine" is not the same claim as "memory works".
     return _UNAVAILABLE_REASON
