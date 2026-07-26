@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from orkestra.capabilities.ledger import record_task_outcome
 from orkestra.capabilities.matrix import build_matrix
@@ -49,6 +49,17 @@ if TYPE_CHECKING:
     from orkestra.store.repo import TaskRow
     from orkestra.verify.runner import CommandResult
     from orkestra.workspace import WorkspaceManager
+
+#: Run states that mean execution has not begun yet. `orkestra resume` calls
+#: `execute()` again on the same run, so without this a run starts twice in the
+#: journal and any duration or outcome aggregation double-counts it.
+_NOT_YET_EXECUTED: Final = frozenset(
+    {RunState.CREATED, RunState.ANALYZING, RunState.PROBING, RunState.PLANNING}
+)
+
+#: States in which a run is genuinely over. `waiting_human` and `paused` are
+#: pauses, not completions.
+_RUN_FINISHED: Final = frozenset({RunState.COMPLETE, RunState.FAILED, RunState.CANCELLED})
 
 MUTATING_KINDS = frozenset(
     {TaskKind.IMPLEMENT, TaskKind.TEST, TaskKind.DEBUG, TaskKind.DOCUMENT, TaskKind.INTEGRATE}
@@ -167,7 +178,9 @@ class Orchestrator:
 
     async def execute(self, run_id: str) -> RunState:
         """Main loop: schedule ready tasks until terminal state."""
-        self.store.get_run(run_id)  # existence check with a clear error
+        # Captured before `set_run_state(RUNNING)` below overwrites it: this is
+        # the only point that still distinguishes a first execution from a resume.
+        first_execution = self.store.get_run(run_id).state in _NOT_YET_EXECUTED
         tasks = {t.key: t for t in self.store.tasks_for_run(run_id)}
         if not tasks:
             self.store.set_run_state(run_id, RunState.FAILED)
@@ -210,7 +223,7 @@ class Orchestrator:
             )
         else:
             with self._remember() as mem:
-                if mem is not None:
+                if mem is not None and first_execution:
                     mem.record_run_started(run_id=run_id)
 
         try:
@@ -219,7 +232,10 @@ class Orchestrator:
             # closed client would be swallowed by the best-effort guard and
             # vanish without trace.
             with self._remember() as mem:
-                if mem is not None:
+                # `waiting_human` and `paused` are pauses, not completions. A
+                # run that pauses for a decision and is later resumed used to
+                # publish two completions with different outcomes for one run.
+                if mem is not None and state in _RUN_FINISHED:
                     mem.record_run_completed(run_id=run_id, outcome=state.value, tasks=len(tasks))
             return state
         except asyncio.CancelledError:
@@ -242,6 +258,13 @@ class Orchestrator:
         finally:
             if self._memory is not None:
                 self._memory.close()
+                # Cleared, not just closed. Every call site tests `is not None`
+                # to decide memory is usable, so a closed-but-present handle is
+                # a handle that silently swallows writes — which is how
+                # `apply_decision()` lost every decision when it ran in the same
+                # process after `execute()`. None is the only honest way to say
+                # "there is no memory here"; `_remember_decision` reopens.
+                self._memory = None
 
     async def _execute_loop(
         self,
@@ -650,7 +673,9 @@ class Orchestrator:
             self.store.set_task_state(
                 task.task_id, TaskState.VERIFYING, expected=(TaskState.RUNNING,)
             )
-            verify_outcome = await self._verify(run_id, task, workspace, agent, attempt_id)
+            verify_outcome = await self._verify(
+                run_id, task, workspace, agent, attempt_id, workspace_kept=mutating
+            )
             if verify_outcome is not None and not verify_outcome.passed:
                 record_task_outcome(
                     self.store,
@@ -1082,8 +1107,16 @@ class Orchestrator:
         workspace: Workspace,
         agent: str | None = None,
         attempt_id: str | None = None,
+        *,
+        workspace_kept: bool = False,
     ) -> VerificationOutcome | None:
-        """Run the gate; returns the outcome, or None when nothing to run."""
+        """Run the gate; returns the outcome, or None when nothing to run.
+
+        ``workspace_kept`` says whether this task's worktree survives the task —
+        the same predicate the kernel uses to decide whether to commit and
+        integrate. It decides whether the result is recorded at all; see the
+        recording block below.
+        """
         commands = self._gate_commands(run_id, task)
         if not commands:
             return None
@@ -1099,6 +1132,23 @@ class Orchestrator:
             text,
             task_id=task.task_id,
         )
+        # Only committed work is evidence about the repository. A non-mutating
+        # task (research, plan, review) runs the same gate inside a worktree
+        # that is then discarded with `keep_branch=False`, so its result
+        # describes files nobody will ever see again. Recorded anyway, it
+        # becomes a procedural memory claiming a reusable procedure that was
+        # never exercised — and worse, a *pass* there could mark a real,
+        # still-broken failure of the same command as resolved, because
+        # `[verify]` commands are repo-wide since v0.5.0 and so command
+        # identity is not task identity.
+        #
+        # The test is the task's kind, not whether this attempt produced a
+        # commit: a retry that changes nothing still runs the gate against real
+        # committed state, and its repeated failure is exactly the signal that
+        # elevates a warning from "this once failed" to "this keeps failing".
+        if not workspace_kept:
+            return outcome
+
         with self._remember() as mem:
             if mem is not None:
                 # The evidence everything else rests on. A failure becomes a

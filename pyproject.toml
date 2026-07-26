@@ -43,7 +43,10 @@ tui = ["textual>=1.0"]
 # (the field that triggers it had no writer) and rejects the non-recording
 # preflight lookup, so on 0.1.0 resolution linking is silently inert rather
 # than merely absent.
-memory = ["provalume>=0.1.1"]
+# >=0.1.3 for PREFLIGHT_BANNER: below it the pre-action warning replays
+# captured command output into a later agent's prompt with no untrusted-data
+# label, which the kernel test here asserts against.
+memory = ["provalume>=0.1.3"]
 
 [project.urls]
 Homepage = "https://github.com/andyyaro/orkestra"

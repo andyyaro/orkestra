@@ -88,3 +88,47 @@ async def test_a_resolved_decision_reaches_the_gate_in_a_later_run(tmp_path: Pat
     assert "run serially" in context, (
         f"the decision itself never became recallable context: {context!r}"
     )
+
+
+async def test_a_decision_after_a_finished_run_is_still_recorded(tmp_path: Path) -> None:
+    """Regression: `execute()` closed the client but left the handle in place.
+
+    Every call site tests `is not None` to decide memory is usable, so a
+    closed-but-present handle silently swallowed the write and the decision was
+    lost. The shipped CLI escapes it only because `orkestra approve` runs in a
+    fresh process; anything embedding Orkestra in-process lost every decision.
+
+    The existing tests in this module assert `_memory is None` as a
+    *precondition*, so they structurally cannot catch this.
+    """
+    from orkestra.app import build_app
+    from tests.e2e.conftest import make_project
+    from tests.e2e.test_orchestration import assign, manual_run, spec
+
+    app = await make_project(tmp_path)
+    root = app.root
+    cfg = root / ".orkestra" / "config.toml"
+    cfg.write_text(cfg.read_text() + "\n[memory]\nenabled = true\n")
+    app.close()
+
+    app = build_app(root, offline=True)
+    run_id = await manual_run(app, [(spec("t", "FAKE:fail:nope"), assign("alpha", "beta"))])
+    await app.orchestrator.execute(run_id)
+
+    # Same process, same orchestrator, after the run finished.
+    assert app.orchestrator._memory is None, (
+        "a closed handle was left in place; every later write is swallowed"
+    )
+    pending = app.store.decisions_for_run(run_id, unresolved_only=True)
+    if pending:
+        app.orchestrator.apply_decision(pending[0].decision_id, "skip", "")
+    app.close()
+
+    import sqlite3
+
+    con = sqlite3.connect(root / ".orkestra" / "memory.db")
+    recorded = con.execute(
+        "select count(*) from events where event_type = 'human.decision'"
+    ).fetchone()[0]
+    if pending:
+        assert recorded == 1, "the decision was resolved but never recorded"
