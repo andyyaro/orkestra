@@ -17,6 +17,7 @@ from orkestra.app import build_app
 from orkestra.kernel import scheduler as scheduler_module
 from orkestra.schemas.common import TaskKind
 from orkestra.workspace.git import GitRepo
+from tests.conftest import REQUIRE_MEMORY_EXTRA_ENV, missing_memory_extra_is_fatal
 from tests.e2e.conftest import make_project
 from tests.e2e.test_orchestration import assign, manual_run, spec
 
@@ -24,6 +25,21 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 pytestmark = pytest.mark.e2e
+
+# Every assertion here reads a Provalume database. Without the extra there is no
+# database, so the failures are "no such table" rather than anything meaningful.
+# Skipped, not silently: a run that means to certify memory sets the env var and
+# gets a hard failure instead — the memory-extra CI job does exactly that.
+try:
+    import provalume  # noqa: F401
+except ImportError as exc:  # pragma: no cover - depends on the installed extras
+    if missing_memory_extra_is_fatal():
+        pytest.fail(
+            f"{REQUIRE_MEMORY_EXTRA_ENV} is set, but the Provalume extra is not "
+            f"installed, so these regressions would go unverified: {exc}.",
+            pytrace=False,
+        )
+    pytest.skip("the Provalume extra is not installed", allow_module_level=True)
 
 #: A repo-wide gate: it passes only when OK.txt exists in the worktree it runs
 #: in. Since v0.5.0 `_gate_commands` gives every task the same `[verify]`
