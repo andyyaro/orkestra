@@ -549,6 +549,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+memory = [
+    { name = "provalume" },
+]
 tui = [
     { name = "textual" },
 ]
@@ -567,13 +570,14 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "provalume", marker = "extra == 'memory'", specifier = ">=0.1.4" },
     { name = "pydantic", specifier = ">=2.9,<3" },
     { name = "rich", specifier = ">=13.9" },
     { name = "textual", marker = "extra == 'tui'", specifier = ">=1.0" },
     { name = "tomlkit", specifier = ">=0.13" },
     { name = "typer", specifier = ">=0.15,<1" },
 ]
-provides-extras = ["tui"]
+provides-extras = ["tui", "memory"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -685,6 +689,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "provalume"
+version = "0.1.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "rich" },
+    { name = "typer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/5b/14024a131b4f118bea21e532c819cf9c9fd97f80aac9b1ef756514cf7a60/provalume-0.1.4.tar.gz", hash = "sha256:1253e092e9b86e27f805dc0850c4199b6cf4c422cd7e658e954279396bbdff5f", size = 411574, upload-time = "2026-07-26T02:03:58.497Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/82/2e3e9f4ff3c08d5f06fbc78880ba5208777fede412bc53bef4458b867176/provalume-0.1.4-py3-none-any.whl", hash = "sha256:3b1a3f175aa98e9a89e91da6f60e504901710d248245141a8ba4c0dae10c6a3c", size = 222376, upload-time = "2026-07-26T02:03:56.985Z" },
 ]
 
 [[package]]

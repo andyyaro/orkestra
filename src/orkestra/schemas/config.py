@@ -111,6 +111,26 @@ class ProbeConfig(BaseModel):
     timeout_s: int = Field(default=240, ge=10, le=3600)
 
 
+class MemoryConfig(BaseModel):
+    """Optional verified memory, backed by Provalume.
+
+    Off automatically when Provalume is not installed — this only controls
+    whether Orkestra uses it when it *is* available. Memory is advisory
+    throughout: it can add context to a brief, and it can never override policy,
+    block a dispatch, or change a retry budget.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    brief_budget_chars: int = Field(default=2000, ge=0, le=32_000)
+    """Hard ceiling on the digest spliced into a task brief. Provalume enforces
+    it by construction; 0 disables brief injection while leaving recording on."""
+
+    preflight: bool = True
+    """Warn before dispatching a task that resembles a recorded failure."""
+
+
 class ProjectSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -130,6 +150,7 @@ class ProjectConfig(BaseModel):
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     verify: VerifyConfig = Field(default_factory=VerifyConfig)
     probes: ProbeConfig = Field(default_factory=ProbeConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
 
     @model_validator(mode="after")
     def _validate(self) -> Self:

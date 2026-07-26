@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from orkestra.capabilities.ledger import record_task_outcome
 from orkestra.capabilities.matrix import build_matrix
@@ -20,6 +20,8 @@ from orkestra.errors import PolicyViolation, VerificationError, WorkspaceError
 from orkestra.ids import new_id
 from orkestra.kernel.dag import TaskDag
 from orkestra.kernel.retry import FALLBACK_IMMEDIATELY, BackoffPolicy, next_agent
+from orkestra.memory import Memory, open_memory
+from orkestra.memory import unavailable_reason as memory_unavailable_reason
 from orkestra.schemas.agent import (
     AgentEvent,
     AgentResult,
@@ -35,7 +37,7 @@ from orkestra.verify import VerificationOutcome, run_verification
 from orkestra.workspace.worktrees import Workspace
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
     from orkestra.adapters.base import AgentAdapter
@@ -45,11 +47,39 @@ if TYPE_CHECKING:
     from orkestra.schemas.config import ProjectConfig
     from orkestra.store import Store
     from orkestra.store.repo import TaskRow
+    from orkestra.verify.runner import CommandResult
     from orkestra.workspace import WorkspaceManager
+
+#: Run states that mean execution has not begun yet. `orkestra resume` calls
+#: `execute()` again on the same run, so without this a run starts twice in the
+#: journal and any duration or outcome aggregation double-counts it.
+_NOT_YET_EXECUTED: Final = frozenset(
+    {RunState.CREATED, RunState.ANALYZING, RunState.PROBING, RunState.PLANNING}
+)
+
+#: States in which a run is genuinely over. `waiting_human` and `paused` are
+#: pauses, not completions.
+_RUN_FINISHED: Final = frozenset({RunState.COMPLETE, RunState.FAILED, RunState.CANCELLED})
 
 MUTATING_KINDS = frozenset(
     {TaskKind.IMPLEMENT, TaskKind.TEST, TaskKind.DEBUG, TaskKind.DOCUMENT, TaskKind.INTEGRATE}
 )
+
+
+def _failure_excerpt(result: CommandResult) -> str:
+    """The captured output a failure signature can actually be built from.
+
+    `VerificationOutcome.summary` is a one-line headline per command — it repeats
+    the command and its exit code and contains none of the error. Fingerprinting
+    that yields the same signature for every failure of the same command, however
+    unrelated, so the pre-action gate would warn about a failure that never
+    happened.
+
+    Both streams are kept: pytest puts the traceback on stdout while many tools
+    put it on stderr, and guessing wrong loses the only part that matters.
+    """
+    parts = [part.strip() for part in (result.stderr_tail, result.stdout_tail) if part.strip()]
+    return "\n".join(parts)
 
 
 class Orchestrator:
@@ -79,6 +109,12 @@ class Orchestrator:
         self._agent_versions: dict[str, str] = {}
         self.director_service: object | None = None  # DirectorService, wired by app
         self._quota: QuotaTracker | None = None  # created per execute()
+        # Optional verified memory. None whenever Provalume is absent, memory is
+        # disabled in config, or its database will not open — in every one of
+        # those cases the kernel behaves exactly as it did before.
+        self._memory: Memory | None = None
+        # One brief-budget warning per orchestrator, not one per task.
+        self._budget_warned = False
 
     # ------------------------------------------------------------ events
 
@@ -142,7 +178,9 @@ class Orchestrator:
 
     async def execute(self, run_id: str) -> RunState:
         """Main loop: schedule ready tasks until terminal state."""
-        self.store.get_run(run_id)  # existence check with a clear error
+        # Captured before `set_run_state(RUNNING)` below overwrites it: this is
+        # the only point that still distinguishes a first execution from a resume.
+        first_execution = self.store.get_run(run_id).state in _NOT_YET_EXECUTED
         tasks = {t.key: t for t in self.store.tasks_for_run(run_id)}
         if not tasks:
             self.store.set_run_state(run_id, RunState.FAILED)
@@ -166,8 +204,40 @@ class Orchestrator:
         def states() -> dict[str, TaskState]:
             return {t.key: t.state for t in self.store.tasks_for_run(run_id)}
 
+        run = self.store.get_run(run_id)
+        self._memory = open_memory(
+            self.root,
+            self.config,
+            run_id=run_id,
+            branch=run.integration_branch,
+            base_commit=run.base_commit,
+        )
+        if self._memory is None and self.config.memory.enabled:
+            # Memory was asked for and did not start. Said once, out loud: a run
+            # that records nothing and injects nothing otherwise looks exactly
+            # like a healthy one.
+            self.emit(
+                run_id,
+                EventKind.WARNING,
+                f"memory is enabled but unavailable: {memory_unavailable_reason()}",
+            )
+        else:
+            with self._remember() as mem:
+                if mem is not None and first_execution:
+                    mem.record_run_started(run_id=run_id)
+
         try:
-            return await self._execute_loop(run_id, dag, semaphore, in_flight, states)
+            state = await self._execute_loop(run_id, dag, semaphore, in_flight, states)
+            # Recorded before the `finally` closes the client: a write to a
+            # closed client would be swallowed by the best-effort guard and
+            # vanish without trace.
+            with self._remember() as mem:
+                # `waiting_human` and `paused` are pauses, not completions. A
+                # run that pauses for a decision and is later resumed used to
+                # publish two completions with different outcomes for one run.
+                if mem is not None and state in _RUN_FINISHED:
+                    mem.record_run_completed(run_id=run_id, outcome=state.value, tasks=len(tasks))
+            return state
         except asyncio.CancelledError:
             # Graceful in-process shutdown: cancel children so no pipeline
             # coroutine (or agent subprocess) outlives this call. A hard
@@ -175,7 +245,26 @@ class Orchestrator:
             for aio_task in in_flight.values():
                 aio_task.cancel()
             await asyncio.gather(*in_flight.values(), return_exceptions=True)
+            # Closed by the `finally` a moment from now, so the outcome is
+            # recorded here or not at all. A cancelled run that leaves a
+            # `run.started` with no ending reads in the journal as a run still
+            # in flight, forever.
+            with self._remember() as mem:
+                if mem is not None:
+                    mem.record_run_completed(
+                        run_id=run_id, outcome=RunState.CANCELLED.value, tasks=len(tasks)
+                    )
             raise
+        finally:
+            if self._memory is not None:
+                self._memory.close()
+                # Cleared, not just closed. Every call site tests `is not None`
+                # to decide memory is usable, so a closed-but-present handle is
+                # a handle that silently swallows writes — which is how
+                # `apply_decision()` lost every decision when it ran in the same
+                # process after `execute()`. None is the only honest way to say
+                # "there is no memory here"; `_remember_decision` reopens.
+                self._memory = None
 
     async def _execute_loop(
         self,
@@ -501,6 +590,14 @@ class Orchestrator:
                     succeeded=False,
                     detail=result.error_kind.value,
                 )
+                self._remember_attempt(
+                    task,
+                    attempt_id,
+                    agent,
+                    primary=assignment.primary,
+                    outcome="failed",
+                    error_kind=result.error_kind.value,
+                )
                 if result.error_kind is ErrorKind.CANCELLED:
                     self.store.set_task_state(task.task_id, TaskState.CANCELLED)
                     return
@@ -548,6 +645,9 @@ class Orchestrator:
             # Agent finished; deterministic pipeline takes over.
             quota.note_success(agent)
             self.store.finish_attempt(attempt_id, AttemptState.SUCCEEDED, result)
+            self._remember_attempt(
+                task, attempt_id, agent, primary=assignment.primary, outcome="succeeded"
+            )
             mutating = task.spec.mutates_repo and task.spec.kind in MUTATING_KINDS
             commit = None
             if mutating:
@@ -573,7 +673,9 @@ class Orchestrator:
             self.store.set_task_state(
                 task.task_id, TaskState.VERIFYING, expected=(TaskState.RUNNING,)
             )
-            verify_outcome = await self._verify(run_id, task, workspace)
+            verify_outcome = await self._verify(
+                run_id, task, workspace, agent, attempt_id, workspace_kept=mutating
+            )
             if verify_outcome is not None and not verify_outcome.passed:
                 record_task_outcome(
                     self.store,
@@ -607,7 +709,7 @@ class Orchestrator:
                 self.store.set_task_state(
                     task.task_id, TaskState.REVIEWING, expected=(TaskState.VERIFYING,)
                 )
-                verdict = await self._review(run_id, task, workspace, agent)
+                verdict = await self._review(run_id, task, workspace, agent, attempt_id)
                 if verdict is None:
                     self._block_task(
                         run_id,
@@ -673,6 +775,19 @@ class Orchestrator:
                         task.task_id, TaskState.READY, expected=(TaskState.INTEGRATING,)
                     )
                     continue
+                if commit is not None:
+                    with self._remember() as mem:
+                        if mem is not None:
+                            # The resolution claim lives here, not on the
+                            # verification that passed: this is the first point
+                            # at which the work is known to have survived review,
+                            # the merge, and the retry budget.
+                            mem.record_integration(
+                                commit_sha=commit,
+                                task_id=task.task_id,
+                                branch=self.store.get_run(run_id).integration_branch,
+                                commands=self._gate_commands(run_id, task, quiet=True),
+                            )
                 await self.workspaces.remove_workspace(workspace, keep_branch=True)
             else:
                 # Non-mutating task: nothing to integrate. If the agent wrote
@@ -819,6 +934,116 @@ class Orchestrator:
         cfg = self.config.agents.get(agent_name)
         return bool(cfg and (cfg.run_commands or cfg.autonomy == "unsafe-full"))
 
+    @contextlib.contextmanager
+    def _remember(self) -> Iterator[Memory | None]:
+        """Guard a memory interaction, swallowing anything the body raises.
+
+        The guard wraps the *whole* interaction, argument construction included.
+        An earlier version guarded only the adapter call, and an attribute error
+        while assembling its arguments propagated out and crashed a run — which
+        is exactly what "memory never breaks a run" is supposed to prevent. A
+        guard that does not cover argument construction is not a guard.
+
+        Yields ``None`` when memory is closed, so every call site states the
+        no-op case explicitly rather than relying on a null object.
+        """
+        with contextlib.suppress(Exception):
+            yield self._memory
+
+    def _remember_attempt(
+        self,
+        task: TaskRow,
+        attempt_id: str,
+        agent: str,
+        *,
+        primary: str,
+        outcome: str,
+        error_kind: str = "",
+    ) -> None:
+        """Feed performance memory, at both points an attempt ends.
+
+        Called from the two places `_run_task` finishes an attempt, because that
+        is the only place the facts exist. Without it performance memory has no
+        input at all, and Provalume — correctly, from what it was given —
+        publishes "<agent>: no recorded attempts at <kind>." into the next
+        brief, at the `verified` rung, about an agent that had just succeeded.
+
+        ``outcome`` mirrors the recorded ``AttemptState``: whether the agent
+        produced a usable result, not whether the task later passed
+        verification. Verification and review land as their own events and are
+        aggregated separately.
+        """
+        with self._remember() as mem:
+            if mem is not None:
+                agent_config = self.config.agents.get(agent)
+                mem.record_attempt(
+                    task_id=task.task_id,
+                    attempt_id=attempt_id,
+                    outcome=outcome,
+                    kind=task.spec.kind.value,
+                    # The agent that actually ran, not the assigned primary, so
+                    # a fallback's record is attributed to the fallback.
+                    agent=agent,
+                    adapter_id=self.adapters[agent].adapter_id,
+                    model=(agent_config.model if agent_config else None) or "",
+                    error_kind=error_kind,
+                    fallback=agent != primary,
+                )
+
+    def _memory_sections(self, task: TaskRow) -> list[str]:
+        """Advisory sections appended to a brief: prior context and a warning.
+
+        Both are appended *after* the task instructions. Putting retrieved memory
+        first would give it the position of primary instruction, which is exactly
+        what Provalume's untrusted-data banner exists to deny.
+
+        Neither can change what the agent is asked to do, and neither can stop
+        the task from being dispatched.
+        """
+        sections: list[str] = []
+        with self._remember() as mem:
+            if mem is not None:
+                budget = self.config.memory.brief_budget_chars
+                if budget > 0:
+                    context, reason = mem.brief_context_detail(
+                        title=task.spec.title, task_id=task.task_id, budget=budget
+                    )
+                    if context:
+                        sections += ["", context]
+                    elif reason:
+                        self._warn_about_budget(task.run_id, reason)
+
+                if self.config.memory.preflight:
+                    # The commands `_verify` will actually run, not just the
+                    # first: verification records a result per command, so a gate
+                    # asked about only one of them can hold a record it will
+                    # never surface.
+                    # `quiet=True`: `_verify` will emit the warning about any
+                    # dropped acceptance entry when it actually runs the gate;
+                    # the lookup must not say it twice.
+                    warning = mem.preflight_warning(
+                        commands=self._gate_commands(task.run_id, task, quiet=True)
+                    )
+                    if warning:
+                        sections += ["", "## Before you start", "", warning]
+        return sections
+
+    def _warn_about_budget(self, run_id: str, reason: str) -> None:
+        """Say once that `brief_budget_chars` is too small to inject anything.
+
+        Once per run, not once per task: the setting is global, so repeating it
+        per task would bury the run's real events under an identical line.
+        """
+        if self._budget_warned:
+            return
+        self._budget_warned = True
+        self.emit(
+            run_id,
+            EventKind.WARNING,
+            f"memory.brief_budget_chars={self.config.memory.brief_budget_chars} is too "
+            f"small to inject anything; set 0 to disable injection deliberately. {reason}",
+        )
+
     def _render_brief(
         self, task: TaskRow, fix_context: str, *, agent_name: str | None = None
     ) -> str:
@@ -858,6 +1083,7 @@ class Orchestrator:
             ]
         if fix_context:
             parts += ["", "## Follow-up context", fix_context]
+        parts += self._memory_sections(task)
         return "\n".join(parts)
 
     def _gate_commands(self, run_id: str, task: TaskRow, *, quiet: bool = False) -> list[str]:
@@ -884,9 +1110,22 @@ class Orchestrator:
         return commands
 
     async def _verify(
-        self, run_id: str, task: TaskRow, workspace: Workspace
+        self,
+        run_id: str,
+        task: TaskRow,
+        workspace: Workspace,
+        agent: str | None = None,
+        attempt_id: str | None = None,
+        *,
+        workspace_kept: bool = False,
     ) -> VerificationOutcome | None:
-        """Run the gate; returns the outcome, or None when nothing to run."""
+        """Run the gate; returns the outcome, or None when nothing to run.
+
+        ``workspace_kept`` says whether this task's worktree survives the task —
+        the same predicate the kernel uses to decide whether to commit and
+        integrate. It decides whether the result is recorded at all; see the
+        recording block below.
+        """
         commands = self._gate_commands(run_id, task)
         if not commands:
             return None
@@ -902,10 +1141,54 @@ class Orchestrator:
             text,
             task_id=task.task_id,
         )
+        # Only committed work is evidence about the repository. A non-mutating
+        # task (research, plan, review) runs the same gate inside a worktree
+        # that is then discarded with `keep_branch=False`, so its result
+        # describes files nobody will ever see again. Recorded anyway, it
+        # becomes a procedural memory claiming a reusable procedure that was
+        # never exercised — and worse, a *pass* there could mark a real,
+        # still-broken failure of the same command as resolved, because
+        # `[verify]` commands are repo-wide since v0.5.0 and so command
+        # identity is not task identity.
+        #
+        # The test is the task's kind, not whether this attempt produced a
+        # commit: a retry that changes nothing still runs the gate against real
+        # committed state, and its repeated failure is exactly the signal that
+        # elevates a warning from "this once failed" to "this keeps failing".
+        if not workspace_kept:
+            return outcome
+
+        with self._remember() as mem:
+            if mem is not None:
+                # The evidence everything else rests on. A failure becomes a
+                # gotcha keyed on a deterministic signature; a success becomes a
+                # procedural candidate keyed on the exact command.
+                #
+                # Iterates `outcome.results`, not `commands`. Those are different
+                # lists: verification stops at the first failure, so a later
+                # command may never have run, and each command has its own exit
+                # code. Attributing the whole-run verdict to every requested
+                # command records passing and unrun commands as failures, which
+                # manufactures gotchas and then false preflight warnings.
+                for result in outcome.results:
+                    mem.record_verification(
+                        command=result.command,
+                        passed=result.passed,
+                        exit_code=result.exit_code,
+                        excerpt=_failure_excerpt(result),
+                        task_id=task.task_id,
+                        attempt_id=attempt_id,
+                        agent=agent,
+                    )
         return outcome
 
     async def _review(
-        self, run_id: str, task: TaskRow, workspace: Workspace, implementer: str
+        self,
+        run_id: str,
+        task: TaskRow,
+        workspace: Workspace,
+        implementer: str,
+        reviewed_attempt_id: str | None = None,
     ) -> ReviewVerdict | None:
         assignment = task.assignment
         if assignment is None:  # pragma: no cover - guarded by caller
@@ -983,6 +1266,25 @@ class Orchestrator:
                 self.store.finish_attempt(attempt_id, AttemptState.FAILED, result)
                 continue
             self.store.finish_attempt(attempt_id, AttemptState.SUCCEEDED, result)
+            # Recorded here rather than at the call site: ReviewVerdict does not
+            # carry the reviewer's identity, and identity is exactly what lets
+            # Provalume refuse to promote on a self-review.
+            with self._remember() as mem:
+                if mem is not None:
+                    mem.record_review(
+                        reviewer=reviewer,
+                        approved=verdict.approve,
+                        subject=task.spec.title,
+                        finding="; ".join(verdict.findings or verdict.required_changes),
+                        task_id=task.task_id,
+                        # The attempt under review, not the reviewer's own. A
+                        # verdict is about the work it examined, and Provalume
+                        # associates evidence by attempt: filing it against the
+                        # reviewer's attempt puts the verdict in a scope that
+                        # holds none of the reviewed work, so nothing is ever
+                        # stamped and the ladder stops at `verified`.
+                        attempt_id=reviewed_attempt_id,
+                    )
             record_task_outcome(
                 self.store,
                 run_id,
@@ -1085,6 +1387,7 @@ class Orchestrator:
     def apply_decision(self, decision_id: str, option: str, note: str = "") -> str:
         """Resolve a human decision and apply its effect. Returns summary."""
         decision = self.store.resolve_decision(decision_id, option, note)
+        self._remember_decision(decision, option, note)
         if decision.task_id is None:
             return f"decision {decision_id} resolved: {option}"
         task = self.store.get_task(decision.task_id)
@@ -1105,3 +1408,48 @@ class Orchestrator:
             self.store.set_run_state(decision.run_id, RunState.FAILED)
             return "run marked failed"
         return f"decision {decision_id} resolved: {option}"
+
+    def _remember_decision(self, decision: HumanDecision, option: str, note: str) -> None:
+        """Record a resolved gate, opening memory for the call if need be.
+
+        The rejected options are the reusable half: they are the only input to
+        the pre-action gate's rejected-alternative tier, which stays permanently
+        dead without them — nothing stops an agent re-proposing what a human just
+        turned down.
+
+        Memory is normally opened by `execute()` and closed in its `finally`, but
+        `orkestra approve` runs in a *different process* where `execute()` never
+        ran, so `self._memory` is None there and always will be. Rather than
+        widen the client's lifetime to the whole orchestrator, this opens one for
+        the duration of the write and closes it again — the write is a handful of
+        rows, and a short-lived client cannot outlive the command that made it.
+        """
+        with contextlib.suppress(Exception):
+            rejected = tuple(opt.label or opt.key for opt in decision.options if opt.key != option)
+            selected = next(
+                (opt.label or opt.key for opt in decision.options if opt.key == option), option
+            )
+            mem = self._memory
+            opened: Memory | None = None
+            if mem is None:
+                run = self.store.get_run(decision.run_id)
+                opened = open_memory(
+                    self.root,
+                    self.config,
+                    run_id=decision.run_id,
+                    branch=run.integration_branch,
+                    base_commit=run.base_commit,
+                )
+                mem = opened
+            try:
+                if mem is not None:
+                    mem.record_decision(
+                        question=decision.question,
+                        selected=selected,
+                        rejected=rejected,
+                        note=note,
+                        task_id=decision.task_id,
+                    )
+            finally:
+                if opened is not None:
+                    opened.close()

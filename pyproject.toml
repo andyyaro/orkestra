@@ -39,6 +39,14 @@ dependencies = [
 
 [project.optional-dependencies]
 tui = ["textual>=1.0"]
+# >=0.1.1 deliberately: 0.1.0 cannot link a fix to the failure it resolved
+# (the field that triggers it had no writer) and rejects the non-recording
+# preflight lookup, so on 0.1.0 resolution linking is silently inert rather
+# than merely absent.
+# >=0.1.3 for PREFLIGHT_BANNER: below it the pre-action warning replays
+# captured command output into a later agent's prompt with no untrusted-data
+# label, which the kernel test here asserts against.
+memory = ["provalume>=0.1.4"]
 
 [project.urls]
 Homepage = "https://github.com/andyyaro/orkestra"
@@ -101,6 +109,16 @@ mypy_path = "src"
 packages = ["orkestra"]
 warn_unreachable = true
 show_error_codes = true
+
+# Provalume is an optional extra and `uv sync` installs no extras, so it is
+# legitimately absent when type-checking — which is also the configuration most
+# users run. Scoped to this one module so a genuinely missing required
+# dependency still fails. (`textual` is deliberately not listed: it is in the
+# dev group and therefore always installed, so its absence would be a real
+# problem worth hearing about.)
+[[tool.mypy.overrides]]
+module = ["provalume.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
