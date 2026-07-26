@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -86,6 +87,30 @@ class TestAcceptConfirmation:
         result = runner.invoke(app, ["accept", "--yes"])
         assert result.exit_code == 0, result.output
         assert "accepted" in result.output
+
+    def test_accept_records_durable_event_with_merge_sha(self, finished: Path) -> None:
+        """Accept is the only moment work becomes true of the user's branch;
+        it must leave a durable event naming the merge commit."""
+        result = runner.invoke(app, ["accept", "--yes"])
+        assert result.exit_code == 0, result.output
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=finished, capture_output=True, text=True
+        ).stdout.strip()
+        from orkestra.app import build_app
+
+        application = build_app(finished, offline=True)
+        try:
+            run = application.store.latest_run()
+            assert run is not None
+            events = application.store.events_for_run(run.run_id, limit=1000)
+            payloads = [json.loads(e["data"]) for e in events if e["data"]]
+            accepted = [p for p in payloads if isinstance(p, dict) and p.get("run_accepted")]
+            assert len(accepted) == 1
+            assert accepted[0]["merge_sha"] == head
+            assert accepted[0]["integration_branch"] == run.integration_branch
+            assert accepted[0]["target_branch"]
+        finally:
+            application.close()
 
     def test_preflight_shows_summary(self, finished: Path) -> None:
         result = runner.invoke(app, ["accept"], input="\n")
