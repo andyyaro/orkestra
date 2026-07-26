@@ -82,9 +82,11 @@ class TestRunAndWorkspaces:
         changed = await project.validate_workspace_changes(ws)
         assert changed == ["feature.py"]
         merged = await project.integrate("run_t3", ws, "feature")
-        assert merged
-        # File exists on the integration branch, not on main.
+        # integrate() returns the merge commit sha — the head of the
+        # integration branch once the work has landed.
         integration_repo = GitRepo(project.root)
+        assert merged == await integration_repo.rev_parse("ork/run_t3/integration")
+        # File exists on the integration branch, not on main.
         _, out, _ = await integration_repo._git("show", "ork/run_t3/integration:feature.py")
         assert "hi" in out
         assert not (project.root / "feature.py").exists()
@@ -114,7 +116,7 @@ class TestRunAndWorkspaces:
         await project.commit_workspace(ws2, "B")
         assert await project.integrate("run_t6", ws1, "first")
         merged = await project.integrate("run_t6", ws2, "second")
-        assert merged is False  # conflict, aborted cleanly
+        assert merged is None  # conflict, aborted cleanly
         # Integration branch still has version A.
         out = await GitRepo(project.root).rev_parse("ork/run_t6/integration")
         assert out

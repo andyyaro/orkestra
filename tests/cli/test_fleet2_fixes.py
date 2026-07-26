@@ -104,12 +104,36 @@ class TestReportFixes:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        assert runner.invoke(app, ["demo", "--path", str(tmp_path / "d")]).exit_code == 0
+        # Keep the demo's own narration in the failure message: when this
+        # flaked on CI (py3.12/macOS, 2026-07-26) the bare exit-code assert
+        # threw away the one thing that said WHY the demo run failed.
+        demo = runner.invoke(app, ["demo", "--path", str(tmp_path / "d")])
+        assert demo.exit_code == 0, f"{demo.output}\nexception: {demo.exception!r}"
         monkeypatch.chdir(tmp_path / "d")
         result = runner.invoke(app, ["report"])
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
         flat = " ".join(result.output.split())
-        assert "ada" in flat and "grace" in flat
+        assert "ada" in flat and "grace" in flat, result.output
+
+    def test_demo_failure_path_explains_itself(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When the demo run doesn't complete, the output must carry the
+        diagnosis (task states, open decisions, recent errors) — a bare
+        exit code is undebuggable on CI."""
+        from orkestra.kernel.scheduler import Orchestrator
+        from orkestra.schemas.common import RunState
+
+        async def fail(self: Orchestrator, run_id: str) -> RunState:
+            return RunState.FAILED
+
+        monkeypatch.setattr(Orchestrator, "execute", fail)
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(app, ["demo", "--path", str(tmp_path / "d")])
+        assert result.exit_code == 1
+        flat = " ".join(result.output.split())
+        assert "demo ended in state failed" in flat
+        assert "task feature-a:" in flat  # per-task states are shown
 
 
 class TestPracticeHeadline:

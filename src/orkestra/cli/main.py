@@ -1649,7 +1649,7 @@ def _accept_impl(
             console.print("nothing changed — your branch is untouched")
             raise typer.Exit(code=0)
 
-    async def _merge() -> bool:
+    async def _merge() -> str | None:
         from orkestra.workspace.git import GitRepo
 
         repo = GitRepo(application.root)
@@ -1687,6 +1687,23 @@ def _accept_impl(
             "or rerun the work on your current code: orkestra run"
         )
         return
+    # Durable accept-time record. Accept is the only moment anything becomes
+    # true about the *user's* branch — nothing reaches it until this merge,
+    # and it can be declined — so downstream consumers (reports, memory
+    # systems) key their strongest "the user took this work" state on it.
+    application.store.append_event(
+        resolved,
+        AgentEvent(
+            kind=EventKind.COMPLETED,
+            text=(f"run accepted: merged {run.integration_branch} into {current} as {merged[:12]}"),
+            data={
+                "run_accepted": True,
+                "target_branch": current,
+                "integration_branch": run.integration_branch,
+                "merge_sha": merged,
+            },
+        ),
+    )
     console.print(
         f"[green]✓ accepted[/green] — run {resolved} is now part of [bold]{current}[/bold]"
     )
