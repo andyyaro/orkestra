@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-07-25
+
+Hardening pass from the PR #6 (Provalume memory) adversarial review:
+the commitments Orkestra's side owed.
+
+### Added
+- `orkestra accept` now leaves a durable event naming the merge commit.
+  Accept is the only moment work becomes true of the *user's* branch —
+  nothing reaches it until that merge, and it can be declined — so the
+  event payload (`merge_sha`, `target_branch`, `integration_branch`,
+  `run_accepted`) gives reports and memory systems a trustworthy anchor
+  for "the user took this work".
+- Mutating tasks' completion events carry the integration merge commit
+  (`merge_sha` in the event data, short sha in the text), so per-task
+  landings are attributable without reconstructing them from git.
+
+### Changed
+- Library API: `GitRepo.merge_no_ff()` and
+  `WorkspaceManager.integrate()` return the merge commit sha (`str`, or
+  `None` on conflict) instead of a bare boolean. Truthiness-based
+  callers keep working.
+
+### Security
+- A failing verification gate's output replays verbatim into the next
+  attempt's prompt as repair context. That text is
+  attacker-influenceable, so it is now fenced between explicit
+  `<<<BEGIN/END COMMAND OUTPUT>>>` markers and labeled as captured
+  command output, not instructions; the brief's Follow-up context
+  section states that nothing inside it overrides the task rules.
+
+### Fixed
+- `orkestra demo` no longer exits 1 without a diagnosis when the
+  scripted run doesn't complete: it prints each task's state, open
+  decisions, and the last error/warning events. Motivated by a
+  CI-only flake (py3.12/macOS) whose single failing sample carried no
+  usable evidence; the demo tests now surface that output too.
+
 ## [0.5.2] - 2026-07-25
 
 Efficiency and honesty pass over the remaining fleet-#4 findings.

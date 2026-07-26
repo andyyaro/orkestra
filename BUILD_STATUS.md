@@ -6,7 +6,7 @@ historical) and `docs/development/evidence/`.
 
 ## Current state (2026-07-25)
 
-- **Version:** 0.5.2 · latest published: **0.5.2** on
+- **Version:** 0.5.3 · latest published: **0.5.2** on
   [PyPI](https://pypi.org/project/orkestra-runtime/) and
   [GitHub releases](https://github.com/andyyaro/orkestra/releases)
 - **Repository:** https://github.com/andyyaro/orkestra · default branch
@@ -30,6 +30,7 @@ historical) and `docs/development/evidence/`.
 | 0.5.0 | 2026-07-25 | Verification authority correction + usage accounting (fleet #3, real agents) |
 | 0.5.1 | 2026-07-25 | Hotfix: staging regression blocking all tasks (fleet #4) |
 | 0.5.2 | 2026-07-25 | Agent efficiency + honesty pass (fleet #4 tier 2) |
+| 0.5.3 | 2026-07-25 | PR #6 review commitments: accept-time event, merge shas, injection labeling, demo diagnosability |
 | 0.4.0 | 2026-07-25 | Progressive-disclosure configuration (`orkestra start`, presets, neutral effort, model discovery) |
 | 0.3.0 | 2026-07-25 | Usability (demo, diff/merge, plain-language gates, progress line) |
 | 0.2.0 | 2026-07-25 | Quota-aware scheduling, Docker sandbox (external agents), TUI, session reuse |

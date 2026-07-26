@@ -144,7 +144,21 @@ async def _run_demo(root: Path) -> bool:
         state = await application.orchestrator.execute(run_id)
 
         if state is not RunState.COMPLETE:
+            from rich.markup import escape
+
             console.print(f"[red]demo ended in state {state.value} (unexpected)[/red]")
+            # This path must explain itself: the one CI flake we ever saw
+            # here (py3.12/macOS, 2026-07-26) exited 1 with no diagnosis,
+            # and one sample with no evidence is undebuggable. Dump what
+            # the kernel knows before giving up.
+            for row in application.store.tasks_for_run(run_id):
+                console.print(f"  task {escape(row.key)}: {row.state.value}")
+            for decision in application.store.decisions_for_run(run_id, unresolved_only=True):
+                console.print(f"  open decision: {escape(decision.question)}")
+            events = application.store.events_for_run(run_id, limit=500)
+            problems = [e for e in events if e["kind"] in ("error", "warning")]
+            for event in problems[-10:]:
+                console.print(f"  {event['kind']}: {escape(str(event['text']))[:300]}")
             return False
 
         _narrate("Done. What just happened:")
