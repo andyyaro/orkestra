@@ -1,4 +1,4 @@
-"""Unit tests: quota tracker — budgets, cooldowns, selection."""
+"""Unit tests: quota tracker - budgets, cooldowns, selection."""
 
 from __future__ import annotations
 

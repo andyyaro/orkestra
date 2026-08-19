@@ -16,12 +16,12 @@ captures in `samples/`.
   detection, v2.1.205+), `assistant`/`user` messages, `stream_event`
   deltas, `system/api_retry` (fields include `error` category enum:
   `authentication_failed`, `rate_limit`, `overloaded`, `billing_error`,
-  … — the in-stream rate-limit/auth signal), terminal `result`.
+  … - the in-stream rate-limit/auth signal), terminal `result`.
 - **Structured output:** `--output-format json --json-schema '<schema>'`
   → validated object in `structured_output`. This is the director
   decision channel.
 - **Sessions:** `--session-id <uuid>` to pin; `--resume <id>` (cwd/
-  worktree-scoped — resume from the same directory); `--fork-session`.
+  worktree-scoped - resume from the same directory); `--fork-session`.
 - **Permissions:** `--permission-mode` (`acceptEdits`, `dontAsk` for
   locked-down automation, `plan`, `bypassPermissions`), `--allowedTools`
   prefix rules, `--add-dir`. No OS sandbox of its own.
@@ -30,7 +30,7 @@ captures in `samples/`.
 - **SDK:** `claude-agent-sdk` (Python) wraps the same CLI subprocess;
   works with subscription OAuth. Not adopted for v0.1 to keep one
   uniform subprocess adapter model (ADR-0004); revisit on roadmap.
-  Note: `--bare` skips OAuth/keychain (API-key only) — therefore
+  Note: `--bare` skips OAuth/keychain (API-key only) - therefore
   Orkestra does **not** use `--bare` under subscription auth; hermetic
   behavior comes from `--setting-sources` and explicit flags.
 
@@ -49,16 +49,16 @@ captures in `samples/`.
 - **Sessions:** `codex exec resume <thread_id>`; `--ephemeral` disables
   persistence/resume.
 - **Sandbox (OS-enforced):** `--sandbox read-only|workspace-write|
-  danger-full-access` — Apple Seatbelt on macOS, Landlock/seccomp on
+  danger-full-access` - Apple Seatbelt on macOS, Landlock/seccomp on
   Linux. `exec` defaults to read-only. Network off by default in
   workspace-write. Requires git repo unless `--skip-git-repo-check`.
 - **Errors:** non-zero exit on schema mismatch/no-repo; `error` JSONL
   event is the structured failure channel; no published exit-code table.
 - **SDK/server:** TS SDK, new Python `openai-codex` SDK (app-server
-  JSON-RPC), `codex mcp-server`; app-server marked experimental —
+  JSON-RPC), `codex mcp-server`; app-server marked experimental -
   subprocess `exec` chosen for v0.1.
 
-## Antigravity CLI (`agy`) — first-party Google adapter
+## Antigravity CLI (`agy`) - first-party Google adapter
 
 Added 2026-07-24 after Google's migration notice: the legacy `gemini`
 CLI rejects individual-consumer OAuth ("This client is no longer
@@ -89,15 +89,15 @@ machine; all findings below verified live (`samples/antigravity-*`).
 - **Extras:** `--model` (slugs from `agy models`: gemini-3.6-flash-*,
   gemini-3.1-pro-*, claude-sonnet-4-6, gpt-oss-120b-…), `--effort
   low|medium|high`, custom agents via `agent.md`, plugins/MCP.
-- **Auth readiness:** `agy models` succeeds only when authenticated —
+- **Auth readiness:** `agy models` succeeds only when authenticated -
   a cheap non-invasive readiness probe.
 
-## Gemini CLI (`gemini`) — non-default (API-key / Vertex / Enterprise auth)
+## Gemini CLI (`gemini`) - non-default (API-key / Vertex / Enterprise auth)
 
 - **Headless:** `-p` (or non-TTY); `--output-format json` → envelope
   `{response, stats, error?}`; `stream-json` → JSONL events `init`
   (session id), `message`, `tool_use`, `tool_result`, `error`, `result`.
-  Event field schemas are not fully documented — parser is
+  Event field schemas are not fully documented - parser is
   version-pinned and defensive.
 - **Structured output:** none (no schema flag). Pattern: prompt for raw
   JSON, extract from `response`, validate, bounded repair/retry loop.
@@ -111,7 +111,7 @@ machine; all findings below verified live (`samples/antigravity-*`).
   error; 41 auth required (verified locally: JSON error on stderr);
   42 input error; 53 turn limit exceeded.
 - **SDK:** TypeScript only (`@google/gemini-cli-sdk`, core lib, ACP
-  experimental) — no official Python surface; subprocess is the only
+  experimental) - no official Python surface; subprocess is the only
   realistic option.
 
 ## Cross-cutting adapter mapping

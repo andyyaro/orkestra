@@ -1,4 +1,4 @@
-# ADR-0009: Docker sandbox — external agents only in v0.2
+# ADR-0009: Docker sandbox - external agents only in v0.2
 
 Date: 2026-07-24 · Status: accepted
 
@@ -14,9 +14,9 @@ Landlock), Antigravity, and Gemini (sandbox modes), or Claude Code
 The blocking constraint from v0.1 still holds for **vendor CLIs**:
 they authenticate through host credential stores (keychain,
 `~/.codex/auth.json`, `~/.gemini`). Containerizing them requires either
-mounting those stores into the container — which violates Orkestra's
+mounting those stores into the container - which violates Orkestra's
 "never touch credential stores" rule and would hand tokens to the
-sandboxed process — or vendor-supported containerized auth flows that
+sandboxed process - or vendor-supported containerized auth flows that
 do not exist today for subscription login.
 
 ## Decision
@@ -68,7 +68,7 @@ do not exist today for subscription login.
 
 - Vendor-CLI containerization stays on the roadmap, contingent on
   vendor-supported container auth (e.g. short-lived tokens like
-  `claude setup-token` injected per invocation — explicitly user-opt-in
+  `claude setup-token` injected per invocation - explicitly user-opt-in
   and never read from stores by Orkestra).
 - Container teardown on timeout relies on killing `docker run` and
   `--rm`; a follow-up could use `--cidfile` + `docker kill` for

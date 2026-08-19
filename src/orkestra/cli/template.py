@@ -18,7 +18,7 @@ spec_file = "SPEC.md"
 # Per agent you may set:  model = "..."   effort = "auto|low|medium|high|max"
 # (that's the provider-neutral scale; antigravity-cli and codex-cli
 #  support low|medium|high, claude-code and gemini-cli have no effort
-#  control — pick a model instead. Unsupported values are rejected with
+#  control - pick a model instead. Unsupported values are rejected with
 #  an explanation, never silently ignored. Easiest via
 #  `orkestra agents set <name> --model ... --effort ...`)
 # ---------------------------------------------------------------------------

@@ -12,23 +12,23 @@ version = 1                      # config schema version (required)
 
 | Key | Default | Meaning |
 |---|---|---|
-| `name` | — (required) | Project slug (`[a-z0-9._-]`, ≤64 chars) |
+| `name` | - (required) | Project slug (`[a-z0-9._-]`, ≤64 chars) |
 | `spec_file` | `"SPEC.md"` | Markdown specification read by `plan`/`run` |
 
-## `[agents.<name>]` — one table per agent; **≥ 2 enabled required**
+## `[agents.<name>]` - one table per agent; **≥ 2 enabled required**
 
 | Key | Default | Meaning |
 |---|---|---|
-| `adapter` | — (required) | `claude-code`, `codex-cli`, `antigravity-cli`, `gemini-cli`, `fake`, or `external` |
+| `adapter` | - (required) | `claude-code`, `codex-cli`, `antigravity-cli`, `gemini-cli`, `fake`, or `external` |
 | `enabled` | `true` | Disabled agents are ignored entirely |
 | `model` | adapter default | Model override passed to the CLI (easiest: `orkestra agents set NAME --model …`) |
-| `effort` | `auto` | Provider-neutral `auto`/`low`/`medium`/`high`/`max`, validated against the adapter's real capabilities (unsupported levels are rejected with an explanation; e.g. Claude Code has no effort control — pick a model tier instead) |
-| `run_commands` | `false` | Let this agent run shell commands inside its isolated worktree. Off by default: Orkestra runs your `[verify]` commands itself, and headless agents cannot answer permission prompts — leaving it off avoids agents burning turns asking. Turn it on to let an agent self-check before handing work back. |
+| `effort` | `auto` | Provider-neutral `auto`/`low`/`medium`/`high`/`max`, validated against the adapter's real capabilities (unsupported levels are rejected with an explanation; e.g. Claude Code has no effort control - pick a model tier instead) |
+| `run_commands` | `false` | Let this agent run shell commands inside its isolated worktree. Off by default: Orkestra runs your `[verify]` commands itself, and headless agents cannot answer permission prompts - leaving it off avoids agents burning turns asking. Turn it on to let an agent self-check before handing work back. |
 | `autonomy` | `"safe"` | `safe` = workspace-scoped edit autonomy via the CLI's own safety system; `unsafe-full` = the CLI's bypass mode (explicit opt-in, logged) |
 | `timeout_s` | `1800` | Per-attempt wall clock (30–86400) |
 | `token_budget` | unlimited | Max input+output tokens this agent may spend per run (≥1000). Once exceeded, the kernel stops dispatching new work to it (reviews still allowed) and uses fallbacks |
-| `sandbox_image` | — | Container image this agent runs in when `policy.sandbox = "docker"` (external/fake adapters only) |
-| `command` | — | **external adapter only**: argv of your agent binary |
+| `sandbox_image` | - | Container image this agent runs in when `policy.sandbox = "docker"` (external/fake adapters only) |
+| `command` | - | **external adapter only**: argv of your agent binary |
 
 Multiple profiles of the same adapter are valid (e.g. two `claude-code`
 agents with different models).
@@ -52,7 +52,7 @@ agents with different models).
 | `allow_push` | `false` | Orkestra never pushes unless this is true |
 | `task_timeout_s` | `1800` | Kernel-enforced ceiling per attempt |
 | `protected_paths` | `[".git", ".orkestra", ".github/workflows"]` | Diffs touching these are rejected |
-| `sandbox` | `"none"` | `"docker"` runs **external/fake agents** in hardened containers (no network, cap-drop ALL, read-only rootfs, non-root, worktree-only mount). Vendor CLIs are refused with an explanation — ADR-0009 |
+| `sandbox` | `"none"` | `"docker"` runs **external/fake agents** in hardened containers (no network, cap-drop ALL, read-only rootfs, non-root, worktree-only mount). Vendor CLIs are refused with an explanation - ADR-0009 |
 
 ## `[verify]`
 

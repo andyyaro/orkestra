@@ -72,7 +72,7 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
                         "role": a.role,
                         # NB: this is the agent call's own outcome (did the
                         # CLI run and return a result), NOT whether the task
-                        # passed verification/review — see agent_performance.
+                        # passed verification/review - see agent_performance.
                         "agent_call_state": a.state.value,
                         "state": a.state.value,
                         "session_id": (
@@ -119,7 +119,7 @@ def _clean_text(text: str, limit: int) -> str:
 def render_markdown(report: dict[str, Any]) -> str:
     run = report["run"]
     lines = [
-        f"# Orkestra Run Report — {run['project']}",
+        f"# Orkestra Run Report - {run['project']}",
         "",
         f"- **Run:** `{run['run_id']}`  ",
         f"- **State:** **{run['state']}**  ",
@@ -181,7 +181,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 if decision.get("chosen_option")
                 else "OPEN"
             )
-            lines.append(f"- `{decision['decision_id']}` ({status}) — {decision['question'][:200]}")
+            lines.append(f"- `{decision['decision_id']}` ({status}) - {decision['question'][:200]}")
     if report["usage"]:
         lines += [
             "",
@@ -198,7 +198,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             lines.append(
                 f"| {row['agent']} | {row['calls']} | {row['input_tokens']} "
                 f"| {cached} | {row['output_tokens']} "
-                f"| {f'{cost:.4f}' if cost is not None else '—'} |"
+                f"| {f'{cost:.4f}' if cost is not None else '-'} |"
             )
             totals["calls"] += row["calls"]
             totals["input"] += row["input_tokens"] or 0
@@ -210,7 +210,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(
             f"| **total** | {totals['calls']} | {totals['input']} | {totals['cached']} "
             f"| {totals['output']} | "
-            f"{f'{totals["cost"]:.4f}' if any_cost else '—'} |"
+            f"{f'{totals["cost"]:.4f}' if any_cost else '-'} |"
         )
         if not any_cost or len([r for r in report["usage"] if r.get("total_cost_usd")]) < len(
             report["usage"]

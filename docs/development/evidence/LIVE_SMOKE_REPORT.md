@@ -1,4 +1,4 @@
-# Orkestra Run Report — smoke-live
+# Orkestra Run Report - smoke-live
 
 - **Run:** `run_7ccfb487`  
 - **State:** **complete**  
@@ -16,7 +16,7 @@
 
 ## Director analysis
 
-Trivial single-module Python task: create `greet.py` with a `greet(name: str) -> str` function returning exactly "Hello, {name}!", a self-contained `test_greet.py` runnable via `python3 test_greet.py`, and a short `USAGE.md` — all at the repository root, with no packaging, CI, or dependencies. Any single available agent (claude, codex, or antigravity) can complete this in one pass; the main success criterion is exact adherence to the specified output string, file names/locations, and the minimalism constraint.
+Trivial single-module Python task: create `greet.py` with a `greet(name: str) -> str` function returning exactly "Hello, {name}!", a self-contained `test_greet.py` runnable via `python3 test_greet.py`, and a short `USAGE.md` - all at the repository root, with no packaging, CI, or dependencies. Any single available agent (claude, codex, or antigravity) can complete this in one pass; the main success criterion is exact adherence to the specified output string, file names/locations, and the minimalism constraint.
 
 Risks:
 - Over-engineering: agents may add packaging, docstrings-heavy scaffolding, pytest configs, or CI despite the explicit minimalism constraint.
@@ -33,15 +33,15 @@ Risks:
 
 ## Human decisions
 
-- `dec_e176e420` (resolved: retry) — Task 'implement-greet' is blocked: no independent reviewer could produce a verdict (review is required by policy). How should Orkestra proceed?
+- `dec_e176e420` (resolved: retry) - Task 'implement-greet' is blocked: no independent reviewer could produce a verdict (review is required by policy). How should Orkestra proceed?
 
 ## Usage
 
 | Agent | Calls | Input tokens | Output tokens | Cost (USD) |
 |---|---|---|---|---|
-| antigravity | 4 | 72768 | 5050 | — |
+| antigravity | 4 | 72768 | 5050 | - |
 | claude | 3 | 26 | 3447 | 1.018912 |
-| codex | 3 | 173698 | 2937 | — |
+| codex | 3 | 173698 | 2937 | - |
 
 ## Agent performance ledger
 

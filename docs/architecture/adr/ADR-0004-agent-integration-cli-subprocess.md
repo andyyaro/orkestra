@@ -1,4 +1,4 @@
-# ADR-0004: Agent integration — CLI subprocesses with structured streaming
+# ADR-0004: Agent integration - CLI subprocesses with structured streaming
 
 Date: 2026-07-24 · Status: accepted
 
@@ -21,7 +21,7 @@ headless mode with JSON/JSONL output:
   confirmed locally; `--output-schema` available for structured finals).
 - Antigravity (`agy`): `agy -p --output-format stream-json` (JSONL
   `init`/`step_update` events + terminal `result` envelope, confirmed
-  locally) — the first-party Google adapter after Google migrated
+  locally) - the first-party Google adapter after Google migrated
   individual-consumer OAuth from the legacy Gemini CLI to the
   Antigravity suite.
 - Gemini: `gemini -p -o stream-json` (auth-not-ready = exit 41 with JSON

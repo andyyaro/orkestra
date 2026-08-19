@@ -1,4 +1,4 @@
-"""`orkestra demo` — the zero-risk, zero-quota full-lifecycle showcase.
+"""`orkestra demo` - the zero-risk, zero-quota full-lifecycle showcase.
 
 Creates a throwaway project with scripted fake agents and runs the real
 kernel through everything Orkestra does on real projects: planning,
@@ -70,7 +70,7 @@ async def _run_demo(root: Path) -> bool:
     try:
         _narrate(
             "Two agents ('ada' and 'grace') will collaborate. They are "
-            "scripted fakes — every mechanism below is the real kernel."
+            "scripted fakes - every mechanism below is the real kernel."
         )
         run_id = application.store.create_run("orkestra-demo")
         application.store.update_run_payload(
@@ -123,7 +123,7 @@ async def _run_demo(root: Path) -> bool:
 
         _narrate(
             "Watch for: a deterministic gate check after every task, and "
-            "grace REJECTING ada's first attempt at feature A — ada must "
+            "grace REJECTING ada's first attempt at feature A - ada must "
             "repair it before anything is integrated. Running now…"
         )
 
@@ -168,7 +168,7 @@ async def _run_demo(root: Path) -> bool:
             f"  • {len(task_rows)} tasks planned, isolated, verified, "
             f"cross-reviewed, and integrated\n"
             f"  • {review_cycles} review rejection triggered a repair loop "
-            "(bounded — it can never spin forever)\n"
+            "(bounded - it can never spin forever)\n"
             "  • every result was integrated commit-by-commit into a holding "
             "area; the demo's own 'main' was never touched"
         )

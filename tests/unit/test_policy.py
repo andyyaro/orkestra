@@ -1,4 +1,4 @@
-"""Unit tests: policy engine — review separation, budgets, diff path checks."""
+"""Unit tests: policy engine - review separation, budgets, diff path checks."""
 
 from __future__ import annotations
 

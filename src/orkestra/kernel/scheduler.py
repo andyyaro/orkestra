@@ -230,7 +230,7 @@ class Orchestrator:
                         self.emit(
                             run_id,
                             EventKind.WARNING,
-                            f"waiting on {len(unresolved)} human decision(s) — "
+                            f"waiting on {len(unresolved)} human decision(s) - "
                             "see `orkestra decisions`",
                         )
                         return RunState.WAITING_HUMAN
@@ -249,7 +249,7 @@ class Orchestrator:
                 if exc is not None and not isinstance(exc, asyncio.CancelledError):
                     self.emit(run_id, EventKind.ERROR, f"task {key} crashed the pipeline: {exc}")
                     # A crashed pipeline coroutine must not strand its task in
-                    # an active state (that would spin the loop forever) —
+                    # an active state (that would spin the loop forever) -
                     # block it behind a human decision instead.
                     crashed_task = next(
                         (t for t in self.store.tasks_for_run(run_id) if t.key == key), None
@@ -397,7 +397,7 @@ class Orchestrator:
         # Deterministic pre-flight: a gate that cannot even start would
         # fail identically after any amount of agent work. Catch it here
         # (and on every retry) so broken [verify] config never burns an
-        # agent attempt — the fix is editing config, not re-running agents.
+        # agent attempt - the fix is editing config, not re-running agents.
         from orkestra.verify.runner import gate_command_problem
 
         gate_problems = [
@@ -420,7 +420,7 @@ class Orchestrator:
         sessions: dict[str, str] = {}
 
         while True:
-            # A pause request stops NEW attempts immediately — not just new
+            # A pause request stops NEW attempts immediately - not just new
             # tasks. The current agent subprocess is never killed mid-flight;
             # the task simply goes back to READY for the resumed run.
             if self._control(run_id) == "pause":
@@ -681,7 +681,7 @@ class Orchestrator:
                 await self.workspaces.remove_workspace(workspace, keep_branch=True)
             else:
                 # Non-mutating task: nothing to integrate. If the agent wrote
-                # files anyway, say so — silently discarding work looks like
+                # files anyway, say so - silently discarding work looks like
                 # success and is indistinguishable from data loss.
                 from orkestra.workspace.git import GitRepo
 
@@ -851,7 +851,7 @@ class Orchestrator:
         else:
             parts.append(
                 "- You CANNOT run shell commands in this session, and nobody "
-                "can approve one — do not try, and do not ask. Write the code "
+                "can approve one - do not try, and do not ask. Write the code "
                 "and reason about correctness statically; the orchestrator "
                 "runs the acceptance commands for you the moment you finish, "
                 "and will hand you their exact output if they fail."
@@ -864,7 +864,7 @@ class Orchestrator:
                 *[f"- `{c}`" for c in gates],
             ]
         if fix_context:
-            # This section replays material from earlier attempts — including
+            # This section replays material from earlier attempts - including
             # verbatim command output an attacker could influence. Cap its
             # authority explicitly so quoted text cannot masquerade as policy.
             parts += [
@@ -882,7 +882,7 @@ class Orchestrator:
         """The task's real verification gate: the user's [verify] commands
         always (authoritative), plus plan-derived acceptance entries that
         survive deterministic validation. Invalid plan entries are dropped
-        with a warning — never exec'd, never allowed to block the run."""
+        with a warning - never exec'd, never allowed to block the run."""
         from orkestra.verify.runner import gate_command_problem
 
         commands = list(self.config.verify.commands)
@@ -936,7 +936,7 @@ class Orchestrator:
         diffstat = await wt.diff_stat(workspace.base_commit)
         # Assigned reviewers first; if the implementer changed via fallback and
         # collides with every assigned reviewer, substitute any other enabled
-        # agent — review independence is preserved, review coverage is kept.
+        # agent - review independence is preserved, review coverage is kept.
         candidates = list(assignment.reviewers)
         candidates += [
             name for name in self.adapters if name not in candidates and name != implementer

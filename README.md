@@ -7,21 +7,21 @@
 
 > **Coordinate many agents. Deliver one verified result.**
 
-You already use coding agents — Claude Code, OpenAI Codex, Google
+You already use coding agents - Claude Code, OpenAI Codex, Google
 Antigravity. Orkestra makes **two or more of them work on the same
 project at once**, safely: every task runs in its own isolated Git
 worktree, your test commands are the referee, and nothing lands until a
 *different* agent has reviewed it. Your branches are never touched;
 finished work waits on a side branch until you accept it.
 
-## See it in 60 seconds — free
+## See it in 60 seconds - free
 
 ```bash
 uv tool install 'orkestra-runtime[tui]'
 orkestra demo
 ```
 
-No agent CLIs, no logins, no tokens spent — scripted fake agents drive
+No agent CLIs, no logins, no tokens spent - scripted fake agents drive
 the *real* engine so you can watch the whole lifecycle:
 
 ```text
@@ -34,7 +34,7 @@ the *real* engine so you can watch the whole lifecycle:
   completed task feature-a done (agent ada)
   completed all tasks done
 ▸ Done: 3 tasks planned, isolated, verified, cross-reviewed, integrated.
-  1 review rejection triggered a repair loop (bounded — never spins forever).
+  1 review rejection triggered a repair loop (bounded - never spins forever).
 ```
 
 That rejection-then-repair is the point: agents check each other, the
@@ -42,7 +42,7 @@ kernel keeps score, and you only see verified results.
 
 ## Use it on your project
 
-One guided command sets up everything — your agents, a quality preset,
+One guided command sets up everything - your agents, a quality preset,
 models and effort, the verification gate, even your spec:
 
 ```bash
@@ -50,9 +50,9 @@ cd my-project
 orkestra start         # answers a few questions, then (optionally) runs
 ```
 
-Pick a preset — **Faster**, **Balanced (recommended)**, **Maximum
+Pick a preset - **Faster**, **Balanced (recommended)**, **Maximum
 quality** (which fields two Claude profiles, `claude-deep` + a fast
-sidekick, alongside Codex and Antigravity at high effort) — or go Custom
+sidekick, alongside Codex and Antigravity at high effort) - or go Custom
 and choose models per agent from live-discovered lists. If fewer than
 two agent CLIs are signed in, `start` sets up **practice mode** with
 built-in fake agents so the journey works on any machine, free.
@@ -66,14 +66,14 @@ orkestra agents set claude --model sonnet --effort auto
 ```
 
 While it runs: `orkestra watch` (live dashboard from any terminal),
-`orkestra status`, `orkestra pause` / `resume` / `cancel` — state
+`orkestra status`, `orkestra pause` / `resume` / `cancel` - state
 survives crashes, Ctrl-C, and reboots.
 
 When it finishes:
 
 ```bash
 orkestra review        # what was built: status, checks, changes
-orkestra accept        # bring it into your branch — asks before touching anything
+orkestra accept        # bring it into your branch - asks before touching anything
 ```
 
 (`orkestra diff` and `orkestra merge` remain as advanced aliases.)
@@ -88,7 +88,7 @@ orkestra resume
 ```
 
 Effort is provider-neutral (`auto | low | medium | high | max`) and
-validated against what each CLI genuinely supports — unsupported levels
+validated against what each CLI genuinely supports - unsupported levels
 are rejected with an explanation, never silently ignored.
 
 ## Supported agents
@@ -107,7 +107,7 @@ June 2026, so `antigravity-cli` is the default Google adapter.
 
 Two agents minimum, no upper bound, no fixed roles: a **director agent**
 (default Claude Code, configurable) plans and delegates from measured
-evidence — including to itself.
+evidence - including to itself.
 
 ## What you can rely on
 
@@ -115,7 +115,7 @@ evidence — including to itself.
 |---|---|
 | Your branches are never modified | agents work in isolation; `orkestra accept` is the only step that touches your branch, it always asks first, and it refuses incomplete runs |
 | Agents can't approve their own work | kernel-enforced implementer ≠ reviewer, across vendors |
-| "Tests pass" claims mean nothing | the kernel runs *your* `[verify]` commands and reads exit codes itself — plan-proposed checks can only be added on top, after validation, never substituted |
+| "Tests pass" claims mean nothing | the kernel runs *your* `[verify]` commands and reads exit codes itself - plan-proposed checks can only be added on top, after validation, never substituted |
 | No surprise costs | per-agent token budgets, rate-limit-aware scheduling, live progress/cost line, everything bounded |
 | Crashes lose nothing | SQLite state + idempotent transitions; `orkestra resume` reconciles and continues |
 | Secrets stay out of logs | credential-shape redaction on everything persisted or exported |
@@ -132,7 +132,7 @@ determinism disposes.
 
 - The **director agent** analyzes your spec, measures the available
   agents with objective probes, decomposes the work into a dependency
-  graph, and proposes assignments — as schema-validated JSON, never
+  graph, and proposes assignments - as schema-validated JSON, never
   free prose.
 - The **deterministic kernel** (plain Python, no LLM) validates every
   proposal against policy, owns all state, dispatches work, enforces
@@ -159,7 +159,7 @@ flowchart TB
         CLI[orkestra CLI / TUI]
         SPEC[SPEC.md]
     end
-    subgraph kernel [Deterministic kernel — no LLM]
+    subgraph kernel [Deterministic kernel - no LLM]
         SCH[Scheduler + task DAG]
         POL[Policy engine]
         VER[Verification gates]
@@ -186,17 +186,17 @@ More diagrams (lifecycle, capability discovery, human gates):
 
 ## Verified vs. experimental
 
-**Verified** — 472 tests plus live cross-vendor runs with real Claude
+**Verified** - 472 tests plus live cross-vendor runs with real Claude
 Code / Codex / Antigravity CLIs (including a gate-caught silent failure,
 automatic fallback repair, and cross-vendor review approvals), and
 dogfooding: Orkestra reviewed its own code, and that review's findings
 shipped as v0.1.1.
 
-**Experimental / limits** — Antigravity's JSON output flag is
+**Experimental / limits** - Antigravity's JSON output flag is
 undocumented upstream (adapter has a plain-text fallback); Gemini CLI is
 auth-limited by Google's consumer migration; the Docker sandbox covers
 external/fake agents only (vendor CLIs would need your credential
-stores mounted — refused, see ADR-0009); Windows untested. Providers'
+stores mounted - refused, see ADR-0009); Windows untested. Providers'
 plan limits are yours: see [docs/PROVIDERS.md](docs/PROVIDERS.md),
 including a disclosed gray area in Antigravity's ToS.
 
@@ -209,13 +209,13 @@ including a disclosed gray area in Antigravity's ToS.
 [Security model](docs/SECURITY_MODEL.md) ·
 [Threat model](docs/security/THREAT_MODEL.md) · [Roadmap](ROADMAP.md)
 
-Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) — kernel stays
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) - kernel stays
 deterministic, no fixed-agent-count assumptions, evidence over
 self-report.
 
 ## License
 
-Apache-2.0 — [LICENSE](LICENSE), [NOTICE](NOTICE).
+Apache-2.0 - [LICENSE](LICENSE), [NOTICE](NOTICE).
 
 Claude is a trademark of Anthropic PBC; Codex and ChatGPT of OpenAI;
 Gemini and Antigravity of Google LLC. Orkestra is independent and not

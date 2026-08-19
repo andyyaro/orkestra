@@ -1,14 +1,14 @@
 """Linear, auditable schema migration chain.
 
 Each entry runs inside one transaction; ``schema_version`` records the
-applied chain position. Never edit an applied migration — append a new
+applied chain position. Never edit an applied migration - append a new
 one.
 """
 
 from __future__ import annotations
 
 MIGRATIONS: list[str] = [
-    # 0001 — initial schema
+    # 0001 - initial schema
     """
     CREATE TABLE runs (
         run_id TEXT PRIMARY KEY,

@@ -1,4 +1,4 @@
-# ADR-0008: Director — protocol-based role, Claude Code default
+# ADR-0008: Director - protocol-based role, Claude Code default
 
 Date: 2026-07-24 · Status: accepted
 

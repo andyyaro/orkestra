@@ -1,4 +1,4 @@
-# ADR-0006: Extensibility — declarative adapter manifests, no dynamic code loading in v0.1
+# ADR-0006: Extensibility - declarative adapter manifests, no dynamic code loading in v0.1
 
 Date: 2026-07-24 · Status: accepted
 

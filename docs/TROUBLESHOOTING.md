@@ -9,7 +9,7 @@ Sign in with the vendor's own flow, then re-run doctor:
 - Codex: `codex login` (`codex login status` to confirm).
 - Antigravity: run `agy` once; it signs in via keyring/browser.
 - Gemini CLI: export `GEMINI_API_KEY` (consumer Google OAuth is no
-  longer served by this CLI — use the Antigravity agent instead).
+  longer served by this CLI - use the Antigravity agent instead).
 
 ## "this folder is inside an existing Git repository"
 
@@ -23,14 +23,14 @@ the project outside it. Nothing was changed.
 Orkestra refuses to start runs while tracked files have uncommitted
 edits (staged or not), so it can never entangle your work with agent
 work. `git status`, then commit or stash. Untracked files don't block a
-run — Orkestra simply never touches them (`orkestra accept` refuses if
+run - Orkestra simply never touches them (`orkestra accept` refuses if
 a result would overwrite one). This includes SPEC.md: if you edit it
 after setup, commit the edit before `orkestra run`.
 
 ## "at least two enabled agents are required"
 
 Orkestra is a multi-agent orchestrator by design. Enable a second agent
-in `.orkestra/config.toml` — the `fake` adapter works for trying the
+in `.orkestra/config.toml` - the `fake` adapter works for trying the
 machinery without quota.
 
 ## A task is `blocked` / the run says `waiting_human`
@@ -57,13 +57,13 @@ agent that repairs the work, so `orkestra logs` tells you why.
 
 A command that cannot even start (missing executable, unparsable) is
 caught *before* any agent runs and blocks the task: fix
-`.orkestra/config.toml` first — retrying without editing it fails
+`.orkestra/config.toml` first - retrying without editing it fails
 identically.
 
 ## "ignoring plan acceptance entry"
 
 The plan proposed an extra per-task check that isn't a runnable command
-(prose, or shell syntax like pipes — commands run without a shell). It
+(prose, or shell syntax like pipes - commands run without a shell). It
 is dropped, not executed. Your `[verify]` commands still gate the task,
 so this is informational.
 
@@ -72,14 +72,14 @@ so this is informational.
 Normal under parallelism: the kernel aborts the conflicted merge,
 recreates the task's workspace from the updated integration branch, and
 re-runs the task. If it loops, your task decomposition has two tasks
-editing the same files — restructure the spec or lower
+editing the same files - restructure the spec or lower
 `max_concurrency`.
 
 ## Rate limits
 
 Rate-limited agents back off (60 s base, exponential) and eventually
 fall back to other agents or a human gate. Long runs on subscription
-plans may simply need to wait for your provider's window to reset —
+plans may simply need to wait for your provider's window to reset -
 `orkestra pause` / `resume` are safe across resets.
 
 ## An agent says it needs permission to run commands
@@ -89,7 +89,7 @@ Headless agents cannot answer permission prompts. Claude Code runs with
 *run* commands (like your test suite). Since v0.5.2 the task brief tells
 the agent this up front so it doesn't waste turns asking, and Orkestra
 surfaces a warning if it asks anyway. Set `run_commands = true` on an
-agent to let it run commands in its own worktree. It is not fatal — Orkestra runs
+agent to let it run commands in its own worktree. It is not fatal - Orkestra runs
 your `[verify]` commands itself, deterministically, after the agent
 finishes. To let agents run commands themselves, pre-approve the tools
 they need in the vendor CLI's own settings (e.g. Claude Code's
@@ -106,7 +106,7 @@ settings.json` (`permissions.allow`), or accept edit-only autonomy.
 
 - State DB: `.orkestra/orkestra.db` (SQLite; delete to reset project)
 - Worktrees: `.orkestra/worktrees/` (auto-cleaned; preserved on failure)
-- Run branches (advanced): `git branch --list 'ork/*'` — normally you
+- Run branches (advanced): `git branch --list 'ork/*'` - normally you
   only need `orkestra review` / `orkestra accept`
 - Events/log: `orkestra logs`; full export: `orkestra report --json-out`
 

@@ -1,4 +1,4 @@
-"""Unit tests: persistence — migrations, transitions, idempotency, decisions."""
+"""Unit tests: persistence - migrations, transitions, idempotency, decisions."""
 
 from __future__ import annotations
 

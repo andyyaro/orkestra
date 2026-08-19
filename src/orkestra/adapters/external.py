@@ -1,4 +1,4 @@
-"""External-command adapter — the third-party integration surface.
+"""External-command adapter - the third-party integration surface.
 
 Protocol ``orkestra-jsonl/1`` (documented in docs/adapters/PROTOCOL.md):
 the command receives the task brief as JSON on stdin and emits JSONL on

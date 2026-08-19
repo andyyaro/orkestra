@@ -57,7 +57,7 @@ API-key/Vertex/Standard-Enterprise authentication.
 ## Observations relevant to architecture
 
 - All the agent CLIs expose a non-interactive execution mode with structured
-  (JSON or JSONL) output — CLI subprocess integration is viable for all three.
+  (JSON or JSONL) output - CLI subprocess integration is viable for all three.
 - Codex uniquely supports `--output-schema` for schema-constrained final
   responses. Claude Code supports structured streaming (`stream-json`).
   Gemini supports `--output-format json|stream-json`.

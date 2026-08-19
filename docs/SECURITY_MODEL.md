@@ -45,7 +45,7 @@ disclosure policy at the repository root `SECURITY.md`.
   workspace afterwards: policy-checked diff + gates + review.
 - Prompt injection in your repository can influence what an agent
   writes. Defense in depth means injected text still cannot expand
-  permissions, skip gates, dodge review, or escape the worktree — but
+  permissions, skip gates, dodge review, or escape the worktree - but
   review quality matters; keep `require_review = true`.
 - Local processes with your OS account can read `.orkestra/` state
   (task transcripts of your own project). No secrets are stored there,

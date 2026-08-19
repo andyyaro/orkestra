@@ -49,7 +49,7 @@ _DOCUMENTED: dict[str, ModelCatalog] = {
         models=[],
         provenance="none",
         note=(
-            "Codex has no listing surface — any model id your ChatGPT plan "
+            "Codex has no listing surface - any model id your ChatGPT plan "
             "supports (see /model inside codex)"
         ),
         efforts=["low", "medium", "high"],
@@ -140,7 +140,7 @@ async def discover_models(
             models=[],
             provenance="none",
             note=(
-                "agy is not signed in — models can be listed after `agy` "
+                "agy is not signed in - models can be listed after `agy` "
                 "login; manual entry works now"
             ),
             efforts=["low", "medium", "high"],

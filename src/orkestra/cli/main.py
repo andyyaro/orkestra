@@ -1,4 +1,4 @@
-"""Orkestra CLI — the complete operator surface."""
+"""Orkestra CLI - the complete operator surface."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def _load_app(offline: bool = False) -> App:
         raise AssertionError from None  # unreachable
     except (PermissionError, OSError, sqlite3.OperationalError) as exc:
         _fail(
-            f"cannot open the project state ({exc}) — check permissions on the .orkestra/ directory"
+            f"cannot open the project state ({exc}) - check permissions on the .orkestra/ directory"
         )
         raise AssertionError from None  # unreachable
     _guard_project_not_nested(application)
@@ -105,11 +105,11 @@ def _pick_run(application: App, run_id: str | None) -> str:
         try:
             application.store.get_run(run_id)
         except StoreError:
-            _fail(f"run {run_id!r} not found — `orkestra status` shows the latest run")
+            _fail(f"run {run_id!r} not found - `orkestra status` shows the latest run")
         return run_id
     latest = application.store.latest_run()
     if latest is None:
-        _fail("no runs found — start one with `orkestra run`")
+        _fail("no runs found - start one with `orkestra run`")
         raise AssertionError from None  # unreachable
     return latest.run_id
 
@@ -117,7 +117,7 @@ def _pick_run(application: App, run_id: str | None) -> str:
 def _read_spec(application: App, spec: Path | None) -> str:
     path = spec or (application.root / application.config.project.spec_file)
     if not path.is_file():
-        _fail(f"specification file not found: {path} — create it or pass --spec")
+        _fail(f"specification file not found: {path} - create it or pass --spec")
     text = path.read_text(encoding="utf-8")
     from orkestra.cli.detect import spec_nudges
 
@@ -159,7 +159,7 @@ def _is_practice_mode(application: App) -> bool:
 
 _PRACTICE_NOTE = (
     "  [yellow]practice run:[/yellow] the built-in practice agents demonstrate "
-    "the workflow with placeholder files — your SPEC.md is not actually "
+    "the workflow with placeholder files - your SPEC.md is not actually "
     "implemented. Sign in to two real agent CLIs and rerun "
     "[bold]orkestra start[/bold] for real results."
 )
@@ -170,20 +170,20 @@ def _print_completion(application: App, run_id: str) -> None:
     summary = asyncio.run(_gather_run_summary(application, run_id))
     if _is_practice_mode(application):
         console.print(
-            "\n[green bold]Practice run complete — the whole workflow works "
+            "\n[green bold]Practice run complete - the whole workflow works "
             "end to end.[/green bold]"
         )
         console.print(_PRACTICE_NOTE)
     else:
         # "verified" only when verification actually ran.
         word = "verified" if application.config.verify.commands else "reviewed"
-        console.print(f"\n[green bold]Run complete — your {word} result is ready.[/green bold]")
+        console.print(f"\n[green bold]Run complete - your {word} result is ready.[/green bold]")
     console.print(f"  tasks: {summary.done}/{summary.total} finished")
     if application.config.verify.commands:
         console.print("  verification: passed (your test commands, run by Orkestra)")
     else:
         console.print(
-            "  verification: [yellow]skipped — no test commands configured[/yellow] "
+            "  verification: [yellow]skipped - no test commands configured[/yellow] "
             "(add some under \\[verify] in .orkestra/config.toml)"
         )
     if summary.reviews_required:
@@ -251,7 +251,7 @@ def init(
     root.mkdir(parents=True, exist_ok=True)
     config_path = root / CONFIG_RELPATH
     if config_path.exists():
-        _fail(f"{config_path} already exists — refusing to overwrite")
+        _fail(f"{config_path} already exists - refusing to overwrite")
 
     async def _setup() -> None:
         from orkestra.cli.start import _guard_not_nested
@@ -294,19 +294,19 @@ def init(
         )
         if verify_commands:
             console.print(
-                "found tests — pre-filled \\[verify] commands (check they run): "
+                "found tests - pre-filled \\[verify] commands (check they run): "
                 + ", ".join(f"`{c}`" for c in verify_commands)
             )
         else:
             console.print(
-                "[yellow]no test commands detected[/yellow] — add your own to "
+                "[yellow]no test commands detected[/yellow] - add your own to "
                 "\\[verify] in .orkestra/config.toml; they are the safety net "
                 "agents cannot talk past"
             )
         spec_path = root / "SPEC.md"
         if not spec_path.exists():
             spec_path.write_text(SPEC_TEMPLATE.format(name=root.name))
-            console.print(f"created {spec_path.name} — describe your project there")
+            console.print(f"created {spec_path.name} - describe your project there")
         # Allowlist-scoped: only files Orkestra itself writes. Any
         # pre-existing user files stay exactly as they were.
         if not await repo.has_commits() and await repo.commit_paths(
@@ -316,7 +316,7 @@ def init(
         console.print(f"[green]✓[/green] project initialized at {root}")
         found = [name for name, ok in detected.items() if ok]
         console.print(
-            f"detected agent CLIs: {', '.join(found) or 'none'} — "
+            f"detected agent CLIs: {', '.join(found) or 'none'} - "
             "run `orkestra doctor` to verify readiness"
         )
 
@@ -345,7 +345,7 @@ def start(
         ),
     ] = None,
 ) -> None:
-    """Guided setup: agents, preset, models, gates, spec — then run."""
+    """Guided setup: agents, preset, models, gates, spec - then run."""
     from orkestra.cli.start import start_flow
 
     try:
@@ -364,7 +364,7 @@ def start(
     except typer.Abort:
         console.print()
         _fail(
-            "setup needs answers, but input ended before it finished — "
+            "setup needs answers, but input ended before it finished - "
             "piping input or scripting this? use --non-interactive, or run "
             "it in a real terminal"
         )
@@ -381,7 +381,7 @@ def start(
             "then [bold]orkestra review[/bold] and [bold]orkestra accept[/bold]"
         )
         console.print(
-            "[dim]if you edit SPEC.md first, commit the edit — runs only "
+            "[dim]if you edit SPEC.md first, commit the edit - runs only "
             "start from committed code[/dim]"
         )
 
@@ -393,7 +393,7 @@ def demo(
         typer.Option("--path", help="Keep the demo project here instead of a temp dir."),
     ] = None,
 ) -> None:
-    """See the full lifecycle in under a minute — free, no agent CLIs needed."""
+    """See the full lifecycle in under a minute - free, no agent CLIs needed."""
     from orkestra.cli.demo import run_demo
 
     if not run_demo(path):
@@ -411,10 +411,10 @@ def doctor() -> None:
     try:
         find_project_root()
     except ConfigError:
-        # No project here — still useful: check the environment itself so
+        # No project here - still useful: check the environment itself so
         # a first-time user gets real signal instead of a hard error.
         console.print(
-            "[yellow]No Orkestra project found here[/yellow] — checking the "
+            "[yellow]No Orkestra project found here[/yellow] - checking the "
             "environment only. Set one up with [bold]orkestra start[/bold]."
         )
         git_path = shutil.which("git")
@@ -492,7 +492,7 @@ def doctor() -> None:
                 status = "[green]ready[/green]"
                 detail = f"{adapter.adapter_id} {info.version}"
                 if info.detail:
-                    detail += f" — {info.detail}"
+                    detail += f" - {info.detail}"
             elif info.available:
                 status = "[yellow]auth needed[/yellow]"
                 detail = auth.detail
@@ -505,7 +505,7 @@ def doctor() -> None:
             table.add_row(
                 "agents overall",
                 "[red]insufficient[/red]",
-                f"only {ready_agents} agent(s) ready; Orkestra needs at least 2 — "
+                f"only {ready_agents} agent(s) ready; Orkestra needs at least 2 - "
                 "sign in to the vendor CLIs (e.g. run `claude`, `codex login`, `agy`)",
             )
         else:
@@ -571,7 +571,7 @@ def agents_list() -> None:
                 name,
                 adapter.adapter_id,
                 agent_config.model or "default",
-                agent_config.effort or "—",
+                agent_config.effort or "-",
                 info.version,
                 "yes" if info.available else "no",
                 "ready" if auth.ready else "not ready",
@@ -675,7 +675,7 @@ def agents_set(
         _fail(f"no agent named {name!r} in your config (configured: {configured})")
         return
     if not clear and model is None and effort is None:
-        _fail("nothing to change — pass --model and/or --effort (or --clear)")
+        _fail("nothing to change - pass --model and/or --effort (or --clear)")
         return
     entry = agents_table[name]
     if clear:
@@ -711,7 +711,7 @@ def agents_models() -> None:
         for name, agent_config in application.config.enabled_agents.items():
             adapter = agent_config.adapter
             current = agent_config.model or "(adapter default)"
-            console.print(f"\n[bold]{name}[/bold] ({adapter}) — current: {current}")
+            console.print(f"\n[bold]{name}[/bold] ({adapter}) - current: {current}")
             if adapter == "antigravity-cli":
                 executable = application.adapters[name].which()
                 if executable:
@@ -826,7 +826,7 @@ def plan(
         bool, typer.Option("--offline", help="Heuristic planning, no LLM calls.")
     ] = False,
 ) -> None:
-    """Prepare a run: analyze, probe, plan, challenge — without executing."""
+    """Prepare a run: analyze, probe, plan, challenge - without executing."""
     application = _load_app(offline=offline)
     spec_text = _read_spec(application, spec)
 
@@ -844,7 +844,7 @@ def plan(
         return
     _show_status(application, run_id)
     console.print(
-        f"\n[green]plan ready[/green] — run it with: [bold]orkestra run[/bold] (run id {run_id})"
+        f"\n[green]plan ready[/green] - run it with: [bold]orkestra run[/bold] (run id {run_id})"
     )
     application.close()
 
@@ -895,7 +895,7 @@ def run(
             from orkestra.cli.watch import WatchApp  # noqa: F401
         except ModuleNotFoundError:
             application.close()
-            _fail("--watch needs Textual — install with: uv tool install 'orkestra-runtime[tui]'")
+            _fail("--watch needs Textual - install with: uv tool install 'orkestra-runtime[tui]'")
             return
         application.orchestrator._on_event = _progress_callback(application)
         try:
@@ -919,7 +919,7 @@ def run(
         application.close()
         _fail(str(exc))
         return
-    # Always report on the run THIS process executed — a concurrent
+    # Always report on the run THIS process executed - a concurrent
     # process may have created a newer run in the meantime.
     _show_status(application, executed_run)
     application.close()
@@ -931,7 +931,7 @@ def run(
             reopened.close()
     elif state is RunState.WAITING_HUMAN:
         console.print(
-            "\n[yellow]run is waiting on your decision[/yellow] — "
+            "\n[yellow]run is waiting on your decision[/yellow] - "
             "see `orkestra decisions`, then `orkestra resume`"
         )
         raise typer.Exit(code=2)
@@ -969,7 +969,7 @@ def _execute_with_watch(root: Path, run_id: str, *, offline: bool) -> RunState:
         WatchApp(watch_application, run_id).run()
         if thread.is_alive():
             console.print(
-                "[yellow]TUI closed while the run is still executing — "
+                "[yellow]TUI closed while the run is still executing - "
                 "waiting for it to finish (Ctrl-C cancels the run)[/yellow]"
             )
         try:
@@ -1023,7 +1023,7 @@ def _run_timing(application: App, run_id: str) -> tuple[str, str]:
     )
     if active and idle > _STALE_AFTER_S:
         warning = (
-            f"[yellow]no activity for {idle_text}[/yellow] — if no `orkestra run` "
+            f"[yellow]no activity for {idle_text}[/yellow] - if no `orkestra run` "
             "is executing, this run was interrupted: `orkestra resume` continues it"
         )
     return line, warning
@@ -1031,7 +1031,7 @@ def _run_timing(application: App, run_id: str) -> tuple[str, str]:
 
 def _show_status(application: App, run_id: str) -> None:
     run = application.store.get_run(run_id)
-    console.print(f"\n[bold]run {run.run_id}[/bold] — state: {run.state.value}")
+    console.print(f"\n[bold]run {run.run_id}[/bold] - state: {run.state.value}")
     timing, staleness = _run_timing(application, run_id)
     if timing:
         console.print(f"[dim]{timing}[/dim]")
@@ -1062,8 +1062,8 @@ def _show_status(application: App, run_id: str) -> None:
             task.key,
             task.spec.kind.value,
             state_text,
-            assignment.primary if assignment else "—",
-            ", ".join(assignment.reviewers) if assignment else "—",
+            assignment.primary if assignment else "-",
+            ", ".join(assignment.reviewers) if assignment else "-",
             # real history, matching `orkestra report` (the row counter is a
             # budget window that a human "retry" resets)
             str(
@@ -1094,7 +1094,7 @@ def status(
         unresolved = application.store.decisions_for_run(resolved, unresolved_only=True)
         if unresolved:
             console.print(
-                f"[yellow]{len(unresolved)} open decision(s)[/yellow] — `orkestra decisions`"
+                f"[yellow]{len(unresolved)} open decision(s)[/yellow] - `orkestra decisions`"
             )
     application.close()
 
@@ -1184,7 +1184,7 @@ def approve(
         if len(open_decisions) > 1:
             application.close()
             _fail(
-                f"{len(open_decisions)} decisions are open — run "
+                f"{len(open_decisions)} decisions are open - run "
                 "`orkestra decisions` and pass the id you want to resolve"
             )
             return
@@ -1221,7 +1221,7 @@ def _require_active(application: App, run_id: str, *, verb: str) -> None:
     if run.state in (RunState.COMPLETE, RunState.FAILED, RunState.CANCELLED):
         application.close()
         _fail(
-            f"run {run_id} already finished (state: {run.state.value}) — there is nothing to {verb}"
+            f"run {run_id} already finished (state: {run.state.value}) - there is nothing to {verb}"
         )
 
 
@@ -1270,11 +1270,11 @@ def resume(
         )
         if run.state in prep_states and not tasks:
             # Interrupted before planning produced tasks: nothing partial
-            # exists to reconcile — re-plan cleanly from the spec, exactly
+            # exists to reconcile - re-plan cleanly from the spec, exactly
             # as the docs promise.
             console.print(
                 f"[yellow]run {resolved} was interrupted before planning "
-                "finished[/yellow] — nothing was half-done; re-planning "
+                "finished[/yellow] - nothing was half-done; re-planning "
                 "from your spec as a fresh run"
             )
             application.store.set_run_state(resolved, RunState.FAILED)
@@ -1364,7 +1364,7 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
     by_state = summary.by_state
     done, total = summary.done, summary.total
     commits = summary.commits
-    console.print(f"[bold]Run {resolved}[/bold] — project {run.project_name}")  # type: ignore[attr-defined]
+    console.print(f"[bold]Run {resolved}[/bold] - project {run.project_name}")  # type: ignore[attr-defined]
     if _is_practice_mode(application):
         console.print(_PRACTICE_NOTE)
     state_value = run.state.value  # type: ignore[attr-defined]
@@ -1391,7 +1391,7 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
             )
         else:
             console.print(
-                "  verification: [yellow]skipped — no test commands "
+                "  verification: [yellow]skipped - no test commands "
                 "configured[/yellow] (add some under \\[verify] in "
                 ".orkestra/config.toml)"
             )
@@ -1408,13 +1408,13 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
         if summary.dropped_checks:
             console.print(
                 f"  [dim]note: {summary.dropped_checks} plan-proposed extra check(s) "
-                "were not runnable commands and were skipped — `orkestra logs` "
+                "were not runnable commands and were skipped - `orkestra logs` "
                 "shows them[/dim]"
             )
     if summary.open_decisions:
         console.print(
             f"  [yellow]waiting on you: {summary.open_decisions} open "
-            "decision(s) — `orkestra decisions`[/yellow]"
+            "decision(s) - `orkestra decisions`[/yellow]"
         )
     console.print(
         f"\n  result: {len(commits)} commit(s)"
@@ -1428,7 +1428,7 @@ def _print_review(application: App, resolved: str, summary: _RunSummary, *, full
         console.print("\n" + summary.stat)
     if not summary.complete:
         console.print(
-            "\n[yellow]⚠ This run is not complete[/yellow] — what you see "
+            "\n[yellow]⚠ This run is not complete[/yellow] - what you see "
             "above is a partial result. `orkestra resume` continues it; "
             "accepting it anyway requires the advanced --allow-partial flag."
         )
@@ -1527,7 +1527,7 @@ def _accept_impl(
         run_files = {line for line in names.splitlines() if line.strip()}
         colliding = set(run_files) & set(untracked)
         # On case-insensitive filesystems (macOS default), README.md and
-        # readme.md are the same file — compare casefolded too.
+        # readme.md are the same file - compare casefolded too.
         root_l = application.root
         if (root_l / ".orkestra").exists() and (root_l / ".ORKESTRA").exists():
             by_fold = {f.casefold(): f for f in run_files}
@@ -1556,7 +1556,7 @@ def _accept_impl(
     if accept_state == "accepted":
         application.close()
         console.print(
-            f"run {resolved} is already part of [bold]{current}[/bold] — nothing new to bring in"
+            f"run {resolved} is already part of [bold]{current}[/bold] - nothing new to bring in"
         )
         raise typer.Exit(code=0)
     if accept_state == "missing":
@@ -1573,9 +1573,9 @@ def _accept_impl(
         application.close()
         _fail(
             "you have uncommitted changes to tracked files "
-            f"({', '.join(tracked[:5])}). Save them first —\n"
+            f"({', '.join(tracked[:5])}). Save them first -\n"
             '  git add -A && git commit -m "my work"\n'
-            "or set them aside:  git stash push — then accept again."
+            "or set them aside:  git stash push - then accept again."
         )
         return
     if collisions:
@@ -1594,7 +1594,7 @@ def _accept_impl(
         _fail(
             f"run {resolved} is not complete (state: {run.state.value}; "
             f"unfinished: {missing or 'unknown'}). Finish it with "
-            "`orkestra resume`, or — if you truly want the partial result — "
+            "`orkestra resume`, or - if you truly want the partial result - "
             "rerun with the advanced flag --allow-partial."
         )
         return
@@ -1625,12 +1625,12 @@ def _accept_impl(
     )
     if branch_moved:
         console.print(
-            f"  [yellow]note: {current} moved since the run started — a "
+            f"  [yellow]note: {current} moved since the run started - a "
             "conflict is possible; conflicts are aborted safely[/yellow]"
         )
     if not summary.complete:
         console.print(
-            "  [red]⚠ ACCEPTING A PARTIAL RESULT[/red] — unfinished tasks "
+            "  [red]⚠ ACCEPTING A PARTIAL RESULT[/red] - unfinished tasks "
             "will simply be missing from your branch."
         )
     if not yes:
@@ -1640,13 +1640,13 @@ def _accept_impl(
             application.close()
             console.print()
             _fail(
-                "no answer received — running without a terminal? add --yes "
+                "no answer received - running without a terminal? add --yes "
                 "to accept without the prompt"
             )
             return
         if not proceed:
             application.close()
-            console.print("nothing changed — your branch is untouched")
+            console.print("nothing changed - your branch is untouched")
             raise typer.Exit(code=0)
 
     async def _merge() -> str | None:
@@ -1670,7 +1670,7 @@ def _accept_impl(
         asyncio.run(_abort())
         application.close()
         _fail(
-            "the merge hit an unexpected git error and was aborted — "
+            "the merge hit an unexpected git error and was aborted - "
             f"nothing on your branch was kept from it. Detail: {exc}"
         )
         return
@@ -1679,7 +1679,7 @@ def _accept_impl(
         _fail(
             f"the result could not be combined with {current} automatically "
             "because your branch changed the same files since the run "
-            "started. Nothing was modified — the attempted merge was "
+            "started. Nothing was modified - the attempted merge was "
             "aborted and both sides are intact.\n"
             "Next steps:\n"
             f"  git merge {run.integration_branch}   # then resolve the "
@@ -1688,8 +1688,8 @@ def _accept_impl(
         )
         return
     # Durable accept-time record. Accept is the only moment anything becomes
-    # true about the *user's* branch — nothing reaches it until this merge,
-    # and it can be declined — so downstream consumers (reports, memory
+    # true about the *user's* branch - nothing reaches it until this merge,
+    # and it can be declined - so downstream consumers (reports, memory
     # systems) key their strongest "the user took this work" state on it.
     application.store.append_event(
         resolved,
@@ -1705,7 +1705,7 @@ def _accept_impl(
         ),
     )
     console.print(
-        f"[green]✓ accepted[/green] — run {resolved} is now part of [bold]{current}[/bold]"
+        f"[green]✓ accepted[/green] - run {resolved} is now part of [bold]{current}[/bold]"
     )
     if not cleanup:
         console.print(
@@ -1838,7 +1838,7 @@ def _report_location_note(root: Path, path: Path) -> None:
         return
     if rel.parts[:1] != (".orkestra",):
         console.print(
-            f"[dim]note: {path} sits in your repository as an untracked file — "
+            f"[dim]note: {path} sits in your repository as an untracked file - "
             "commit or delete it when done, or use --save to keep reports "
             "under .orkestra/reports/ (git-ignored)[/dim]"
         )
@@ -1853,7 +1853,7 @@ def watch(
         from orkestra.cli.watch import WatchApp
     except ModuleNotFoundError:
         _fail(
-            "the TUI needs Textual — install with: "
+            "the TUI needs Textual - install with: "
             "uv tool install 'orkestra-runtime\\[tui]'  "
             "(or: pip install 'orkestra-runtime\\[tui]')"
         )

@@ -10,7 +10,7 @@ fast-moving; see sources at the end.
 | Project | Profile | License |
 |---|---|---|
 | **LangGraph** (~24.8k★) | Graph orchestration of LLM API calls; checkpointing; production standard. No CLI-agent workers, no worktrees, routing developer-coded. | MIT |
-| **Microsoft Agent Framework** (AutoGen + Semantic Kernel successor, 1.0 GA ~2026-04) | Deterministic "workflow orchestration" mode exists — closest big-vendor analogue to a deterministic kernel — but API-layer and Azure-oriented. | MIT lineage (unified repo license unconfirmed) |
+| **Microsoft Agent Framework** (AutoGen + Semantic Kernel successor, 1.0 GA ~2026-04) | Deterministic "workflow orchestration" mode exists - closest big-vendor analogue to a deterministic kernel - but API-layer and Azure-oriented. | MIT lineage (unified repo license unconfirmed) |
 | **CrewAI** (~45k★) | Role-based crews; LLM manager for hierarchical mode; static roles. | MIT |
 | **OpenAI Agents SDK** (~26k★, Swarm successor) | Minimal handoff-based orchestration of API agents; guardrails. | MIT |
 
@@ -24,8 +24,8 @@ isolation or measured capability delegation.
 | Claude Code **Agent Teams** (official, experimental, 2026-02) | Claude only | Yes | No (LLM lead) | Convention only | No |
 | **Ruflo** (ex-claude-flow, ~65k★, TS/Rust, MIT) | Claude-centric | Yes | Mixed (swarm topologies + learned routing) | Not core | Learned routing, opaque; not an evidence matrix |
 | **claude-squad** (~8.1k★, Go) / **cmux** (~24.8k★) / Conductor / Crystal / Emdash tier | Yes | Yes | **Human** control | Yes | No |
-| **Vibe Kanban** (~27.5k★, Rust/TS, Apache-2.0) — *sunsetting per its README* | Yes | Yes | Human kanban | Yes | No |
-| **Bernstein** (~730★, solo-maintained, Python, Apache-2.0) | Yes | Yes (air-gap) | **Yes** — one LLM plan call, then plain Python | Yes | **No — static YAML routing, explicitly "no runtime capability negotiation"** |
+| **Vibe Kanban** (~27.5k★, Rust/TS, Apache-2.0) - *sunsetting per its README* | Yes | Yes | Human kanban | Yes | No |
+| **Bernstein** (~730★, solo-maintained, Python, Apache-2.0) | Yes | Yes (air-gap) | **Yes** - one LLM plan call, then plain Python | Yes | **No - static YAML routing, explicitly "no runtime capability negotiation"** |
 | **zeroshot** (~1.6k★, MIT) | Yes | Yes | Fixed pipeline (planner → implementer → blind validators) | Yes/Docker | No (fixed roles) |
 | OpenHands (~70k+★), SWE-agent, gpt-pilot (abandoned; had a 2025-26 supply-chain incident), Devin (SaaS) | Mostly API | varies | No | No | No |
 
@@ -39,7 +39,7 @@ several projects in this tier are already archived.
    director; Agent Teams/Ruflo have an LLM director and no enforcing
    kernel; Bernstein has a deterministic kernel and deliberately *no*
    runtime director. Nobody ships *dynamic LLM director proposes, non-LLM
-   kernel disposes* — schema-validated decisions, policy enforcement,
+   kernel disposes* - schema-validated decisions, policy enforcement,
    isolation, gates, and review independent of what any model claims.
 2. **Evidence-based capability matrix.** No mature project measures
    demonstrated per-agent strengths from kernel-recorded outcomes and
@@ -59,7 +59,7 @@ several projects in this tier are already archived.
 - **Bernstein** is architecturally adjacent (deterministic kernel,
   worktrees, verification gates); Orkestra must be visibly differentiated
   by the dynamic director + capability matrix.
-- Official vendor tools could expand — though vendor incentives cut
+- Official vendor tools could expand - though vendor incentives cut
   against orchestrating a competitor's CLI, which favors a neutral
   open-source runtime.
 - Category fatigue: claims must stay verifiable (evidence artifacts, not

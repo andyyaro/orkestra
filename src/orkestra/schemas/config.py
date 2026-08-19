@@ -36,7 +36,7 @@ class AgentConfig(BaseModel):
     model: str | None = None
     effort: Literal["auto", "low", "medium", "high", "max"] | None = None
     """Provider-neutral reasoning effort; validated against the adapter's
-    real capabilities (schemas/effort.py) — unsupported levels are rejected,
+    real capabilities (schemas/effort.py) - unsupported levels are rejected,
     never silently ignored. None == "auto" == adapter default."""
     autonomy: Literal["safe", "unsafe-full"] = "safe"
     run_commands: bool = False
@@ -140,7 +140,7 @@ class ProjectConfig(BaseModel):
         if len(enabled) < 2:
             msg = (
                 f"at least two enabled agents are required, found {len(enabled)} "
-                f"({', '.join(enabled) or 'none'}) — Orkestra orchestrates *multiple* agents"
+                f"({', '.join(enabled) or 'none'}) - Orkestra orchestrates *multiple* agents"
             )
             raise ValueError(msg)
         if self.director.agent not in self.agents:

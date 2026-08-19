@@ -10,7 +10,7 @@ Two deterministic signals drive scheduling decisions:
    immediately instead of sleeping; it only waits when every eligible
    agent is cooling down.
 
-Both are advisory *inputs* the kernel computes from its own ledger —
+Both are advisory *inputs* the kernel computes from its own ledger -
 never from agent claims (evidence over self-report).
 """
 

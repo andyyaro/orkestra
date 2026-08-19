@@ -1,4 +1,4 @@
-"""Antigravity CLI adapter (`agy`) — first-party Google adapter.
+"""Antigravity CLI adapter (`agy`) - first-party Google adapter.
 
 Surface verified live 2026-07-24 against agy 1.1.6 (samples/):
 
@@ -182,7 +182,7 @@ class AntigravityCliAdapter(AgentAdapter):
             detail=(
                 "note: Antigravity ToS restricts third-party access to the "
                 "service; Orkestra only launches the official binary under "
-                "your own login — review antigravity.google/terms"
+                "your own login - review antigravity.google/terms"
             ),
         )
 

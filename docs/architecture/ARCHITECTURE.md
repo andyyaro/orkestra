@@ -1,7 +1,7 @@
 # Orkestra Architecture
 
 Status: authoritative design (written at v0.1; adapters and CLI
-surface have since grown — the adapter table below and docs/CLI.md are
+surface have since grown - the adapter table below and docs/CLI.md are
 kept current). See `adr/` for individual decisions.
 
 ## Overview
@@ -10,7 +10,7 @@ Orkestra separates **intelligence** from **authority**:
 
 - A configurable **director agent** (default: Claude Code) analyzes the
   project, evaluates the available agents, decomposes work, and recommends
-  assignments — always as structured, schema-validated decisions.
+  assignments - always as structured, schema-validated decisions.
 - A deterministic **orchestration kernel** (plain Python, no LLM) owns all
   authority: state transitions, scheduling, process lifecycle, workspace
   isolation, policy, verification gates, review separation, human gates,
@@ -187,7 +187,7 @@ flowchart LR
 
 Probe results are cached keyed by (adapter, version, probe id). Budgets and
 offline mode prevent quota waste. Scores without recorded evidence are
-forbidden — the matrix stores the observation ids behind every score.
+forbidden - the matrix stores the observation ids behind every score.
 
 ### Human gates
 

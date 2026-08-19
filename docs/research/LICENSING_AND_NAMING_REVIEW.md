@@ -7,8 +7,8 @@ official sources).
 
 | Registry / space | `orkestra` status | Notes |
 |---|---|---|
-| PyPI | **Taken** — "Airflow + AWS" tool by knowsuchagency, v0.9.4, MIT, last release 2021-06-16; backing repo dormant since 2024 | Variants `orkestra-cli`, `orkestra-core`, `orkestra-runtime`, `orkestrator`, `pyorkestra` all available (404 on PyPI JSON API) |
-| npm | Taken — unrelated Node worker-thread framework, v0.0.1, published 2026-06 | Scoped `@andyyaro/orkestra` always available |
+| PyPI | **Taken** - "Airflow + AWS" tool by knowsuchagency, v0.9.4, MIT, last release 2021-06-16; backing repo dormant since 2024 | Variants `orkestra-cli`, `orkestra-core`, `orkestra-runtime`, `orkestrator`, `pyorkestra` all available (404 on PyPI JSON API) |
+| npm | Taken - unrelated Node worker-thread framework, v0.0.1, published 2026-06 | Scoped `@andyyaro/orkestra` always available |
 | crates.io | Available | |
 | GitHub | Many unrelated repos (Azure/orkestra K8s tool, dead 2023; imperativelabs/orkestra LLM router, small; burakdemir16/Orkestra-CLI, TS) | Repo names are per-owner; `andyyaro/orkestra` is fine |
 | Companies | Orkestra Energy (AU clean-energy SaaS), French data-orchestration firm, Salesforce-plugin firm | None in coding-agent/dev-tool space; "Orkestra" is a weakly protectable common word |
@@ -36,9 +36,9 @@ proprietary.
 | Adoption friction | none | none | some (file-level copyleft) |
 | Patent grant + retaliation | no | **yes** | yes |
 | Contribution terms (inbound=outbound) | implicit | **explicit (§5)** | explicit |
-| Trademark non-grant clause | no | **yes (§6)** — useful in a crowded namespace | partial |
+| Trademark non-grant clause | no | **yes (§6)** - useful in a crowded namespace | partial |
 | Ecosystem fit | common | matches the vendor CLIs we orchestrate | unused in this space |
-| Interaction with orchestrating proprietary CLIs | n/a — subprocess invocation creates no derivative work under any of these | same | same |
+| Interaction with orchestrating proprietary CLIs | n/a - subprocess invocation creates no derivative work under any of these | same | same |
 
 ### Decision
 

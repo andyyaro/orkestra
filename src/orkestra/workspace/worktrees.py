@@ -46,7 +46,7 @@ class WorkspaceManager:
 
     async def validate_repository(self, *, allow_dirty: bool = False) -> None:
         if not await self.repo.is_repo():
-            msg = f"{self.root} is not a Git repository — run `git init` or `orkestra init` first"
+            msg = f"{self.root} is not a Git repository - run `git init` or `orkestra init` first"
             raise WorkspaceError(msg)
         if not await self.repo.has_commits():
             msg = (
@@ -57,7 +57,7 @@ class WorkspaceManager:
         if not allow_dirty:
             # Tracked modifications could entangle user work with agent work;
             # untracked files are safe (worktrees and merges never include
-            # them) — agent CLIs routinely drop state dirs like .claude/.
+            # them) - agent CLIs routinely drop state dirs like .claude/.
             changed = await self.repo.tracked_changes()
             if changed:
                 listing = ", ".join(changed[:5])

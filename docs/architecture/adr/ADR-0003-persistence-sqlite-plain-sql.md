@@ -1,4 +1,4 @@
-# ADR-0003: Persistence — SQLite (WAL) with plain SQL and versioned JSON payloads
+# ADR-0003: Persistence - SQLite (WAL) with plain SQL and versioned JSON payloads
 
 Date: 2026-07-24 · Status: accepted
 
@@ -32,6 +32,6 @@ Use stdlib `sqlite3` in WAL mode with:
 ## Consequences
 
 - Joins/queries are hand-written; acceptable at this scale.
-- A future multi-process mode would need a write-lock discipline —
+- A future multi-process mode would need a write-lock discipline -
   documented as out of scope for v0.1 (single kernel process holds an
   advisory lock file).

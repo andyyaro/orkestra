@@ -1,8 +1,8 @@
-> **Historical document** — the original build prompt that kicked off
+> **Historical document** - the original build prompt that kicked off
 > this project. Kept for provenance; not user documentation. Current
 > state lives in BUILD_STATUS.md.
 
-# ORKESTRA — AUTONOMOUS TOP-TO-BOTTOM BUILD MASTERPROMPT
+# ORKESTRA - AUTONOMOUS TOP-TO-BOTTOM BUILD MASTERPROMPT
 
 ## 0. EXECUTION DIRECTIVE
 
@@ -135,7 +135,7 @@ Instead:
 5. The director builds a project-specific capability matrix.
 6. The director dynamically delegates planning, research, implementation, review, testing, debugging, integration, and documentation work.
 7. Assignments adapt continuously from measured outcomes.
-8. A deterministic orchestration kernel—not an LLM—enforces policies, isolation, state, execution, verification, and completion gates.
+8. A deterministic orchestration kernel-not an LLM-enforces policies, isolation, state, execution, verification, and completion gates.
 
 Claude Code must be able to assign work to itself as well as other agents.
 
@@ -205,7 +205,7 @@ The user must be able to close Orkestra and resume later without losing state.
 
 ---
 
-## 4. PHASE 0 — SAFE BOOTSTRAP AND ENVIRONMENT INVENTORY
+## 4. PHASE 0 - SAFE BOOTSTRAP AND ENVIRONMENT INVENTORY
 
 Before architecture or implementation:
 
@@ -246,7 +246,7 @@ docs/development/ENVIRONMENT_CHANGES.md
 
 ---
 
-## 5. PHASE 1 — RESEARCH BEFORE IMPLEMENTATION
+## 5. PHASE 1 - RESEARCH BEFORE IMPLEMENTATION
 
 This phase is mandatory and must occur before committing to the architecture.
 
@@ -323,7 +323,7 @@ Use a weighted decision matrix. Define and justify weights. Include at least:
 - Developer onboarding.
 - Long-term open-source sustainability.
 
-### 5.4 Provisional stack to validate—not blindly accept
+### 5.4 Provisional stack to validate-not blindly accept
 
 Treat this as a hypothesis:
 
@@ -787,7 +787,7 @@ Create a security policy and responsible-disclosure instructions.
 
 You may adjust phase boundaries after research, but retain equivalent outcomes.
 
-### Phase 2 — Repository and quality foundation
+### Phase 2 - Repository and quality foundation
 
 Create:
 
@@ -808,7 +808,7 @@ Create:
 - Changelog.
 - Semantic versioning strategy.
 
-### Phase 3 — Core kernel and persistence
+### Phase 3 - Core kernel and persistence
 
 Implement:
 
@@ -825,7 +825,7 @@ Implement:
 - Policy evaluation.
 - Human-decision records.
 
-### Phase 4 — Process and agent adapter layer
+### Phase 4 - Process and agent adapter layer
 
 Implement:
 
@@ -841,7 +841,7 @@ Implement:
 - Adapter contract tests.
 - Version/feature detection rather than assumptions.
 
-### Phase 5 — Git workspace and integration engine
+### Phase 5 - Git workspace and integration engine
 
 Implement:
 
@@ -856,7 +856,7 @@ Implement:
 - Safe cleanup.
 - Recovery from interrupted worktree operations.
 
-### Phase 6 — Director and capability system
+### Phase 6 - Director and capability system
 
 Implement:
 
@@ -875,7 +875,7 @@ Implement:
 
 The director must use structured requests and responses. All proposed dispatches must pass kernel policy.
 
-### Phase 7 — CLI and operator experience
+### Phase 7 - CLI and operator experience
 
 Implement the complete command surface, readable status, streaming logs, clear errors, and shell completion if justified.
 
@@ -883,7 +883,7 @@ Use color thoughtfully but ensure non-color and accessibility-friendly output.
 
 An optional Textual TUI may be included only if it is robust and does not distract from the CLI.
 
-### Phase 8 — Policy, sandboxing, and human gates
+### Phase 8 - Policy, sandboxing, and human gates
 
 Implement:
 
@@ -897,7 +897,7 @@ Implement:
 - Decision resume workflow.
 - Redacted logs.
 
-### Phase 9 — End-to-end validation and dogfooding
+### Phase 9 - End-to-end validation and dogfooding
 
 Use fake agents for deterministic and inexpensive coverage.
 
@@ -921,7 +921,7 @@ Create a small disposable sample project and prove that Orkestra can:
 
 Once sufficiently mature, use Orkestra in a controlled self-review of its own repository. Do not allow uncontrolled recursive self-modification. Use it for bounded review, test generation, documentation critique, or an isolated improvement task with normal verification.
 
-### Phase 10 — Documentation, packaging, and release
+### Phase 10 - Documentation, packaging, and release
 
 Complete:
 

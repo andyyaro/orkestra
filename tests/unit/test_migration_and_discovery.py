@@ -129,7 +129,7 @@ class TestProvenance:
         assert model_provenance("sonnet", self.CATALOG) == "documented"
 
     def test_stale_or_custom_is_manual(self) -> None:
-        # A model that no longer exists in the catalog is shown as manual —
+        # A model that no longer exists in the catalog is shown as manual -
         # visible, not hidden, so users notice stale values.
         assert model_provenance("claude-2024-legacy", self.CATALOG) == "manual"
 

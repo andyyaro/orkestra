@@ -1,7 +1,7 @@
 """Contract suite run against the fake adapter (reference implementation).
 
 This exercises the full subprocess path: spawn, stream, parse, timeout,
-cancellation, garbage handling — the same machinery real adapters use.
+cancellation, garbage handling - the same machinery real adapters use.
 """
 
 from __future__ import annotations

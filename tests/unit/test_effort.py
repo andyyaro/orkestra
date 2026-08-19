@@ -1,4 +1,4 @@
-"""Unit tests: provider-neutral effort — validation, mapping, exact argv."""
+"""Unit tests: provider-neutral effort - validation, mapping, exact argv."""
 
 from __future__ import annotations
 

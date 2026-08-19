@@ -1,8 +1,8 @@
-"""`orkestra watch` — a Textual monitor over the run state store.
+"""`orkestra watch` - a Textual monitor over the run state store.
 
 Read-mostly by design: it observes the same SQLite database the kernel
 writes (safe from any process) and exposes only the pause/cancel
-control flags. It never dispatches work — the CLI `run`/`resume`
+control flags. It never dispatches work - the CLI `run`/`resume`
 commands own execution. Textual is an optional dependency
 (`pip install "orkestra-runtime[tui]"`).
 """
@@ -82,7 +82,7 @@ class WatchApp(TextualApp[None]):
         summary = self.query_one("#summary", Static)
         summary.update(
             f"run [b]{run.run_id}[/b] · project {run.project_name} · state "
-            f"[b]{run.state.value}[/b] · integration {run.integration_branch or '—'}"
+            f"[b]{run.state.value}[/b] · integration {run.integration_branch or '-'}"
         )
 
         table = self.query_one("#tasks", DataTable)
@@ -95,8 +95,8 @@ class WatchApp(TextualApp[None]):
                 task.key,
                 task.spec.kind.value,
                 state_cell,
-                assignment.primary if assignment else "—",
-                ", ".join(assignment.reviewers) if assignment else "—",
+                assignment.primary if assignment else "-",
+                ", ".join(assignment.reviewers) if assignment else "-",
                 str(task.attempt_count),
                 key=task.task_id,
             )

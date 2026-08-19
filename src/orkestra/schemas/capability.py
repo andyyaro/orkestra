@@ -46,7 +46,7 @@ class CapabilityScore(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: list[str] = Field(default_factory=list)
-    """Observation sources backing this score — scores without evidence are forbidden."""
+    """Observation sources backing this score - scores without evidence are forbidden."""
 
 
 class CapabilityMatrix(BaseModel):

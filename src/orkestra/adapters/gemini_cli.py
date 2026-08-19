@@ -1,4 +1,4 @@
-"""Gemini CLI adapter (`gemini`) — non-default Google adapter.
+"""Gemini CLI adapter (`gemini`) - non-default Google adapter.
 
 Valid only for API-key / Vertex / Code Assist Standard-Enterprise auth;
 consumer OAuth was migrated to Antigravity (see
@@ -173,7 +173,7 @@ class GeminiCliAdapter(AgentAdapter):
             executable=path,
             features=frozenset({"resume", "stream", "os_sandbox"}),
             detail=(
-                "requires GEMINI_API_KEY / Vertex / Enterprise auth — consumer "
+                "requires GEMINI_API_KEY / Vertex / Enterprise auth - consumer "
                 "Google-account OAuth is served by antigravity-cli instead"
             ),
         )
@@ -187,7 +187,7 @@ class GeminiCliAdapter(AgentAdapter):
             ready=False,
             detail=(
                 "no GEMINI_API_KEY or Vertex configuration; individual Google "
-                "OAuth is no longer served by gemini-cli — use antigravity-cli"
+                "OAuth is no longer served by gemini-cli - use antigravity-cli"
             ),
         )
 

@@ -41,7 +41,7 @@ class ContractReport:
 
     def summary(self) -> str:
         return "\n".join(
-            f"{'PASS' if c.passed else 'FAIL'} {c.name}" + (f" — {c.detail}" if c.detail else "")
+            f"{'PASS' if c.passed else 'FAIL'} {c.name}" + (f" - {c.detail}" if c.detail else "")
             for c in self.checks
         )
 

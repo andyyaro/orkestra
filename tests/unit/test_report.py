@@ -74,7 +74,7 @@ class TestReport:
     def test_markdown_renders_and_redacts(self, populated: tuple[Store, str]) -> None:
         store, run_id = populated
         markdown = render_markdown(build_report(store, run_id))
-        assert "# Orkestra Run Report — report-demo" in markdown
+        assert "# Orkestra Run Report - report-demo" in markdown
         assert "| build | implement |" in markdown
         assert "sk-abcdefghijklmnop123" not in markdown  # redacted
         assert "[REDACTED]" in markdown

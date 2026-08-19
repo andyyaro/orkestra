@@ -44,12 +44,12 @@ historical) and `docs/development/evidence/`.
 
 - Live cross-vendor orchestration with real Claude Code, Codex CLI, and
   Antigravity CLI, including gate-caught silent failure, fallback
-  repair, and cross-vendor review approval —
+  repair, and cross-vendor review approval -
   `docs/development/evidence/LIVE_SMOKE_REPORT.md` (historical,
   2026-07-24)
-- Self-review dogfood whose findings shipped as v0.1.1 —
+- Self-review dogfood whose findings shipped as v0.1.1 -
   `docs/development/SELF_REVIEW.md`
-- v0.4.1 git-safety and journey verification —
+- v0.4.1 git-safety and journey verification -
   `docs/development/UX_FOLLOWUP_RELEASE_REPORT.md` and
   `docs/development/UX_FOLLOWUP_RELEASE_TRACKER.md`
 

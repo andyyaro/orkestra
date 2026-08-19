@@ -1,8 +1,8 @@
-# External Adapter Protocol — `orkestra-jsonl/1`
+# External Adapter Protocol - `orkestra-jsonl/1`
 
 Third-party agents integrate with Orkestra as **external commands**
 declared explicitly in project configuration (no dynamic code loading;
-see ADR-0006). Any language works — the reference implementation is
+see ADR-0006). Any language works - the reference implementation is
 `orkestra/adapters/fake_worker.py`.
 
 ## Declaration
@@ -44,7 +44,7 @@ For each attempt, Orkestra runs your command with:
 ```
 
 - **cwd**: the isolated Git worktree. Mutate files only under this
-  directory. Do **not** run `git commit`/`push` — the kernel commits
+  directory. Do **not** run `git commit`/`push` - the kernel commits
   deterministically after your process exits.
 
 ## Output events (stdout, one JSON object per line)
@@ -72,7 +72,7 @@ For each attempt, Orkestra runs your command with:
 - `status`: `"ok"` or `"error"`.
 - `error_kind` (on error): one of `auth`, `rate_limit`, `timeout`,
   `cancelled`, `crash`, `invalid_output`, `policy`, `unavailable`,
-  `unknown`. Use `auth` and `rate_limit` accurately — they drive
+  `unknown`. Use `auth` and `rate_limit` accurately - they drive
   fallback and backoff decisions.
 - `structured`: when the brief carries a non-null `json_schema`, put the
   schema-conforming JSON object here (reviews expect a verdict object:
@@ -106,6 +106,6 @@ assert report.passed
 The suite exercises: detection, happy path, error results, non-zero
 exits, garbage output tolerance, missing results, timeout enforcement,
 cancellation, and structured output. Note: scenarios are driven by
-`FAKE:` directives in the instructions — a real agent binary should be
+`FAKE:` directives in the instructions - a real agent binary should be
 pointed at the suite only via a scripting shim that honors them, or you
 can adapt the scenarios from `tests/adapters/test_contract.py`.

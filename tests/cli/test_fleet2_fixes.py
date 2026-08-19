@@ -119,7 +119,7 @@ class TestReportFixes:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """When the demo run doesn't complete, the output must carry the
-        diagnosis (task states, open decisions, recent errors) — a bare
+        diagnosis (task states, open decisions, recent errors) - a bare
         exit code is undebuggable on CI."""
         from orkestra.kernel.scheduler import Orchestrator
         from orkestra.schemas.common import RunState

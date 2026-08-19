@@ -80,7 +80,7 @@ async def _prepare(
         for name, adapter in orch.adapters.items()
         if summary[name]["available"] == "True" and summary[name]["auth_ready"] == "True"
     }
-    # Probes run in a scratch directory, never the project root — probe
+    # Probes run in a scratch directory, never the project root - probe
     # prompts don't mutate files, but agents get no chance to.
     probe_dir = orch.root / ".orkestra" / "probes"
     probe_dir.mkdir(parents=True, exist_ok=True)

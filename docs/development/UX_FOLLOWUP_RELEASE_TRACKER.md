@@ -66,9 +66,9 @@ hygiene. No kernel changes, no compatibility breaks.
   **385 passed** (`uv run pytest -p no:cacheprovider`, 253s); ruff/mypy
   clean at each commit (a9a464a, then review/accept and terminology
   commits)
-- P1 suite: tests/cli/test_start_git_safety.py — 9 scenarios on real
+- P1 suite: tests/cli/test_start_git_safety.py - 9 scenarios on real
   git repos, all passing
-- P2 suite: tests/cli/test_review_accept.py — 13 scenarios, all passing
+- P2 suite: tests/cli/test_review_accept.py - 13 scenarios, all passing
 - P5 (2026-07-25): 385 passed; ruff/mypy/bandit/pip-audit clean;
   twine check PASSED ×2; fresh-venv wheel and sdist installs verified
 - P6 dogfood A–D: all passed (exact commands + outputs in

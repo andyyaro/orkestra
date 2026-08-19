@@ -6,7 +6,7 @@ after plan challenges from Codex and Antigravity; the analysis below was
 implemented by **codex** and independently reviewed/approved by
 **claude**. A second task (formatting this into a polished document) was
 rejected twice by the Codex reviewer under a deliberately tight
-1-review-cycle budget and skipped by the operator at the human gate —
+1-review-cycle budget and skipped by the operator at the human gate -
 the bounded-loop and human-escalation behavior working as designed.
 This file curates codex's approved analysis verbatim (worktree paths
 sanitized). Findings feed the roadmap; see also
@@ -37,7 +37,7 @@ All credential-like examples below are deliberately malformed with placeholders,
 | GitLab PATs | **PARTIALLY/CONTEXTUALLY COVERED** | No `glpat-` pattern exists. A PAT is caught inside a raw `Authorization: Bearer ...` header or under a recognized outer name such as `access_token=`, but bare tokens, `GITLAB_TOKEN=`, and GitLab’s `PRIVATE-TOKEN:` header are missed. Notably, plain `token=` is not in the generic alternatives. Verified miss: `GITLAB_TOKEN=glpat-EXAMPLE`. GitLab documents `glpat-` as the default PAT prefix. [GitLab token prefixes](https://docs.gitlab.com/security/tokens/) |
 | Slack tokens | **PARTIALLY/CONTEXTUALLY COVERED** | `xox[baprs]-[A-Za-z0-9-]{10,}` covers the listed `xox*` families, including common `xoxb-` bot tokens. Slack app-level `xapp-` tokens are absent. Verified miss: `SLACK_APP_TOKEN=xapp-1-EXAMPLE-FAKE`. [Slack token types](https://docs.slack.dev/authentication/tokens/) |
 | npm tokens | **PARTIALLY/CONTEXTUALLY COVERED** | Bare npm tokens have no matching format pattern. An unprefixed `authToken=...` happens to match the generic regex, but npm’s native registry-scoped `.npmrc` spelling `//host/:_authToken=...` does not: the underscore before `authToken` prevents the required leading word boundary. Verified miss: `//registry.npmjs.org/:_authToken=EXAMPLE_FAKE_SHORT`. [npm `.npmrc` authentication syntax](https://docs.npmjs.com/files/npmrc/) |
-| PyPI tokens | **PARTIALLY/CONTEXTUALLY COVERED** | No explicit `pypi-` pattern exists. A normal `.pypirc` `password=...` assignment is caught generically, but a bare token is missed. Verified miss: `pypi-EXAMPLE`—deliberately much shorter than PyPI’s documented minimum payload. [PyPI token format](https://docs.pypi.org/api/secrets/) |
+| PyPI tokens | **PARTIALLY/CONTEXTUALLY COVERED** | No explicit `pypi-` pattern exists. A normal `.pypirc` `password=...` assignment is caught generically, but a bare token is missed. Verified miss: `pypi-EXAMPLE`-deliberately much shorter than PyPI’s documented minimum payload. [PyPI token format](https://docs.pypi.org/api/secrets/) |
 | JWTs | **COVERED** for ordinary compact signed JWT credentials | The line-30 pattern matches a bare three-segment Base64URL token beginning `eyJ`, subject to minimum segment lengths of 13, 10, and 5 characters respectively. Representative signed compact JWT construction matched regardless of surrounding assignment syntax. |
 | Database/connection-string URLs | **PARTIALLY/CONTEXTUALLY COVERED** | There is no URL-userinfo pattern. A normal `DATABASE_URL=postgresql://user:password@host/db` is missed because `DATABASE_URL` is not a recognized key and no pattern examines `user:password@`. The whole URL is incidentally caught if assigned to `secret=` or another recognized generic name. Verified miss: `DATABASE_URL=postgresql://alice:EXAMPLE_FAKE@db.invalid/app`. |
 | PEM private-key blocks | **COVERED** | The DOTALL pattern matches complete uppercase `BEGIN … PRIVATE KEY` / `END … PRIVATE KEY` blocks, including RSA, EC, OpenSSH, encrypted PKCS#8, and generic PKCS#8 labels ([redact.py:33](src/orkestra/redact.py:33)). It also matches such blocks embedded in JSON strings with literal `\\n` escapes. |
@@ -93,7 +93,7 @@ The coverage gaps above do not strictly contradict T3 because its list says “k
 
 ## 4. Prioritized improvements
 
-1. Redact structured mappings before serialization. Recursively replace values under sensitive keys—including `authorization`, plain `token`, provider-prefixed variables, and camelCase variants—before `json.dumps()`. This closes JSON-header and quoted-key gaps broadly.
+1. Redact structured mappings before serialization. Recursively replace values under sensitive keys-including `authorization`, plain `token`, provider-prefixed variables, and camelCase variants-before `json.dumps()`. This closes JSON-header and quoted-key gaps broadly.
 
 2. Add URL-aware credential handling for `scheme://user:password@host`, JDBC/ADO-style DSNs, and common connection-string fields while preserving non-secret URL portions.
 

@@ -22,7 +22,7 @@ The wizard finds your agents, offers a preset (Faster / Balanced /
 Maximum quality / Custom with per-agent models and effort), confirms
 the verification commands it detected, helps you write SPEC.md, and
 offers to run immediately. Everything below is the manual route the
-wizard automates — useful for scripting (`orkestra start
+wizard automates - useful for scripting (`orkestra start
 --non-interactive --preset balanced`) and for understanding the pieces.
 
 ## 1b. Manual: initialize
@@ -50,7 +50,7 @@ exactly `Hello, {name}!`, plus `test_greet.py` runnable with
 
 `orkestra init` already enabled the agent CLIs it found on your PATH
 **and pre-filled `[verify]` commands from your project's test setup**
-(pytest/npm/cargo/go). Check them — they are the safety net agents
+(pytest/npm/cargo/go). Check them - they are the safety net agents
 cannot talk past. Optionally pick models and effort:
 
 ```bash

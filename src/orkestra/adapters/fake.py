@@ -1,4 +1,4 @@
-"""Fake adapter — the scripted external adapter used by tests and offline mode."""
+"""Fake adapter - the scripted external adapter used by tests and offline mode."""
 
 from __future__ import annotations
 

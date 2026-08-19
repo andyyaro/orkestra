@@ -55,7 +55,7 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b"), REDACTED),
     # Bearer headers, raw and JSON-serialized
     (re.compile(r"(?i)\bauthorization\b[\"']?\s*[=:]\s*[\"']?bearer\s+[^\s\"']+"), REDACTED),
-    # URL userinfo passwords: scheme://user:secret@host — keep user and host
+    # URL userinfo passwords: scheme://user:secret@host - keep user and host
     (re.compile(r"(://[^/\s:@\"']+:)[^@\s\"']+(@)"), r"\1" + REDACTED + r"\2"),
     # PEM blocks
     (

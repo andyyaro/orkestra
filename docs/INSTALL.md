@@ -7,17 +7,17 @@
 - macOS or Linux (Windows is untested; see ../ROADMAP.md)
 - At least **two** agent CLIs installed and signed in with their own
   official flows, for example:
-  - Claude Code: `claude` — https://code.claude.com/docs
-  - OpenAI Codex CLI: `codex` — sign in with `codex login`
-  - Google Antigravity CLI: `agy` — `curl -fsSL https://antigravity.google/cli/install.sh | bash`
-  - Gemini CLI: `gemini` (API-key/Vertex auth) — `npm i -g @google/gemini-cli`
+  - Claude Code: `claude` - https://code.claude.com/docs
+  - OpenAI Codex CLI: `codex` - sign in with `codex login`
+  - Google Antigravity CLI: `agy` - `curl -fsSL https://antigravity.google/cli/install.sh | bash`
+  - Gemini CLI: `gemini` (API-key/Vertex auth) - `npm i -g @google/gemini-cli`
 
 Orkestra never reads or copies agent credentials; each CLI manages its
 own login.
 
 ## Install Orkestra
 
-With [uv](https://docs.astral.sh/uv/) (recommended — isolated tool
+With [uv](https://docs.astral.sh/uv/) (recommended - isolated tool
 install):
 
 ```bash

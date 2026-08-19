@@ -3,7 +3,7 @@
 Two integration paths exist:
 
 1. **External command** (recommended, no Python required): implement the
-   `orkestra-jsonl/1` protocol — see `PROTOCOL.md`. This is how you ship
+   `orkestra-jsonl/1` protocol - see `PROTOCOL.md`. This is how you ship
    an adapter today without touching Orkestra's codebase.
 2. **Built-in adapter** (contribution to Orkestra): subclass
    `orkestra.adapters.base.AgentAdapter` and register it in
@@ -35,7 +35,7 @@ Design rules, learned from the first-party adapters:
   for garbage input (`ErrorKind.INVALID_OUTPUT`, never an exception).
 - **Classify errors into the closed taxonomy** (`ErrorKind`); `auth` and
   `rate_limit` drive fallback/backoff behavior, so accuracy matters.
-- **Feature-flag capabilities** in `AdapterInfo.features` — e.g.
+- **Feature-flag capabilities** in `AdapterInfo.features` - e.g.
   `structured_output`, `resume`, `stream`, `os_sandbox`,
   `structured_director`. The kernel adapts (a director needs
   `structured_director` or the run falls back to heuristic planning).

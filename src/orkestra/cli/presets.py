@@ -2,7 +2,7 @@
 
 Presets adjust model profiles, effort, probe behavior, concurrency, and
 budgets. They **never** touch deterministic verification or independent
-review — those are not preferences.
+review - those are not preferences.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ PRESETS: dict[str, Preset] = {
     "faster": Preset(
         key="faster",
         label="Faster",
-        description="cheapest tiers, no probes — quick iterations, lighter results",
+        description="cheapest tiers, no probes - quick iterations, lighter results",
         max_concurrency=2,
         probes_mode="off",
         probes_budget=0,
@@ -48,7 +48,7 @@ PRESETS: dict[str, Preset] = {
     "balanced": Preset(
         key="balanced",
         label="Balanced (recommended)",
-        description="adapter-default models, cached probes — the sensible middle",
+        description="adapter-default models, cached probes - the sensible middle",
         max_concurrency=2,
         probes_mode="cached",
         probes_budget=6,
@@ -63,7 +63,7 @@ PRESETS: dict[str, Preset] = {
         label="Maximum quality",
         description=(
             "top tiers + a second fast Claude profile for breadth; live "
-            "probes — slower and hungrier on your plan limits"
+            "probes - slower and hungrier on your plan limits"
         ),
         max_concurrency=3,
         probes_mode="live",

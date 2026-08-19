@@ -1,6 +1,6 @@
 name: Publish to PyPI
 
-# PyPI Trusted Publishing via GitHub OIDC — no API tokens anywhere.
+# PyPI Trusted Publishing via GitHub OIDC - no API tokens anywhere.
 # The `publish` job deploys through the protected `pypi` environment
 # (required reviewer: repository owner; tag pattern v*).
 

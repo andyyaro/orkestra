@@ -1,7 +1,7 @@
 """Repositories over the SQLite schema.
 
 State-changing methods take an *expected* prior state where relevant and
-raise ``StateTransitionError`` on mismatch — transitions are idempotent
+raise ``StateTransitionError`` on mismatch - transitions are idempotent
 and safe to retry after a crash (threat T13).
 """
 
@@ -284,7 +284,7 @@ class Store:
                 msg = f"attempt not found: {attempt_id}"
                 raise StoreError(msg)
             if AttemptState(row["state"]) not in (AttemptState.RUNNING,):
-                return  # already terminal — idempotent
+                return  # already terminal - idempotent
             conn.execute(
                 "UPDATE attempts SET state = ?, finished_at = ?, result = ? WHERE attempt_id = ?",
                 (state.value, _now(), result.model_dump_json() if result else None, attempt_id),

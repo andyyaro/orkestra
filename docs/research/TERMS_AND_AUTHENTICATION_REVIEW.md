@@ -40,7 +40,7 @@ themselves ships for automation.
 - Limits: shared 5-hour window + weekly limits (credits overflow);
   per-token if API key.
 
-## Antigravity CLI (Google) — first-party Google adapter
+## Antigravity CLI (Google) - first-party Google adapter
 
 - Google migrated individual/Pro/Ultra consumer OAuth off the legacy
   Gemini CLI (2026-06-18) to the Antigravity suite; `agy` is the
@@ -61,12 +61,12 @@ themselves ships for automation.
 - agy is proprietary (binaries only); that does not affect Orkestra's
   Apache-2.0 licensing (subprocess boundary).
 
-## Gemini CLI (Google) — non-default adapter
+## Gemini CLI (Google) - non-default adapter
 
 - Headless mode is official with documented exit codes; automation
   tutorial covers CI use. Free personal OAuth: 1,000 requests/day
   (AI Pro/Ultra: 1,500/2,000); free API key: 250/day Flash-only.
-- Terms depend on auth method (Code Assist terms for OAuth — note the
+- Terms depend on auth method (Code Assist terms for OAuth - note the
   individuals tier may use prompts/responses for product improvement;
   Gemini API terms for keys; GCP terms for Vertex).
 - No published prohibition on third-party tools invoking the binary;
@@ -80,7 +80,7 @@ themselves ships for automation.
 
 1. Launch official, unmodified CLIs only; official auth flows only.
 2. Never read, copy, move, or transplant credential stores
-   (`~/.claude`, `~/.codex/auth.json`, `~/.gemini`) — not even to check
+   (`~/.claude`, `~/.codex/auth.json`, `~/.gemini`) - not even to check
    auth: readiness is probed via each CLI's own status/error surfaces.
 3. Never present provider login UI as an Orkestra feature; `orkestra
    doctor` tells the user to run the vendor's own login command.

@@ -18,7 +18,7 @@ class TestFollowUpContextLabeled:
         """A failing gate's stderr replays into the next attempt's brief.
 
         That text is attacker-influenceable, so the brief must fence it
-        between explicit markers and say it is output, not instructions —
+        between explicit markers and say it is output, not instructions -
         while still delivering it verbatim (the agent needs the evidence).
         """
         app = await make_project(tmp_path)

@@ -15,8 +15,8 @@ the commitments Orkestra's side owed.
 
 ### Added
 - `orkestra accept` now leaves a durable event naming the merge commit.
-  Accept is the only moment work becomes true of the *user's* branch —
-  nothing reaches it until that merge, and it can be declined — so the
+  Accept is the only moment work becomes true of the *user's* branch -
+  nothing reaches it until that merge, and it can be declined - so the
   event payload (`merge_sha`, `target_branch`, `integration_branch`,
   `run_accepted`) gives reports and memory systems a trustworthy anchor
   for "the user took this work".
@@ -52,7 +52,7 @@ Efficiency and honesty pass over the remaining fleet-#4 findings.
 ### Added
 - `run_commands` per-agent config option: lets an agent run shell
   commands inside its own isolated worktree so it can self-check before
-  handing work back (off by default — Orkestra runs your `[verify]`
+  handing work back (off by default - Orkestra runs your `[verify]`
   commands itself either way). For the Claude Code adapter this passes
   `--allowedTools Bash`.
 
@@ -91,7 +91,7 @@ Efficiency and honesty pass over the remaining fleet-#4 findings.
 Hotfix for a critical regression introduced in 0.5.0, found by the
 fourth fleet test (real agents). **0.5.0 users should upgrade
 immediately**: in any repository whose `.gitignore` covers build
-artifacts — including the `.gitignore` `orkestra init` itself writes —
+artifacts - including the `.gitignore` `orkestra init` itself writes -
 every task failed to commit.
 
 ### Fixed
@@ -99,7 +99,7 @@ every task failed to commit.
   0.5.0 to keep build artifacts out of commits) makes git *fail* when
   those paths are ignored, so no task could stage its work. Staging now
   uses plain `git add -A` (which skips ignored files silently) and
-  unstages artifacts afterwards — same protection, no failure mode.
+  unstages artifacts afterwards - same protection, no failure mode.
 - **Critical**: the offered `retry` could not resolve that block, and
   workspace re-creation deleted a branch its own worktree still held.
   Worktrees are now removed before their branch, with a fresh branch
@@ -122,7 +122,7 @@ every task failed to commit.
 
 ## [0.5.0] - 2026-07-25
 
-Correction release driven by the third fleet test — the first run with
+Correction release driven by the third fleet test - the first run with
 real multi-agent orchestration (report:
 `docs/development/FLEET_TEST_REPORT_v0.4.5_REAL_AGENTS.md`). Real agents
 exposed a verification pipeline that did not match the product's claims.
@@ -139,7 +139,7 @@ exposed a verification pipeline that did not match the product's claims.
 
 ### Fixed
 - A `[verify]` command that cannot start is caught in pre-flight, before
-  any agent is dispatched — no more infinite retry loops replaying full
+  any agent is dispatched - no more infinite retry loops replaying full
   agent work against a deterministically broken gate. The blocked-task
   explanation now says retrying without fixing the config will fail
   identically, and names the real source of the command.
@@ -188,7 +188,7 @@ Fixes for the second simulated-user fleet test of 0.4.4
 
 ### Fixed
 - `orkestra start --agents ...` with a recognized-but-not-signed-in
-  agent now refuses BEFORE creating the repository/.gitignore — every
+  agent now refuses BEFORE creating the repository/.gitignore - every
   `--agents` failure leaves the directory untouched; an empty
   `--agents ""` is rejected instead of silently ignored.
 - The nested-project guard now covers every command: `status`, `run`,
@@ -225,7 +225,7 @@ Fixes for the second simulated-user fleet test of 0.4.4
 - `orkestra start` and `orkestra init` refuse to set up a project in a
   subdirectory of an existing Git repository (git would resolve every
   command to the parent repo); clear guidance, zero mutation.
-- `--agents` is validated before any file or repository mutation — a bad
+- `--agents` is validated before any file or repository mutation - a bad
   value no longer leaves a half-initialized directory.
 - Documentation staleness sweep (full audit of every doc file): restored
   the missing 0.4.2/0.4.3 changelog entries; refreshed BUILD_STATUS,
@@ -242,7 +242,7 @@ Fixes for the second simulated-user fleet test of 0.4.4
 - `orkestra start --agents claude,codex`: restrict setup to the named
   agents instead of enabling every signed-in CLI (aliases: claude,
   codex, antigravity/agy, gemini; at least two required; an agent that
-  isn't signed in stops setup with plain guidance — never a silent
+  isn't signed in stops setup with plain guidance - never a silent
   fallback to practice mode).
 - `orkestra report --save`: writes markdown + JSON under
   `.orkestra/reports/` (git-ignored).
@@ -286,7 +286,7 @@ journey, and honest status documents. No kernel or config changes.
 - **`orkestra start` (and `init`) can no longer commit pre-existing
   user work.** Repository state is captured before any mutation;
   existing repos with tracked or staged changes stop with plain-language
-  guidance (commit or stash) — deterministically in non-interactive
+  guidance (commit or stash) - deterministically in non-interactive
   mode. Setup commits are pathspec-scoped to an explicit allowlist of
   files Orkestra created in that invocation (SPEC.md, .gitignore) and
   verified against the actual commit contents. New-repo-with-files
@@ -304,7 +304,7 @@ journey, and honest status documents. No kernel or config changes.
 
 ### Added
 
-- `orkestra review [--full]`: plain-language run summary — status, task
+- `orkestra review [--full]`: plain-language run summary - status, task
   counts, verification and independent-review outcomes, commits, file
   stats, and a clear partial-result warning. `orkestra diff` is now an
   alias of it.
@@ -322,7 +322,7 @@ path requires TOML, branch names, or knowing what a probe is.
 
 ### Added
 
-- `orkestra start`: guided setup — Git init, live agent detection,
+- `orkestra start`: guided setup - Git init, live agent detection,
   presets (**Faster / Balanced / Maximum quality / Custom**), per-agent
   model choice from discovered or documented lists (custom entry under
   Advanced), effort selection only where genuinely supported,
@@ -334,7 +334,7 @@ path requires TOML, branch names, or knowing what a probe is.
 - Provider-neutral effort `auto | low | medium | high | max`, mapped
   explicitly per adapter (agy `--effort`, codex
   `model_reasoning_effort`) and hard-validated: unsupported levels are
-  rejected with a plain-language explanation — never silently ignored.
+  rejected with a plain-language explanation - never silently ignored.
 - Model discovery with provenance: live `agy models` (cached by adapter
   version), documented aliases labeled as such elsewhere, manual entry
   always available; stale values surface as `manual` instead of hiding.
@@ -343,7 +343,7 @@ path requires TOML, branch names, or knowing what a probe is.
   director delegates across profiles like any other agents.
 - `orkestra models`: friendly settings screen (profile, adapter, model,
   effort, availability, provenance).
-- Presets adjust models/effort/probes/concurrency only — deterministic
+- Presets adjust models/effort/probes/concurrency only - deterministic
   verification and independent review are not preferences.
 
 ### Compatibility
@@ -353,7 +353,7 @@ path requires TOML, branch names, or knowing what a probe is.
 
 ## [0.3.0] - 2026-07-25
 
-The usability release — everything here came out of a serious "is this
+The usability release - everything here came out of a serious "is this
 too technical?" self-audit.
 
 ### Added
@@ -384,12 +384,12 @@ too technical?" self-audit.
 
 ### Added
 
-- `orkestra watch`: live Textual TUI monitor (optional `[tui]` extra) —
+- `orkestra watch`: live Textual TUI monitor (optional `[tui]` extra) -
   run header, task table, open decisions, streaming event tail, with
   pause/cancel keys; reads the same SQLite store the kernel writes, so
   it runs safely alongside `orkestra run` from another terminal.
 - Docker sandbox (ADR-0009): `policy.sandbox = "docker"` now runs
-  **external and fake agents** inside hardened containers — network
+  **external and fake agents** inside hardened containers - network
   none, cap-drop ALL, no-new-privileges, read-only rootfs with tmpfs
   /tmp, memory/CPU/pids limits, non-root host uid, and only the task
   worktree mounted. Per-agent `sandbox_image` config; vendor CLIs are
@@ -399,14 +399,14 @@ too technical?" self-audit.
   review → integrate).
 - Quota-aware scheduling: optional per-agent, per-run token budgets
   (`agents.<name>.token_budget`) computed from the kernel's own usage
-  ledger — exhausted agents stop receiving new dispatches and fallbacks
+  ledger - exhausted agents stop receiving new dispatches and fallbacks
   take over; and global per-agent rate-limit cooldowns with exponential
-  escalation — when one agent is rate-limited, eligible alternatives
+  escalation - when one agent is rate-limited, eligible alternatives
   dispatch immediately instead of the task sleeping through a backoff.
 - Agent session reuse on fix cycles: when verification fails or a
   reviewer requests changes, the retry by the same agent in the same
   workspace resumes the agent's prior CLI session (`--resume` /
-  `codex exec resume` / `--conversation`) instead of cold-starting —
+  `codex exec resume` / `--conversation`) instead of cold-starting -
   cutting quota use on repair loops. Sessions never cross agents or
   workspaces; disable with `policy.session_reuse = false`.
   Live-verified context recall across resumed Claude invocations.

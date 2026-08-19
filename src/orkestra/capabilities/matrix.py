@@ -29,7 +29,7 @@ def build_matrix(observations: list[CapabilityObservation]) -> CapabilityMatrix:
 
     Score: mean of outcomes (objective pass/fail as 1/0, judged scores
     as-is), recency-weighted (later observations weigh more).
-    Confidence: n/(n+2) — grows with evidence, never reaches 1.
+    Confidence: n/(n+2) - grows with evidence, never reaches 1.
     """
     grouped: dict[tuple[str, str], list[CapabilityObservation]] = defaultdict(list)
     for obs in observations:

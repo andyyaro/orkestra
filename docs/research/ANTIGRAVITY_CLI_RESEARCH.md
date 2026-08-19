@@ -16,14 +16,14 @@ primary evidence is noted explicitly.
   migration error observed on this machine.
 - Distribution: `curl -fsSL https://antigravity.google/cli/install.sh |
   bash`; repo `github.com/google-antigravity/antigravity-cli` hosts
-  binaries and issues only — **no source, no LICENSE: agy is
+  binaries and issues only - **no source, no LICENSE: agy is
   proprietary**, unlike Apache-2.0 gemini-cli.
 - Release cadence ~2–4 days (1.1.0 → 1.1.6 within July 2026); adapters
   must tolerate drift and feature-detect.
 - Config: `~/.gemini/antigravity-cli/` (settings.json, plugins/,
   skills/); workspace MCP config `.agents/mcp_config.json`.
 
-## Automation surface — docs vs. local verification
+## Automation surface - docs vs. local verification
 
 | Capability | Docs/community said | Verified locally on 1.1.6 |
 |---|---|---|
@@ -74,7 +74,7 @@ should pre-seed `~/.gemini/antigravity-cli/settings.json`
 - No API-key auth for agy (Google OAuth only, keyring/browser; print
   mode supports code-paste OAuth).
 
-## Terms of service — flagged prominently
+## Terms of service - flagged prominently
 
 Antigravity Additional ToS: "Using third party software, tools, or
 services to access the Service (e.g. using OpenClaw with Antigravity

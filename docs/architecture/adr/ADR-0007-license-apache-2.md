@@ -1,4 +1,4 @@
-# ADR-0007: License — Apache-2.0; distribution name `orkestra-runtime`
+# ADR-0007: License - Apache-2.0; distribution name `orkestra-runtime`
 
 Date: 2026-07-24 · Status: accepted
 

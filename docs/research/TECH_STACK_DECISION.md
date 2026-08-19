@@ -32,7 +32,7 @@ where this product wins or loses.
 | 16 | Developer onboarding | 3 | Contributor growth |
 | 17 | Long-term OSS sustainability | 4 | Avoid framework churn |
 
-## Decision 1 — Implementation language
+## Decision 1 - Implementation language
 
 Scores 1–5 per criterion; total = Σ(weight × score), max 345.
 
@@ -64,7 +64,7 @@ single-binary distribution, both minor for an agent-bound tool
 validation ergonomics and stdlib persistence; Go/Rust trade too much
 iteration speed for performance this product doesn't need.
 
-## Decision 2 — Orchestration core
+## Decision 2 - Orchestration core
 
 | Criterion (weight) | Custom kernel | LangGraph | MS Agent Framework | CrewAI | OpenAI Agents SDK |
 |---|---|---|---|---|---|
@@ -85,7 +85,7 @@ supervision, worktree isolation, or deterministic gates for CLI agents.
 frameworks' value (model clients, tool loops) sits entirely inside the
 agent CLIs we spawn.
 
-## Decision 3 — Agent integration method
+## Decision 3 - Agent integration method
 
 CLI subprocess with structured streaming for all three agents
 (ADR-0004). SDK/daemon alternatives per agent were evaluated in
@@ -94,15 +94,15 @@ CLI; Codex app-server and Gemini ACP are vendor-marked experimental.
 Subprocess is the only uniform, officially supported, auth-untouched
 surface. Verified locally with captured output samples.
 
-## Decision 4 — Persistence
+## Decision 4 - Persistence
 
 SQLite (stdlib, WAL) + versioned JSON payloads + linear SQL migrations;
 SQLAlchemy/Alembic rejected as oversized for ~15 tables (ADR-0003).
-Event log is an append-only table in the same database — a separate
+Event log is an append-only table in the same database - a separate
 event-log file adds a consistency boundary with no benefit at this
 scale.
 
-## Decision 5 — Task DAG
+## Decision 5 - Task DAG
 
 Custom in-memory DAG (dict adjacency + Kahn's algorithm for cycle
 detection and topological ready-frontier computation), persisted
@@ -118,7 +118,7 @@ algorithm is unjustified dependency surface.
 | Async | stdlib asyncio | kept (AnyIO rejected: single backend, no trio need) |
 | Schemas | Pydantic v2 | kept |
 | CLI | Typer + Rich | kept |
-| TUI | none in v0.1 | **deferred** (roadmap) — correctness first |
+| TUI | none in v0.1 | **deferred** (roadmap) - correctness first |
 | Store | stdlib sqlite3, WAL | **simplified** (SQLAlchemy 2 + Alembic dropped, ADR-0003) |
 | DAG | custom (~100 lines) | **simplified** (NetworkX dropped) |
 | Adapters | JSON/JSONL subprocess | kept |
@@ -127,7 +127,7 @@ algorithm is unjustified dependency surface.
 | Lint/format | Ruff (lint + format) | kept |
 | Types | mypy --strict | chosen over pyright (pure-Python toolchain, no Node in CI critical path) |
 | Security | Bandit + pip-audit + gitleaks in CI | kept (+secret scan) |
-| Logging | stdlib logging with structured JSON handler | **simplified** (structlog dropped — one fewer dependency, same output) |
+| Logging | stdlib logging with structured JSON handler | **simplified** (structlog dropped - one fewer dependency, same output) |
 | Docs | Markdown in-repo (docs/) | **simplified** (MkDocs site deferred to roadmap) |
 | CI | GitHub Actions (pinned, least-privilege) | kept |
 | Telemetry | none (OpenTelemetry deferred) | **deferred** |

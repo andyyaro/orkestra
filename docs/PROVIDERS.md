@@ -2,13 +2,13 @@
 
 Summary of `research/TERMS_AND_AUTHENTICATION_REVIEW.md` and
 `research/ANTIGRAVITY_CLI_RESEARCH.md` (retrieved 2026-07-24; provider
-policies change — **review your providers' current terms yourself**).
+policies change - **review your providers' current terms yourself**).
 
 Orkestra's universal posture: it launches each **official, unmodified
 CLI** on **your machine** under **your own login**, never touches
 credential stores, never proxies logins for other users, and treats
 rate-limit signals as hard backpressure. Those are the patterns each
-vendor themselves ships for automation — but responsibility for
+vendor themselves ships for automation - but responsibility for
 compliant use of your accounts is yours.
 
 ## Claude Code (`claude`)
@@ -37,7 +37,7 @@ compliant use of your accounts is yours.
   minimal-risk documented pattern.
 - Limits: shared 5-hour window + weekly limits (credits overflow).
 
-## Google Antigravity CLI (`agy`) — default Google adapter
+## Google Antigravity CLI (`agy`) - default Google adapter
 
 - Google migrated individual/Pro/Ultra consumer OAuth off the legacy
   Gemini CLI to Antigravity (2026-06-18). `agy -p` headless use is
@@ -45,8 +45,8 @@ compliant use of your accounts is yours.
 - ⚠️ **Gray area, disclosed:** Antigravity's terms state that "using
   third party software, tools, or services to access the Service" (their
   example: OpenClaw with Antigravity OAuth) breaches the agreement. The
-  clear target is tools consuming Antigravity OAuth/backends directly —
-  Orkestra does not do that — but whether launching the unmodified
+  clear target is tools consuming Antigravity OAuth/backends directly -
+  Orkestra does not do that - but whether launching the unmodified
   binary under your own login is covered has no official answer yet.
   Orkestra surfaces this note in `orkestra doctor`; decide for yourself.
 - agy is proprietary (binaries only), releases every few days; the
@@ -54,7 +54,7 @@ compliant use of your accounts is yours.
 - Limits: plan-based, shared across IDE + CLI (free: weekly; Pro/Ultra:
   5-hour + weekly), exact numbers unpublished.
 
-## Google Gemini CLI (`gemini`) — non-default adapter
+## Google Gemini CLI (`gemini`) - non-default adapter
 
 - Still Apache-2.0 and maintained, but consumer Google-account OAuth is
   no longer served. Valid auth: `GEMINI_API_KEY` (free tier: 250

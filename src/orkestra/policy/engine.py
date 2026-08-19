@@ -44,7 +44,7 @@ class PolicyEngine:
                 violations.append(f"reviewer {reviewer!r} is not an enabled agent")
             if reviewer == assignment.primary:
                 violations.append(
-                    f"reviewer {reviewer!r} equals the implementer — independent "
+                    f"reviewer {reviewer!r} equals the implementer - independent "
                     "review requires primary != reviewer"
                 )
         for fallback in assignment.fallbacks:

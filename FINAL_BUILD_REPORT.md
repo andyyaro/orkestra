@@ -1,8 +1,8 @@
-# Orkestra — Final Build Report (historical)
+# Orkestra - Final Build Report (historical)
 
 > **Historical snapshot** of the original autonomous build that
 > produced v0.1.0 on 2026-07-24 (with same-day amendments through
-> v0.2.0). Figures here describe that moment, not the present —
+> v0.2.0). Figures here describe that moment, not the present -
 > current state lives in `BUILD_STATUS.md`.
 
 Date: 2026-07-24. Build executed autonomously per `MASTERPROMPT.md`.
@@ -46,10 +46,9 @@ ranking are built.
 ## Technology stack and why
 
 Python ≥3.12 + uv; Pydantic v2 (versioned contracts); Typer + Rich
-(CLI); stdlib sqlite3 in WAL mode with hand-written migrations (ADR-0003
-— SQLAlchemy/Alembic rejected as oversized); custom ~100-line DAG
+(CLI); stdlib sqlite3 in WAL mode with hand-written migrations (ADR-0003 SQLAlchemy/Alembic rejected as oversized); custom ~100-line DAG
 (NetworkX rejected); custom deterministic kernel (LangGraph/
-MS Agent Framework/CrewAI/OpenAI Agents SDK rejected — all orchestrate
+MS Agent Framework/CrewAI/OpenAI Agents SDK rejected - all orchestrate
 API calls, not subscription-authenticated CLI subprocesses; ADR-0002);
 subprocess CLI adapters (ADR-0004); Apache-2.0 (ADR-0007). Full weighted
 decision matrices: `docs/research/TECH_STACK_DECISION.md`.
@@ -115,9 +114,9 @@ examples/{two-agents,three-agents,many-agents}
 |---|---|---|
 | Claude Code | 2.1.219 | Live-verified: director role, structured output (`--json-schema`), implement + fix fallback, resume-scoped sessions |
 | Codex CLI | 0.144.4 | Live-verified: plan challenges, independent structured reviews (after OpenAI strict-schema transform, found live) |
-| Antigravity CLI | 1.1.6 | Live-verified: headless JSON/stream-JSON, implement attempts; known limitation recorded — headless permission policy can silently skip file writes (`docs/research/ANTIGRAVITY_CLI_RESEARCH.md`), which Orkestra's gates catch |
+| Antigravity CLI | 1.1.6 | Live-verified: headless JSON/stream-JSON, implement attempts; known limitation recorded - headless permission policy can silently skip file writes (`docs/research/ANTIGRAVITY_CLI_RESEARCH.md`), which Orkestra's gates catch |
 | Gemini CLI | 0.52.0 | Auth-limited by Google's consumer migration: deterministic auth-not-ready detection verified (exit 41); full path available to API-key/Vertex users |
-| fake / external | — | Full contract suite + all E2E scenarios |
+| fake / external | - | Full contract suite + all E2E scenarios |
 
 ## Live tests performed (2026-07-24, this machine)
 
@@ -145,7 +144,7 @@ examples/{two-agents,three-agents,many-agents}
    by an independent Claude review and integrated); a second
    formatting task was rejected twice by the Codex reviewer under a
    deliberately tight 1-cycle review budget and skipped by the operator
-   at the human gate — bounded loops and escalation demonstrated on
+   at the human gate - bounded loops and escalation demonstrated on
    Orkestra itself. Evidence: `docs/development/SELF_REVIEW.md`,
    `docs/development/evidence/DOGFOOD_RUN_REPORT.md`. The dogfood also
    surfaced and fixed a real usability defect (untracked agent-CLI
@@ -153,7 +152,7 @@ examples/{two-agents,three-agents,many-agents}
 
 ## Test counts and commands
 
-- `uv run pytest` — 211 tests passing (142 unit, 25 adapter incl. the
+- `uv run pytest` - 211 tests passing (142 unit, 25 adapter incl. the
   contract suite, 15 workspace-integration with real git, 15 E2E
   orchestration scenarios, 14 CLI via Typer runner).
 - Coverage: 81% overall (`--cov=orkestra`), CI floor 80%; kernel,
@@ -173,7 +172,7 @@ Docker daemon verified running (client/server 29.6.1). No container
 image is shipped in v0.1; the `policy.sandbox = "docker"` option is
 deliberately refused with an explanatory error (vendor CLIs cannot
 authenticate in containers without exposing host credentials, which
-Orkestra refuses to do) — roadmap v0.2. Docker presence is reported by
+Orkestra refuses to do) - roadmap v0.2. Docker presence is reported by
 `orkestra doctor` as optional.
 
 ## Supported platforms
@@ -186,9 +185,9 @@ macOS 26.5.1 / Python 3.14). Windows untested (roadmap).
 - Repository: https://github.com/andyyaro/orkestra (public)
 - Default branch: `main`
 - Releases: v0.1.0 (initial) · v0.1.1 (redaction hardening from the
-  dogfood self-review) · v0.1.2 (PyPI publication) —
+  dogfood self-review) · v0.1.2 (PyPI publication) -
   https://github.com/andyyaro/orkestra/releases
-- PyPI: https://pypi.org/project/orkestra-runtime/ — published 2026-07-24
+- PyPI: https://pypi.org/project/orkestra-runtime/ - published 2026-07-24
   via Trusted Publishing (GitHub OIDC, protected `pypi` environment with
   manual maintainer approval; no API tokens). Verified end-to-end:
   `uv tool install orkestra-runtime` → `orkestra --version` (0.1.2) →

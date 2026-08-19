@@ -108,7 +108,7 @@ class ClaudeParser(StreamParser):
                                     "agent appears blocked by a permission prompt it "
                                     "cannot answer headlessly (e.g. running commands). "
                                     "Pre-approve the tools it needs in the vendor CLI's "
-                                    "settings — see docs/TROUBLESHOOTING.md"
+                                    "settings - see docs/TROUBLESHOOTING.md"
                                 ),
                             )
                         yield AgentEvent(kind=EventKind.TEXT, text=text[:4000])

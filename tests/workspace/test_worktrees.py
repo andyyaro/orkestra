@@ -82,7 +82,7 @@ class TestRunAndWorkspaces:
         changed = await project.validate_workspace_changes(ws)
         assert changed == ["feature.py"]
         merged = await project.integrate("run_t3", ws, "feature")
-        # integrate() returns the merge commit sha — the head of the
+        # integrate() returns the merge commit sha - the head of the
         # integration branch once the work has landed.
         integration_repo = GitRepo(project.root)
         assert merged == await integration_repo.rev_parse("ork/run_t3/integration")

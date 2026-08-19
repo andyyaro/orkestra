@@ -1,11 +1,11 @@
-# ADR-0001: Implementation language — Python 3.12+
+# ADR-0001: Implementation language - Python 3.12+
 
 Date: 2026-07-24 · Status: accepted
 
 ## Context
 
 Orkestra is a local-first orchestrator whose hot path is process
-supervision, JSONL parsing, Git plumbing, and SQLite I/O — not
+supervision, JSONL parsing, Git plumbing, and SQLite I/O - not
 compute-bound work. Candidates: Python, TypeScript/Node, Rust, Go
 (scored in `docs/research/TECH_STACK_DECISION.md`).
 
@@ -18,7 +18,7 @@ Python, requiring 3.12+ (developed on 3.14), packaged with `uv` and
 
 - `asyncio` subprocess management, streaming line readers, timeouts, and
   cancellation cover the entire runtime need with stdlib primitives.
-- Pydantic gives versioned, validated schemas — the backbone of the
+- Pydantic gives versioned, validated schemas - the backbone of the
   structured contracts requirement.
 - `sqlite3` is stdlib; no runtime service dependencies.
 - Typer/Rich give a polished CLI cheaply.

@@ -41,7 +41,7 @@ def find_project_root(start: Path | None = None) -> Path:
         if (candidate / CONFIG_RELPATH).is_file():
             return candidate
     msg = (
-        f"no Orkestra project found from {current} upward — run `orkestra init` "
+        f"no Orkestra project found from {current} upward - run `orkestra init` "
         "in your project directory first"
     )
     raise ConfigError(msg)

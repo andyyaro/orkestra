@@ -1,7 +1,7 @@
 """End-to-end orchestration tests with fake agents over real Git repos.
 
 Each test drives the real kernel: prepare (offline director → heuristic
-plan) or a hand-built plan, then execute() with the full pipeline —
+plan) or a hand-built plan, then execute() with the full pipeline -
 worktrees, deterministic commits, verification gates, independent
 review, integration, ledger, decisions, resume.
 """
@@ -364,7 +364,7 @@ class TestSessionReuse:
         assert not any(e["text"].startswith("RESUMED:") for e in events)
 
     async def test_fallback_agent_does_not_inherit_session(self, app: App) -> None:
-        # alpha crashes; beta takes over — beta must start fresh, and alpha's
+        # alpha crashes; beta takes over - beta must start fresh, and alpha's
         # session must not leak into beta's brief.
         run_id = await manual_run(
             app,

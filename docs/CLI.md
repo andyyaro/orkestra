@@ -11,7 +11,7 @@ the nearest `.orkestra/config.toml`.
 
 Free, zero-quota showcase: scripted fake agents drive the real kernel
 through planning, parallel isolated tasks, a verification gate, a review
-rejection + repair, and integration — in under a minute. The best first
+rejection + repair, and integration - in under a minute. The best first
 command.
 
 ## The guided journey
@@ -25,14 +25,14 @@ and an optional immediate run. With fewer than two signed-in agents it
 configures practice mode (fake agents) so the journey always works.
 `--agents` restricts setup to the named agents instead of enabling
 every signed-in CLI (friendly names accepted: claude, codex,
-antigravity/agy, gemini — at least two required); if a requested agent
+antigravity/agy, gemini - at least two required); if a requested agent
 isn't signed in, start stops with an explanation rather than silently
 substituting. Both `start` and `init` refuse to set up a project inside
 a subdirectory of an existing Git repository (git would resolve every
-command to the parent repo) — run them at that repository's root or
+command to the parent repo) - run them at that repository's root or
 place the project elsewhere.
 Re-running it on an existing project reconfigures without destroying
-your spec. Presets tune models, effort, probes, concurrency — never
+your spec. Presets tune models, effort, probes, concurrency - never
 verification or independent review.
 
 `orkestra status` shows run timing in local time, flags a run with no
@@ -71,11 +71,11 @@ readiness, notes (including provider caveats).
 
 ### `orkestra agents set NAME [--model M] [--effort auto|low|medium|high|max] [--clear]`
 
-Pick an agent's model and reasoning effort without editing TOML — the
+Pick an agent's model and reasoning effort without editing TOML - the
 config file is rewritten comment-preservingly and validated (invalid
 changes roll back). Effort is provider-neutral (`auto | low | medium |
 high | max`) and hard-validated per adapter: levels a CLI cannot honor
-are rejected with an explanation of what to use instead — never
+are rejected with an explanation of what to use instead - never
 silently ignored.
 
 ### `orkestra agents models`
@@ -122,7 +122,7 @@ runs are clearly flagged as partial.
 Bring a **completed** run's verified result into your current branch.
 Shows a preflight summary and asks for confirmation (default **No**;
 `--yes` for automation). Refuses: incomplete runs (unless the advanced,
-risky `--allow-partial` is given — which warns and still confirms),
+risky `--allow-partial` is given - which warns and still confirms),
 dirty working trees, untracked files the result would overwrite, and
 `ork/*` checkouts. Conflicts are aborted cleanly with exact next steps.
 `--cleanup` tidies internal branches only after a successful acceptance.
@@ -155,7 +155,7 @@ prints a reminder that the file is untracked.
 Live TUI monitor (optional `[tui]` extra: `uv tool install
 'orkestra-runtime[tui]'`). Shows the run header, task table, open
 decisions, and a streaming event tail over the same state database the
-kernel writes — safe to run alongside `orkestra run` in another
+kernel writes - safe to run alongside `orkestra run` in another
 terminal. Keys: `p` request pause, `c` request cancel, `q` quit. It
 never dispatches work; execution stays with `run`/`resume`.
 
@@ -175,14 +175,14 @@ marks it failed, `abort` fails the run). Follow with `orkestra resume`.
 
 ### `orkestra pause [--run ID]`
 
-Ask a running orchestration (any process) to stop dispatching — new
+Ask a running orchestration (any process) to stop dispatching - new
 tasks *and* new attempts within a running task. The in-flight agent
 subprocess is never killed; its task returns to ready for the resumed
 run.
 
 ### `orkestra resume [--run ID] [--offline]`
 
-Reconcile state (close dangling attempts, repair worktrees — safe after
+Reconcile state (close dangling attempts, repair worktrees - safe after
 crashes, reboots, Ctrl-C) and continue executing. A run interrupted
 before planning produced tasks is re-planned from your spec as a fresh
 run instead of erroring.

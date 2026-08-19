@@ -30,7 +30,7 @@ class TestGateAuthority:
         app = _set_verify(await make_project(tmp_path), ["false"])
         try:
             # The plan proposes a passing gate; the user's failing gate must
-            # still run and veto — acceptance can add, never replace.
+            # still run and veto - acceptance can add, never replace.
             run_id = await manual_run(
                 app,
                 [(spec("t", "FAKE:write:a.txt:x", acceptance=["true"]), assign("alpha", "beta"))],
@@ -116,7 +116,7 @@ class TestNoDeterministicRetryLoop:
             decision = app.store.decisions_for_run(run_id, unresolved_only=True)[0]
             app.orchestrator.apply_decision(decision.decision_id, "retry")
             await app.orchestrator.execute(run_id)
-            # still blocked, still zero agent attempts — no burned quota
+            # still blocked, still zero agent attempts - no burned quota
             assert app.store.get_task(task.task_id).state is TaskState.BLOCKED
             assert app.store.attempts_for_task(task.task_id) == []
         finally:

@@ -11,7 +11,7 @@ determinism disposes.**
 - The **kernel** (plain Python, no LLM) is the only thing with authority:
   it owns state, dispatches work, enforces policy, runs verification,
   pairs reviewers, merges results, and decides when things are done. A
-  hostile or confused model output cannot change policy — it can only be
+  hostile or confused model output cannot change policy - it can only be
   rejected.
 
 ## Runs, tasks, attempts
@@ -24,7 +24,7 @@ determinism disposes.**
   commands layered on top of your project gate.
 - An **attempt** is one agent's try at a task. Attempts are bounded by
   `max_attempts_per_task`; failures trigger backoff, fallback agents,
-  director reassignment, and finally a human decision — in that order.
+  director reassignment, and finally a human decision - in that order.
 
 ## Workspaces
 
@@ -40,7 +40,7 @@ pass. Your own branches are never written to.
 Your `[verify]` commands are always the authoritative gate. A plan may
 propose extra per-task acceptance commands; those run *in addition*, and
 only if they validate as runnable commands (plain argv, no shell or
-prose syntax, executable present) — anything else is dropped with a
+prose syntax, executable present) - anything else is dropped with a
 warning and never executed. When a gate fails, the failing command's
 output is recorded in the event log and handed to the agent that repairs
 the work.
@@ -58,8 +58,8 @@ Review/fix loops are bounded by `max_review_cycles`.
 ## Capability matrix and the ledger
 
 At run start, agents face small, objective **probes** (return exact
-JSON, trace code, spot a bug). Results — plus the outcome of every real
-task ever run in this project — become **observations**. The matrix
+JSON, trace code, spot a bug). Results - plus the outcome of every real
+task ever run in this project - become **observations**. The matrix
 aggregates observations into scores with confidence values, and every
 score lists its evidence. Assignments rank candidates by evidenced
 score; the director sees the matrix when planning; outcomes feed back
@@ -76,5 +76,5 @@ decisions` → `orkestra approve` → `orkestra resume`.
 ## Offline mode
 
 `--offline` replaces the director with a deterministic heuristic planner
-and skips all LLM calls — useful for trying the machinery, testing
+and skips all LLM calls - useful for trying the machinery, testing
 configs, and running fake/external agents in CI.

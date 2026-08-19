@@ -3,7 +3,7 @@
 A pure argv transformation applied at dispatch time: the agent's normal
 ``InvocationSpec`` is executed inside a hardened, network-less container
 with only the task worktree mounted. Vendor CLIs are never containerized
-in v0.2 (credential-exposure constraint — see the ADR).
+in v0.2 (credential-exposure constraint - see the ADR).
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ def wrap_in_docker(
     """Return *spec* rewritten to run inside a hardened container.
 
     The original ``spec.cwd`` (the worktree) is mounted at ``/work``;
-    everything else about the invocation — stdin brief, timeout,
-    environment extras — is preserved.
+    everything else about the invocation - stdin brief, timeout,
+    environment extras - is preserved.
     """
     uid = os.getuid() if uid is None else uid
     gid = os.getgid() if gid is None else gid
@@ -96,7 +96,7 @@ def validate_sandbox_config(config: ProjectConfig) -> list[str]:
             errors.append(
                 f"agent {name!r} uses adapter {agent.adapter!r}: vendor CLIs "
                 "cannot run in the docker sandbox (they authenticate through "
-                "host credential stores Orkestra refuses to mount — ADR-0009). "
+                "host credential stores Orkestra refuses to mount - ADR-0009). "
                 'Disable the agent or use sandbox = "none".'
             )
         elif not agent.sandbox_image:

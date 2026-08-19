@@ -50,7 +50,7 @@ POSITIVE = [
     ("generic-secret", 'client_secret="FAKECLIENTSECRET"', "FAKECLIENTSECRET"),
 ]
 
-# (case id, input text) — must pass through UNCHANGED
+# (case id, input text) - must pass through UNCHANGED
 NEGATIVE = [
     ("status-missing", "auth_token=missing"),
     ("template-var", 'password="${DB_PASSWORD}"'),

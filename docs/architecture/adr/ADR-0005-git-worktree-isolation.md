@@ -1,4 +1,4 @@
-# ADR-0005: Workspace isolation — Git worktrees per mutable task
+# ADR-0005: Workspace isolation - Git worktrees per mutable task
 
 Date: 2026-07-24 · Status: accepted
 

@@ -8,7 +8,7 @@ format, and advanced commands are unchanged.
 ## Initial problems
 
 1. `orkestra start` (and `init`) created setup commits with
-   `git add -A` semantics — pre-existing uncommitted user files could
+   `git add -A` semantics - pre-existing uncommitted user files could
    silently enter an Orkestra commit.
 2. Accepting a run had no summary or confirmation.
 3. Docs taught `review → accept`; the commands were `diff → merge`.
@@ -22,7 +22,7 @@ format, and advanced commands are unchanged.
 written. Existing repositories with tracked *or staged* changes stop
 immediately (exit 1, deterministic in non-interactive mode) with a
 plain-language explanation and exact `git commit` / `git stash`
-commands; nothing is written, staged, or committed — verified in
+commands; nothing is written, staged, or committed - verified in
 dogfood: no `.orkestra/`, no `SPEC.md`, index untouched. Untracked
 files never block setup but can never enter Orkestra's commit either:
 setup commits are pathspec-scoped to an explicit allowlist (only
@@ -46,13 +46,13 @@ still confirms unless `--yes`), tracked/staged working-tree changes,
 untracked files the result would overwrite, and `ork/*` checkouts.
 Conflicts abort cleanly with both sides intact and exact next steps.
 `--cleanup` runs only after successful acceptance. `diff` and `merge`
-are same-implementation aliases — `merge` now enforces the identical
+are same-implementation aliases - `merge` now enforces the identical
 rules (the warn-and-continue partial merge is gone; scripts that merged
 partial runs must now pass `--allow-partial`, which is the point).
 
 **Terminology.** `start → run/watch → review → accept` everywhere; the
 completion message reports outcomes (tasks, verification, review,
-tokens — dollar cost only when adapters report it) and next commands;
+tokens - dollar cost only when adapters report it) and next commands;
 internal branch names appear only in advanced docs and reports.
 
 ## Code changed
@@ -69,12 +69,12 @@ internal branch names appear only in advanced docs and reports.
 
 ## Tests added (22 new; suite 363 → 385)
 
-- `tests/cli/test_start_git_safety.py` — 9 scenarios on real git repos
+- `tests/cli/test_start_git_safety.py` - 9 scenarios on real git repos
   (empty dir; clean repo; modified-tracked stop; staged stop;
   untracked untouched; no-commits-with-files baseline; allowlist
   handling; nothing unrelated staged; deterministic non-interactive
   behavior; v0.4-project compatibility)
-- `tests/cli/test_review_accept.py` — 13 scenarios (review summary and
+- `tests/cli/test_review_accept.py` - 13 scenarios (review summary and
   --full; partial warning; confirm default No; prompt-yes; --yes;
   complete-run enforcement incl. merge alias; --allow-partial with and
   without --yes; internal-branch refusal; untracked-collision refusal;
@@ -101,7 +101,7 @@ internal branch names appear only in advanced docs and reports.
 ## Dogfood (real subprocess terminals, isolated PATH, wheel build)
 
 - **A empty dir**: `orkestra start proj --non-interactive --run` →
-  practice mode → "Run complete — your verified result is ready" →
+  practice mode → "Run complete - your verified result is ready" →
   `review` (status/verification/review lines) → `accept --yes
   --cleanup` → "accepted … tidied up 4 internal branch(es)". No git
   commands needed at any point.
@@ -120,7 +120,7 @@ internal branch names appear only in advanced docs and reports.
   design this release); a guided "commit for me / stash for me" flow
   with explicit confirmation could come later.
 - Scenario-C stop happens before `.gitignore` is written, so a rerun
-  after the user commits handles everything — but the stop message
+  after the user commits handles everything - but the stop message
   doesn't yet mention rerunning `orkestra start` explicitly enough.
 - `merge`'s new prompting may surprise old scripts until they add
   `--yes` (called out in the changelog).

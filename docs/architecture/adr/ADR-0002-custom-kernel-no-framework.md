@@ -1,4 +1,4 @@
-# ADR-0002: Orchestration core — custom deterministic kernel, no agent framework
+# ADR-0002: Orchestration core - custom deterministic kernel, no agent framework
 
 Date: 2026-07-24 · Status: accepted
 
@@ -32,6 +32,6 @@ machine + policy engine). No LLM-agent framework dependency.
 
 ## Consequences
 
-- We own scheduler/retry/resume correctness — mitigated by heavy unit
+- We own scheduler/retry/resume correctness - mitigated by heavy unit
   and crash-recovery tests (kernel is the best-covered module).
 - No framework lock-in; adapters and kernel evolve with vendor CLIs.

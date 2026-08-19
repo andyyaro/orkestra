@@ -26,5 +26,5 @@ body:
       description: >
         For existing adapters: the normalized result you got vs. expected
         (see docs/adapters/AUTHORING.md). For new agents: note that the
-        external `orkestra-jsonl/1` protocol may already work —
+        external `orkestra-jsonl/1` protocol may already work -
         docs/adapters/PROTOCOL.md.

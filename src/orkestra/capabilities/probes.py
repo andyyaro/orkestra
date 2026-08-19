@@ -1,7 +1,7 @@
 """Bounded, quota-respecting capability probes.
 
 Each probe is a single short prompt with a deterministic, objective
-check evaluated by this harness — no self-reported scores (§6.8).
+check evaluated by this harness - no self-reported scores (§6.8).
 Results are cached as observations keyed by (agent, version, probe id);
 ``mode="cached"`` reuses them, ``mode="off"`` skips probing entirely.
 """

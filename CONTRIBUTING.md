@@ -29,7 +29,7 @@ CI runs the same commands; PRs must be green.
 
 - **Determinism first.** The kernel must never depend on LLM output for
   policy, state transitions, or verification. Director/agent output is
-  untrusted input — validate it.
+  untrusted input - validate it.
 - **No fixed-agent-count assumptions.** Code, schemas, and tests must work
   for 2 agents and for N agents. Never hard-code three.
 - **Security posture.** Subprocesses use argument arrays (no `shell=True`);

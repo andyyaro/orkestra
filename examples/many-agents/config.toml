@@ -1,4 +1,4 @@
-# Example: five agents — two Claude profiles, Codex, Antigravity, and a
+# Example: five agents - two Claude profiles, Codex, Antigravity, and a
 # third-party agent speaking the orkestra-jsonl/1 protocol. There is no
 # fixed-three assumption anywhere; add as many agents as your quotas bear.
 version = 1

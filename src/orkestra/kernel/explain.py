@@ -37,14 +37,14 @@ def explain_block(reason: str, attempts: list[AttemptRow] | None = None) -> str:
         return (
             "A different agent must approve every change, and none of the "
             "other agents produced a usable verdict (errors or malformed "
-            "responses). Check `orkestra doctor` for agent health, or — if "
-            "you accept the risk — set policy.require_review = false."
+            "responses). Check `orkestra doctor` for agent health, or - if "
+            "you accept the risk - set policy.require_review = false."
         )
     if "verification setup error" in lower or ("not found" in lower and "command" in lower):
         return (
             "A verification command could not even start (it is not an "
             "executable on PATH). This comes from the \\[verify] commands in "
-            ".orkestra/config.toml — each entry must run as-is in a fresh "
+            ".orkestra/config.toml - each entry must run as-is in a fresh "
             "checkout. Retrying WITHOUT fixing the command will fail "
             "exactly the same way: edit the config first, then choose "
             "'retry'."
@@ -53,7 +53,7 @@ def explain_block(reason: str, attempts: list[AttemptRow] | None = None) -> str:
         return (
             "An agent's changes touched files Orkestra protects (like CI "
             "workflows or .git). Usually the task description pointed the "
-            "agent somewhere it shouldn't go — adjust the task/spec "
+            "agent somewhere it shouldn't go - adjust the task/spec "
             "boundaries, or policy.protected_paths if this was intended."
         )
     if "workspace error" in lower:
@@ -71,18 +71,18 @@ def explain_block(reason: str, attempts: list[AttemptRow] | None = None) -> str:
     if "exhausted" in lower or "failed with all available agents" in lower:
         hints = {
             "auth": (
-                "Attempts mostly failed with authentication errors — an "
+                "Attempts mostly failed with authentication errors - an "
                 "agent CLI is signed out. Run `orkestra doctor`, sign in "
                 "with the vendor's own command, then choose 'retry'."
             ),
             "rate_limit": (
-                "Attempts mostly hit provider rate limits — your plan's "
+                "Attempts mostly hit provider rate limits - your plan's "
                 "window is likely exhausted. Wait for it to reset (pausing "
                 "is safe), then choose 'retry'."
             ),
             "timeout": (
                 "Attempts mostly timed out. The task may be too big for one "
-                "sitting — split it in the spec, or raise "
+                "sitting - split it in the spec, or raise "
                 "policy.task_timeout_s, then choose 'retry'."
             ),
             "invalid_output": (
@@ -100,7 +100,7 @@ def explain_block(reason: str, attempts: list[AttemptRow] | None = None) -> str:
         )
     if "pipeline crash" in lower:
         return (
-            "Something unexpected broke while processing this task — this "
+            "Something unexpected broke while processing this task - this "
             "is more likely an Orkestra or environment issue than an agent "
             "one. The details above matter; a bug report with `orkestra "
             "report --out report.md` attached is welcome."

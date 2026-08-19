@@ -1,4 +1,4 @@
-"""Scripted fake agent — reference implementation of ``orkestra-jsonl/1``.
+"""Scripted fake agent - reference implementation of ``orkestra-jsonl/1``.
 
 Run as ``python -m orkestra.adapters.fake_worker``. Reads the task brief
 JSON on stdin, obeys ``FAKE:`` directives embedded in the instructions,
