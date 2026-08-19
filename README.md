@@ -1,5 +1,10 @@
 # Orkestra
 
+[![CI](https://github.com/andyyaro/orkestra/actions/workflows/ci.yml/badge.svg)](https://github.com/andyyaro/orkestra/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/orkestra-runtime.svg)](https://pypi.org/project/orkestra-runtime/)
+[![Python](https://img.shields.io/pypi/pyversions/orkestra-runtime.svg)](https://pypi.org/project/orkestra-runtime/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 > **Coordinate many agents. Deliver one verified result.**
 
 You already use coding agents — Claude Code, OpenAI Codex, Google
