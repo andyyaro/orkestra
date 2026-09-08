@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- The binding proof now reaches the verification record. The canary and the
+  `binding` column shipped in separate changes and were never joined, so a
+  run whose event said `gate binding BOUND` still wrote every row as
+  `not_checked`. That gap emptied the point of both: an exit code is
+  evidence about a tree only if the command read that tree, and the record
+  is where that fact has to live. CANNOT-CHECK still records as
+  `not_checked`, because unproved and proved-absent are different claims
+  and neither is proof.
 - `orkestra demo` ran with no `[verify]` commands at all while telling the
   user to watch for "a deterministic gate check after every task". One of
   its three tasks was verified by nothing; the other two only by

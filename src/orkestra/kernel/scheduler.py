@@ -32,7 +32,12 @@ from orkestra.schemas.decision import DecisionOption, HumanDecision
 from orkestra.schemas.director import ReviewVerdict
 from orkestra.schemas.task import TaskBrief
 from orkestra.verify import BindingProof, BindingStatus, VerificationOutcome, run_verification
-from orkestra.verify.record import BINDING_NOT_CHECKED, SCOPE_TASK
+from orkestra.verify.record import (
+    BINDING_NOT_CHECKED,
+    BINDING_PROVED,
+    BINDING_UNBOUND,
+    SCOPE_TASK,
+)
 from orkestra.workspace.worktrees import Workspace
 
 if TYPE_CHECKING:
@@ -1036,9 +1041,34 @@ class Orchestrator:
             task_id=task.task_id,
         )
         await self._record_verification(
-            run_id, task.task_id, workspace.path, outcome, SCOPE_TASK, attempt_id=attempt_id
+            run_id,
+            task.task_id,
+            workspace.path,
+            outcome,
+            SCOPE_TASK,
+            binding=await self._binding_for_records(run_id),
+            attempt_id=attempt_id,
         )
         return outcome
+
+    async def _binding_for_records(self, run_id: str) -> str:
+        """This run's binding verdict, in the form a record stores.
+
+        An exit code is only evidence about a tree if the command read that
+        tree, so the row has to carry that fact next to the verdict rather
+        than leave a reader to assume it. The canary is cached per run, so
+        this is a lookup after the first task.
+
+        CANNOT-CHECK becomes ``not_checked``: unproved and proved-absent are
+        different things, and neither may be reported as proof.
+        """
+        proof = await self._prove_gate_binding(run_id)
+        if proof is None:
+            return BINDING_NOT_CHECKED
+        return {
+            BindingStatus.BOUND: BINDING_PROVED,
+            BindingStatus.UNBOUND: BINDING_UNBOUND,
+        }.get(proof.status, BINDING_NOT_CHECKED)
 
     async def _record_verification(
         self,
