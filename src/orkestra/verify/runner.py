@@ -91,6 +91,47 @@ def subprocess_env(extra: dict[str, str] | None = None) -> dict[str, str]:
     return env
 
 
+def worktree_pythonpath(cwd: Path, existing: str | None = None) -> str:
+    """``PYTHONPATH`` that binds Python imports to *this* tree, first.
+
+    A src-layout project installed editable puts an absolute path to the
+    main checkout on ``sys.path`` through a ``.pth`` file in site-packages.
+    That path is honoured whatever the working directory is, so ``pytest``
+    run inside a worktree imports the main checkout's code and reports on a
+    tree it never read. ``PYTHONPATH`` entries are placed ahead of anything
+    site-packages processing contributes, so naming the worktree here makes
+    the gate read the tree it was pointed at. The inherited value is kept,
+    after ours, so a user's own PYTHONPATH still works.
+    """
+    root = Path(cwd).resolve()
+    entries = [str(root / "src")] if (root / "src").is_dir() else []
+    entries.append(str(root))
+    if existing:
+        entries.extend(part for part in existing.split(os.pathsep) if part)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for entry in entries:
+        if entry not in seen:
+            seen.add(entry)
+            ordered.append(entry)
+    return os.pathsep.join(ordered)
+
+
+def gate_env(cwd: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
+    """Environment for a gate (or a probe of it) running in ``cwd``.
+
+    Identical to :func:`subprocess_env` plus the worktree-scoped
+    ``PYTHONPATH`` above, unless the caller states a ``PYTHONPATH`` of its
+    own - which the binding canary does, in order to measure what an
+    unmitigated environment actually does.
+    """
+    extra = dict(extra or {})
+    env = subprocess_env(extra)
+    if "PYTHONPATH" not in extra:
+        env["PYTHONPATH"] = worktree_pythonpath(cwd, os.environ.get("PYTHONPATH"))
+    return env
+
+
 @dataclass
 class CommandResult:
     command: str
@@ -155,7 +196,7 @@ async def run_verification(
                 cwd=str(cwd),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=subprocess_env(env_extra),
+                env=gate_env(cwd, env_extra),
                 start_new_session=True,
             )
         except FileNotFoundError as exc:

@@ -25,6 +25,21 @@ def explain_block(reason: str, attempts: list[AttemptRow] | None = None) -> str:
     lower = reason.lower()
     dominant = _dominant_error(attempts or [])
 
+    if "not bound to the worktree" in lower:
+        return (
+            "Orkestra ran your verification commands in a throwaway copy of "
+            "this run's code, then deliberately corrupted a source file in "
+            "that copy and ran them again. The exit code did not change, so "
+            "the commands are not reading the tree they are pointed at and a "
+            "green result from them would prove nothing. The usual cause is "
+            "an editable Python install: the .pth file it writes pins an "
+            "absolute path to your main checkout onto sys.path, so `pytest "
+            "-q` tests your main checkout wherever it is run from. Use a "
+            "command that resolves the environment per directory, such as "
+            "`uv run pytest -q`, or a runner that imports from the current "
+            "tree. `orkestra doctor` reports this too. Fix the command in "
+            ".orkestra/config.toml, then choose 'retry'."
+        )
     if "review cycles exhausted" in lower or "review/fix cycle" in lower:
         return (
             "The reviewing agent kept requesting changes and the allowed "

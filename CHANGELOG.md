@@ -8,6 +8,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Bound gates.** Orkestra now proves that your `[verify]` commands
+  actually read the tree they are pointed at before treating their exit
+  code as evidence about it. `orkestra.verify.binding` corrupts one
+  tracked source file in a throwaway worktree and requires the gate's
+  exit code to change; for Python it also asks the gate's own interpreter
+  where the package is imported from and requires that path to sit inside
+  the worktree. The verdict is BOUND, UNBOUND, or CANNOT-CHECK, and
+  CANNOT-CHECK is never reported as a pass.
+  The failure this closes was reproduced first: a src-layout project
+  installed editable puts an absolute path to the main checkout on
+  `sys.path` through a `.pth` file, so `pytest -q` run inside a task
+  worktree tests the main checkout. Replacing a worktree source file with
+  `raise RuntimeError` left the gate green.
+- `orkestra doctor` gained the missing `[verify]` rows: every configured
+  command is resolved on PATH, executed once in a fresh checkout of HEAD,
+  and put through the binding canary - so an unresolvable, failing,
+  vacuous or unbound gate is caught before any quota is spent.
+- `verify.binding_check` (default `true`) runs the canary once per run,
+  before the first agent is dispatched. An unbound gate is a config
+  defect, classified and explained exactly as a `[verify]` command that
+  cannot start already is.
+
+### Changed
+- Verification commands now run with a worktree-scoped `PYTHONPATH` (the
+  worktree's `src/`, then its root, then any inherited value), so the
+  common Python case is bound by construction. `PYTHONPATH` was already
+  in the subprocess environment allowlist; no policy change was needed.
+- `orkestra init` no longer suggests bare `pytest -q` for a project
+  without a `uv.lock`: it suggests `python3 -m pytest -q`, which puts the
+  current directory first. The shipped examples and
+  `docs/CONFIGURATION.md` now use `uv run pytest -q`, which re-resolves
+  the environment per directory. `docs/CONFIGURATION.md` explains what an
+  unbound gate is and how to avoid one.
+
 ## [0.5.3] - 2026-07-25
 
 Hardening pass from the PR #6 (Provalume memory) adversarial review:

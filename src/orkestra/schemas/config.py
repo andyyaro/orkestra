@@ -101,6 +101,16 @@ class VerifyConfig(BaseModel):
 
     commands: list[str] = Field(default_factory=list)
     timeout_s: int = Field(default=900, ge=10, le=4 * 3600)
+    binding_check: bool = True
+    """Prove, once per run, that the gate actually reads the task worktree.
+
+    Orkestra corrupts one tracked source file in a throwaway worktree and
+    requires the gate's exit code to change. A gate that does not react is
+    reading some other tree (the classic cause is an editable install whose
+    .pth file pins an absolute path to your main checkout) and its green is
+    worthless. Costs two extra gate runs per run; turn it off only if your
+    suite is too slow to afford that.
+    """
 
 
 class ProbeConfig(BaseModel):

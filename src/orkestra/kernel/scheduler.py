@@ -31,7 +31,7 @@ from orkestra.schemas.common import AttemptState, RunState, TaskKind, TaskState
 from orkestra.schemas.decision import DecisionOption, HumanDecision
 from orkestra.schemas.director import ReviewVerdict
 from orkestra.schemas.task import TaskBrief
-from orkestra.verify import VerificationOutcome, run_verification
+from orkestra.verify import BindingProof, BindingStatus, VerificationOutcome, run_verification
 from orkestra.workspace.worktrees import Workspace
 
 if TYPE_CHECKING:
@@ -79,6 +79,9 @@ class Orchestrator:
         self._agent_versions: dict[str, str] = {}
         self.director_service: object | None = None  # DirectorService, wired by app
         self._quota: QuotaTracker | None = None  # created per execute()
+        # Binding proof per run: computed once, before the first dispatch.
+        self._gate_binding_proofs: dict[str, BindingProof] = {}
+        self._gate_binding_lock = asyncio.Lock()
 
     # ------------------------------------------------------------ events
 
@@ -408,6 +411,19 @@ class Orchestrator:
         if gate_problems:
             self._block_task(
                 run_id, task_id, "verification setup error: " + "; ".join(gate_problems)
+            )
+            return
+        # A gate that runs but does not read the tree it is pointed at is
+        # worse than a broken one: it cannot fail, so every claim built on
+        # it is a confident falsehood. Prove it reads the tree once per run,
+        # before any quota is spent, and treat an unbound gate as the config
+        # defect it is.
+        binding = await self._prove_gate_binding(run_id)
+        if binding is not None and binding.status is BindingStatus.UNBOUND:
+            self._block_task(
+                run_id,
+                task_id,
+                f"verification gate is not bound to the worktree: {binding.reason}",
             )
             return
 
@@ -900,6 +916,55 @@ class Orchestrator:
                     task_id=task.task_id,
                 )
         return commands
+
+    async def _prove_gate_binding(self, run_id: str) -> BindingProof | None:
+        """Once per run: does the gate actually read the tree it is given?
+
+        Runs in a throwaway detached worktree of the run's integration
+        head, so it costs no agent quota and cannot disturb a task. The
+        result is cached for the run: every task asks, one task pays.
+        Returns None when there is nothing to prove or the check is off.
+        """
+        if not self.config.verify.commands or not self.config.verify.binding_check:
+            return None
+        async with self._gate_binding_lock:
+            cached = self._gate_binding_proofs.get(run_id)
+            if cached is not None:
+                return cached
+            from orkestra.ids import integration_branch
+            from orkestra.verify import prove_binding
+
+            branch = integration_branch(run_id)
+            try:
+                ref = (
+                    await self.workspaces.repo.rev_parse(branch)
+                    if await self.workspaces.repo.branch_exists(branch)
+                    else await self.workspaces.repo.head_commit()
+                )
+                async with self.workspaces.scratch_worktree(run_id, ref) as path:
+                    proof = await prove_binding(
+                        path,
+                        self.config.verify.commands,
+                        timeout_s=self.config.verify.timeout_s,
+                    )
+            except WorkspaceError as exc:
+                proof = BindingProof.cannot_check(
+                    f"could not create a scratch worktree to test the gate in ({exc})",
+                    commands=tuple(self.config.verify.commands),
+                )
+            self._gate_binding_proofs[run_id] = proof
+            kind = {
+                BindingStatus.BOUND: EventKind.COMPLETED,
+                BindingStatus.UNBOUND: EventKind.ERROR,
+                BindingStatus.CANNOT_CHECK: EventKind.WARNING,
+            }[proof.status]
+            self.emit(
+                run_id,
+                kind,
+                f"gate binding {proof.headline}\n{proof.detail}",
+                data={"binding": proof.status.value, "reason": proof.reason},
+            )
+            return proof
 
     async def _verify(
         self, run_id: str, task: TaskRow, workspace: Workspace

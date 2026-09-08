@@ -21,7 +21,7 @@ agent = "claude"
 max_concurrency = 2
 
 [verify]
-commands = ["pytest -q", "ruff check ."]
+commands = ["uv run pytest -q", "uv run ruff check ."]
 
 [probes]
 mode = "cached"

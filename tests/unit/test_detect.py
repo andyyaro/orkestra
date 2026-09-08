@@ -14,6 +14,18 @@ class TestDetectVerify:
         (tmp_path / "uv.lock").write_text("")
         assert detect_verify_commands(tmp_path) == ["uv run pytest -q"]
 
+    def test_pytest_without_uv_lock_avoids_the_unbound_console_script(self, tmp_path: Path) -> None:
+        # Bare `pytest -q` resolves imports through its own interpreter, which
+        # for an editable src-layout install points at another checkout - so
+        # it can pass on a tree it never read. `python3 -m` puts the current
+        # directory first instead.
+        (tmp_path / "pytest.ini").write_text("[pytest]\n")
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_y.py").write_text(
+            "import pytest\n\n\ndef test_b():\n    pass\n"
+        )
+        assert detect_verify_commands(tmp_path) == ["python3 -m pytest -q"]
+
     def test_unittest_project_gets_unittest_command(self, tmp_path: Path) -> None:
         # Recommending pytest here would produce a gate that cannot run.
         (tmp_path / "tests").mkdir()
