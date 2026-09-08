@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from orkestra.cli.main import app
+from tests.cli.asserts import assert_exit, invoke
 from tests.cli.test_cli import FAKE_CONFIG, git_commit_all
 
 runner = CliRunner()
@@ -19,12 +20,12 @@ runner = CliRunner()
 def finished(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "proj"
     monkeypatch.chdir(tmp_path)
-    assert runner.invoke(app, ["init", str(root), "--non-interactive"]).exit_code == 0
+    invoke(runner, ["init", str(root), "--non-interactive"], 0)
     (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
     (root / "SPEC.md").write_text("# Demo\nBuild a widget.\n")
     git_commit_all(root)
     monkeypatch.chdir(root)
-    assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+    invoke(runner, ["run", "--offline"], 0)
     return root
 
 
@@ -32,20 +33,20 @@ def finished(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "blocked"
     monkeypatch.chdir(tmp_path)
-    assert runner.invoke(app, ["init", str(root), "--non-interactive"]).exit_code == 0
+    invoke(runner, ["init", str(root), "--non-interactive"], 0)
     (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
     (root / "SPEC.md").write_text("# Doomed\nFAKE:fail:always\n")
     git_commit_all(root)
     monkeypatch.chdir(root)
     result = runner.invoke(app, ["run", "--offline"])
-    assert result.exit_code == 2  # waiting on a human decision
+    assert_exit(result, 2)  # waiting on a human decision
     return root
 
 
 class TestReview:
     def test_summary_contents(self, finished: Path) -> None:
         result = runner.invoke(app, ["review"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         out = result.output
         assert "status:" in out and "complete" in out
         assert "tasks finished" in out
@@ -59,12 +60,12 @@ class TestReview:
 
     def test_full_patch(self, finished: Path) -> None:
         result = runner.invoke(app, ["review", "--full"])
-        assert result.exit_code == 0
+        assert_exit(result, 0)
         assert "diff --git" in result.output
 
     def test_partial_run_warns(self, blocked: Path) -> None:
         result = runner.invoke(app, ["review"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "not complete" in result.output
         assert "--allow-partial" in result.output
 
@@ -73,26 +74,26 @@ class TestAcceptConfirmation:
     def test_default_is_no(self, finished: Path) -> None:
         # Plain Enter at the prompt must decline.
         result = runner.invoke(app, ["accept"], input="\n")
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "nothing changed" in result.output
         assert not list(finished.glob("fake-task_*.txt"))
 
     def test_explicit_yes_at_prompt(self, finished: Path) -> None:
         result = runner.invoke(app, ["accept"], input="y\n")
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "accepted" in result.output
         assert list(finished.glob("fake-task_*.txt"))
 
     def test_yes_flag_for_automation(self, finished: Path) -> None:
         result = runner.invoke(app, ["accept", "--yes"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "accepted" in result.output
 
     def test_accept_records_durable_event_with_merge_sha(self, finished: Path) -> None:
         """Accept is the only moment work becomes true of the user's branch;
         it must leave a durable event naming the merge commit."""
         result = runner.invoke(app, ["accept", "--yes"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=finished, capture_output=True, text=True
         ).stdout.strip()
@@ -123,24 +124,24 @@ class TestAcceptConfirmation:
 class TestCompleteRunEnforcement:
     def test_incomplete_run_refused(self, blocked: Path) -> None:
         result = runner.invoke(app, ["accept", "--yes"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "not complete" in result.output
         assert "--allow-partial" in result.output
         assert "orkestra resume" in result.output
         # merge alias enforces identically (no warn-and-continue anymore)
         result = runner.invoke(app, ["merge", "--yes"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "not complete" in result.output
 
     def test_allow_partial_requires_confirmation(self, blocked: Path) -> None:
         result = runner.invoke(app, ["accept", "--allow-partial"], input="\n")
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "ACCEPTING A PARTIAL RESULT" in result.output
         assert "nothing changed" in result.output  # default declined
 
     def test_allow_partial_with_yes(self, blocked: Path) -> None:
         result = runner.invoke(app, ["accept", "--allow-partial", "--yes"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "accepted" in result.output
 
 
@@ -155,7 +156,7 @@ class TestAcceptSafety:
         ).stdout.split()[-1]
         subprocess.run(["git", "checkout", "-q", integration], cwd=finished, check=True)
         result = runner.invoke(app, ["accept", "--yes"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "internal" in result.output.replace("\n", " ")
         assert "git checkout main" in result.output
 
@@ -169,7 +170,7 @@ class TestAcceptSafety:
         assert match, review
         (finished / match.group(0)).write_text("my unrelated note\n")
         result = runner.invoke(app, ["accept", "--yes"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "would be overwritten" in result.output
 
     def test_cleanup_only_after_success(self, finished: Path) -> None:
@@ -186,5 +187,5 @@ class TestAcceptSafety:
         assert branches != ""  # everything still there
         # Successful acceptance cleans up.
         result = runner.invoke(app, ["accept", "--cleanup", "--yes"])
-        assert result.exit_code == 0
+        assert_exit(result, 0)
         assert "tidied up" in result.output

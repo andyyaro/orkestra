@@ -8,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from orkestra.cli.main import app
+from tests.cli.asserts import assert_exit, invoke
 from tests.cli.test_cli import FAKE_CONFIG, git_commit_all
 from tests.cli.test_start_journey import mock_detection
 
@@ -19,12 +20,12 @@ ALL_READY = {"claude-code": True, "codex-cli": True, "antigravity-cli": True}
 def _finished_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "proj"
     monkeypatch.chdir(tmp_path)
-    assert runner.invoke(app, ["init", str(root), "--non-interactive"]).exit_code == 0
+    invoke(runner, ["init", str(root), "--non-interactive"], 0)
     (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
     (root / "SPEC.md").write_text("# Demo\nBuild a widget.\n")
     git_commit_all(root)
     monkeypatch.chdir(root)
-    assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+    invoke(runner, ["run", "--offline"], 0)
     return root
 
 
@@ -40,7 +41,7 @@ class TestAgentsFlag:
             app,
             ["start", str(root), "--non-interactive", "--no-run", "--agents", "claude,codex"],
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "using only: claude-code, codex-cli" in result.output.replace("\n", " ")
         config = load_config(root / ".orkestra" / "config.toml")
         adapters = {a.adapter for a in config.agents.values() if a.enabled}
@@ -60,7 +61,7 @@ class TestAgentsFlag:
                 "claude-code, agy",
             ],
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "using only: claude-code, antigravity-cli" in result.output.replace("\n", " ")
 
     def test_unknown_name_rejected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -69,7 +70,7 @@ class TestAgentsFlag:
             app,
             ["start", str(tmp_path / "x"), "--non-interactive", "--agents", "claude,cursor"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "unknown agent name" in flat
         assert "cursor" in flat
@@ -80,7 +81,7 @@ class TestAgentsFlag:
             app,
             ["start", str(tmp_path / "x"), "--non-interactive", "--agents", "claude"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "at least two" in " ".join(result.output.split())
 
     def test_requested_but_not_signed_in_fails(
@@ -91,7 +92,7 @@ class TestAgentsFlag:
             app,
             ["start", str(tmp_path / "x"), "--non-interactive", "--agents", "claude,codex"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "not signed in" in flat
         assert "codex-cli" in flat
@@ -105,7 +106,7 @@ class TestReportLocation:
     ) -> None:
         root = _finished_project(tmp_path, monkeypatch)
         result = runner.invoke(app, ["report", "--save"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         reports = list((root / ".orkestra" / "reports").iterdir())
         suffixes = sorted(p.suffix for p in reports)
         assert suffixes == [".json", ".md"]
@@ -116,7 +117,7 @@ class TestReportLocation:
     ) -> None:
         root = _finished_project(tmp_path, monkeypatch)
         result = runner.invoke(app, ["report", "--out", str(root / "report.md")])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         flat = " ".join(result.output.split())
         assert "untracked" in flat
         assert "--save" in flat
@@ -128,7 +129,7 @@ class TestReportLocation:
         _finished_project(tmp_path, monkeypatch)
         target = tmp_path / "elsewhere.md"
         result = runner.invoke(app, ["report", "--out", str(target)])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "untracked" not in result.output
         assert target.exists()
 
@@ -139,13 +140,13 @@ class TestPracticeModeHonesty:
     ) -> None:
         root = tmp_path / "proj"
         monkeypatch.chdir(tmp_path)
-        assert runner.invoke(app, ["init", str(root), "--non-interactive"]).exit_code == 0
+        invoke(runner, ["init", str(root), "--non-interactive"], 0)
         (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
         (root / "SPEC.md").write_text("# Demo\nBuild a widget.\n")
         git_commit_all(root)
         monkeypatch.chdir(root)
         result = runner.invoke(app, ["run", "--offline"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         flat = " ".join(result.output.split())
         assert "practice run:" in flat
         assert "SPEC.md is not actually implemented" in flat
@@ -155,7 +156,7 @@ class TestPracticeModeHonesty:
     ) -> None:
         _finished_project(tmp_path, monkeypatch)
         result = runner.invoke(app, ["review"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "practice run:" in " ".join(result.output.split())
 
     def test_helper_false_for_real_adapters(self) -> None:

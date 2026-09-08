@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 
 import orkestra.cli.start as start_module
 from orkestra.cli.main import app
+from tests.cli.asserts import assert_exit
 
 runner = CliRunner()
 
@@ -59,7 +60,7 @@ class TestCleanScenarios:
     def test_1_clean_empty_directory(self, tmp_path: Path) -> None:
         root = tmp_path / "empty"
         result = start(root)
-        assert result.exit_code == 0, result.output  # type: ignore[attr-defined]
+        assert_exit(result, 0)
         # One-command experience preserved: repo created, setup committed.
         assert sorted(head_files(root)) == [".gitignore", "SPEC.md"]
         assert git(root, "status", "--porcelain").strip() == ""
@@ -68,7 +69,7 @@ class TestCleanScenarios:
         root = tmp_path / "clean"
         make_repo(root)
         result = start(root)
-        assert result.exit_code == 0, result.output  # type: ignore[attr-defined]
+        assert_exit(result, 0)
         # Setup commit contains only Orkestra-owned files (scenario 7/9).
         assert set(head_files(root)) <= {".gitignore", "SPEC.md"}
         assert "README.md" not in head_files(root)
@@ -80,7 +81,7 @@ class TestDirtyRepositoryStops:
         make_repo(root)
         (root / "README.md").write_text("user edited this, uncommitted\n")
         result = start(root)
-        assert result.exit_code == 1  # type: ignore[attr-defined]
+        assert_exit(result, 1)
         output = result.output  # type: ignore[attr-defined]
         # Plain language, no git jargon required to understand it.
         assert "work in progress" in output
@@ -97,7 +98,7 @@ class TestDirtyRepositoryStops:
         (root / "half-done.py").write_text("wip = True\n")
         git(root, "add", "half-done.py")
         result = start(root)
-        assert result.exit_code == 1  # type: ignore[attr-defined]
+        assert_exit(result, 1)
         assert "half-done.py" in result.output  # type: ignore[attr-defined]
         # Their staged file is still staged, untouched.
         assert "half-done.py" in git(root, "diff", "--name-only", "--cached")
@@ -108,7 +109,8 @@ class TestDirtyRepositoryStops:
         (root / "README.md").write_text("edit\n")
         first = start(root)
         second = start(root)
-        assert first.exit_code == second.exit_code == 1  # type: ignore[attr-defined]
+        assert_exit(first, 1)
+        assert_exit(second, 1)
         assert "work in progress" in second.output  # type: ignore[attr-defined]
 
 
@@ -119,7 +121,7 @@ class TestUntrackedAndBaseline:
         (root / "scratch.txt").write_text("my notes\n")
         (root / "data.csv").write_text("1,2,3\n")
         result = start(root)
-        assert result.exit_code == 0, result.output  # type: ignore[attr-defined]
+        assert_exit(result, 0)
         committed = head_files(root)
         assert "scratch.txt" not in committed and "data.csv" not in committed
         status = git(root, "status", "--porcelain")
@@ -131,7 +133,7 @@ class TestUntrackedAndBaseline:
         (root / "app.py").write_text("print('existing user code')\n")
         (root / "notes.md").write_text("ideas\n")
         result = start(root)
-        assert result.exit_code == 0, result.output  # type: ignore[attr-defined]
+        assert_exit(result, 0)
         output = result.output  # type: ignore[attr-defined]
         # Setup commit exists but contains ONLY Orkestra files...
         assert sorted(head_files(root)) == [".gitignore", "SPEC.md"]
@@ -160,12 +162,12 @@ class TestCompatibility:
         # start reconfigures it, and the run completes.
         root = tmp_path / "v04"
         result = start(root)
-        assert result.exit_code == 0  # type: ignore[attr-defined]
+        assert_exit(result, 0)
         result = runner.invoke(
             app,
             ["start", str(root), "--non-interactive", "--preset", "faster", "--no-run"],
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         monkeypatch.chdir(root)
         result = runner.invoke(app, ["run", "--offline"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)

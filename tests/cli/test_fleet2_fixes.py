@@ -9,6 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from orkestra.cli.main import app
+from tests.cli.asserts import assert_exit, invoke
 from tests.cli.test_cli import FAKE_CONFIG, git_commit_all
 from tests.cli.test_start_journey import mock_detection
 
@@ -18,7 +19,7 @@ runner = CliRunner()
 def _practice_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "proj"
     monkeypatch.chdir(tmp_path)
-    assert runner.invoke(app, ["init", str(root), "--non-interactive"]).exit_code == 0
+    invoke(runner, ["init", str(root), "--non-interactive"], 0)
     (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
     (root / "SPEC.md").write_text("# Demo\nBuild a widget.\n")
     git_commit_all(root)
@@ -38,7 +39,7 @@ class TestAgentsZeroMutation:
             app,
             ["start", str(target), "--non-interactive", "--agents", "claude,codex"],
         )
-        assert result.exit_code == 1, result.output
+        assert_exit(result, 1)
         assert "not signed in" in " ".join(result.output.split())
         assert not (target / ".git").exists()
         assert not (target / ".gitignore").exists()
@@ -50,7 +51,7 @@ class TestAgentsZeroMutation:
         mock_detection(monkeypatch, {})
         target = tmp_path / "empty"
         result = runner.invoke(app, ["start", str(target), "--non-interactive", "--agents", ""])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "at least two" in " ".join(result.output.split())
         assert not (target / ".git").exists()
 
@@ -68,15 +69,14 @@ class TestNestedProjectGuardEverywhere:
         (sub / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
         monkeypatch.chdir(sub)
         for argv in (["status"], ["doctor"], ["run", "--offline"]):
-            result = runner.invoke(app, argv)
-            assert result.exit_code == 1, (argv, result.output)
+            result = invoke(runner, argv, 1)
             assert "inside another Git repository" in " ".join(result.output.split()), argv
 
     def test_project_at_repo_root_unaffected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _practice_project(tmp_path, monkeypatch)
-        assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+        invoke(runner, ["run", "--offline"], 0)
 
 
 class TestReportFixes:
@@ -84,9 +84,9 @@ class TestReportFixes:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         root = _practice_project(tmp_path, monkeypatch)
-        assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+        invoke(runner, ["run", "--offline"], 0)
         result = runner.invoke(app, ["report", "--out", str(root / "deep" / "sub" / "r.md")])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "Traceback" not in result.output
         assert (root / "deep" / "sub" / "r.md").exists()
 
@@ -94,9 +94,9 @@ class TestReportFixes:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _practice_project(tmp_path, monkeypatch)
-        assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+        invoke(runner, ["run", "--offline"], 0)
         result = runner.invoke(app, ["report"])
-        assert result.exit_code == 0
+        assert_exit(result, 0)
         flat = " ".join(result.output.split())
         assert "alpha" in flat and "beta" in flat  # FAKE_CONFIG agent names
 
@@ -104,14 +104,14 @@ class TestReportFixes:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        # Keep the demo's own narration in the failure message: when this
-        # flaked on CI (py3.12/macOS, 2026-07-26) the bare exit-code assert
-        # threw away the one thing that said WHY the demo run failed.
+        # When this flaked on CI (py3.12/macOS, 2026-07-26) the bare exit-code
+        # assert threw away the one thing that said WHY the demo run failed;
+        # assert_exit keeps the demo's own narration in the failure message.
         demo = runner.invoke(app, ["demo", "--path", str(tmp_path / "d")])
-        assert demo.exit_code == 0, f"{demo.output}\nexception: {demo.exception!r}"
+        assert_exit(demo, 0)
         monkeypatch.chdir(tmp_path / "d")
         result = runner.invoke(app, ["report"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         flat = " ".join(result.output.split())
         assert "ada" in flat and "grace" in flat, result.output
 
@@ -130,7 +130,7 @@ class TestReportFixes:
         monkeypatch.setattr(Orchestrator, "execute", fail)
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["demo", "--path", str(tmp_path / "d")])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "demo ended in state failed" in flat
         assert "task feature-a:" in flat  # per-task states are shown
@@ -142,7 +142,7 @@ class TestPracticeHeadline:
     ) -> None:
         _practice_project(tmp_path, monkeypatch)
         result = runner.invoke(app, ["run", "--offline"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         flat = " ".join(result.output.split())
         assert "Practice run complete" in flat
         assert "verified result is ready" not in flat
@@ -152,7 +152,7 @@ class TestPracticeHeadline:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _practice_project(tmp_path, monkeypatch)
-        assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+        invoke(runner, ["run", "--offline"], 0)
         result = runner.invoke(app, ["accept"], input="\n")
         assert "practice run:" in " ".join(result.output.split())
         assert "nothing changed" in result.output
@@ -161,10 +161,10 @@ class TestPracticeHeadline:
 class TestCancelledExitCode:
     def test_cancelled_run_exits_3(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _practice_project(tmp_path, monkeypatch)
-        assert runner.invoke(app, ["plan", "--offline"]).exit_code == 0
-        assert runner.invoke(app, ["cancel"]).exit_code == 0
+        invoke(runner, ["plan", "--offline"], 0)
+        invoke(runner, ["cancel"], 0)
         result = runner.invoke(app, ["run", "--offline"])
-        assert result.exit_code == 3, result.output
+        assert_exit(result, 3)
 
 
 class TestPlainLanguageErrors:
@@ -180,7 +180,7 @@ class TestPlainLanguageErrors:
             )
         )
         result = runner.invoke(app, ["status"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "must be one of" in flat
         assert "Input should be" not in flat
@@ -189,7 +189,7 @@ class TestPlainLanguageErrors:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         root = _practice_project(tmp_path, monkeypatch)
-        assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+        invoke(runner, ["run", "--offline"], 0)
         (root / ".orkestra").chmod(0o500)
         try:
             result = runner.invoke(app, ["status"])
@@ -205,7 +205,7 @@ class TestProjectNameSlug:
         mock_detection(monkeypatch, {})
         root = tmp_path / "mon projet émoji"
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--no-run"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         from orkestra.schemas.config import load_config
 
         config = load_config(root / ".orkestra" / "config.toml")
@@ -231,7 +231,7 @@ class TestGitignoreSeeding:
         subprocess.run(["git", "init", "-q"], cwd=root, check=True, capture_output=True)
         git_commit_all(root)
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--no-run"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         ignore = (root / ".gitignore").read_text()
         assert "__pycache__/" in ignore
         assert ".orkestra/" in ignore
@@ -243,7 +243,7 @@ class TestDoctorPreInit:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["doctor"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "checking the environment only" in flat
         assert "git:" in flat

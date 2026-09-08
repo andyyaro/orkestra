@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 import orkestra.cli.start as start_module
 from orkestra.cli.main import app
 from orkestra.schemas.config import load_config
+from tests.cli.asserts import assert_exit
 
 runner = CliRunner()
 
@@ -40,15 +41,15 @@ class TestPracticeModeJourney:
         root = tmp_path / "first-project"
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--run"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "practice mode" in result.output
         assert "run complete" in result.output.lower()  # practice or real headline
         # Journey continues with the same friendly commands.
         monkeypatch.chdir(root)
         result = runner.invoke(app, ["review"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         result = runner.invoke(app, ["accept", "--cleanup", "--yes"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "accepted" in result.output
 
     def test_no_toml_knowledge_needed(
@@ -57,7 +58,7 @@ class TestPracticeModeJourney:
         mock_detection(monkeypatch, {})
         root = tmp_path / "p"
         result = runner.invoke(app, ["start", str(root), "--non-interactive", "--no-run"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         # The user never opened the file, but it is valid and complete.
         config = load_config(root / ".orkestra" / "config.toml")
         assert len(config.enabled_agents) == 2
@@ -77,7 +78,7 @@ class TestPresets:
             app,
             ["start", str(root), "--non-interactive", "--preset", "max-quality", "--no-run"],
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         config = load_config(root / ".orkestra" / "config.toml")
         agents = config.enabled_agents
         assert set(agents) == {"claude-deep", "claude-fast", "codex", "antigravity"}
@@ -98,7 +99,7 @@ class TestPresets:
             app,
             ["start", str(root), "--non-interactive", "--preset", "faster", "--no-run"],
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         config = load_config(root / ".orkestra" / "config.toml")
         assert config.agents["claude"].model == "haiku"
         assert config.agents["codex"].effort == "low"
@@ -112,7 +113,7 @@ class TestPresets:
             app,
             ["start", str(tmp_path / "x"), "--non-interactive", "--preset", "turbo", "--no-run"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "balanced" in result.output  # lists valid options
 
 
@@ -129,7 +130,7 @@ class TestInteractiveStart:
             ["start", str(root)],
             input="1\n\nbuild a tiny CLI that greets people\n\n\nn\n",
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "How should the agents be tuned?" in result.output
         spec = (root / "SPEC.md").read_text()
         assert "greets people" in spec
@@ -171,7 +172,7 @@ class TestInteractiveStart:
             app,
             ["start", str(root), "--non-interactive", "--preset", "balanced", "--no-run"],
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "A real spec I wrote" in (root / "SPEC.md").read_text()
 
 
@@ -184,6 +185,6 @@ class TestModelsScreen:
         runner.invoke(app, ["start", str(root), "--non-interactive", "--no-run"])
         monkeypatch.chdir(root)
         result = runner.invoke(app, ["models"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "ada" in result.output and "grace" in result.output
         assert "default" in result.output  # provenance column
