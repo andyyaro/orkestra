@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from rich.console import Console
 
+from orkestra.cli.text import clip
 from orkestra.schemas.agent import AgentEvent, EventKind
 
 if TYPE_CHECKING:
@@ -128,7 +129,7 @@ async def _run_demo(root: Path) -> bool:
         )
 
         def print_event(_run: str, event: AgentEvent) -> None:
-            text = event.text.strip().replace("\n", " ")[:160]
+            text = clip(event.text.strip().replace("\n", " "), 160)
             if not text:
                 return
             styles = {
