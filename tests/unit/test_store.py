@@ -104,6 +104,51 @@ class TestTasks:
             store.bump_task_counter(task_id, "state")  # SQL injection guard
 
 
+class TestTaskTransitionEnforcement:
+    """TASK_TRANSITIONS is enforcement, not documentation."""
+
+    def test_legal_pipeline_walk_is_accepted(self, store: Store) -> None:
+        run_id = store.create_run("demo")
+        task_id = store.add_task(run_id, make_task(), None)
+        for state in (
+            TaskState.READY,
+            TaskState.RUNNING,
+            TaskState.VERIFYING,
+            TaskState.REVIEWING,
+            TaskState.INTEGRATING,
+            TaskState.DONE,
+        ):
+            store.set_task_state(task_id, state)
+        assert store.get_task(task_id).state is TaskState.DONE
+
+    def test_skipping_the_pipeline_is_rejected(self, store: Store) -> None:
+        run_id = store.create_run("demo")
+        task_id = store.add_task(run_id, make_task(), None)
+        with pytest.raises(StateTransitionError, match="TASK_TRANSITIONS"):
+            store.set_task_state(task_id, TaskState.DONE)  # straight from pending
+        assert store.get_task(task_id).state is TaskState.PENDING
+
+    def test_terminal_state_cannot_be_reopened(self, store: Store) -> None:
+        run_id = store.create_run("demo")
+        task_id = store.add_task(run_id, make_task(), None)
+        store.set_task_state(task_id, TaskState.READY)
+        store.set_task_state(task_id, TaskState.RUNNING)
+        store.set_task_state(task_id, TaskState.VERIFYING)
+        store.set_task_state(task_id, TaskState.DONE)
+        for illegal in (TaskState.BLOCKED, TaskState.CANCELLED, TaskState.READY):
+            with pytest.raises(StateTransitionError, match="illegal transition"):
+                store.set_task_state(task_id, illegal)
+        assert store.get_task(task_id).state is TaskState.DONE
+
+    def test_self_transition_stays_idempotent(self, store: Store) -> None:
+        # PENDING -> PENDING is not in the table; idempotent writes must
+        # still be no-ops rather than errors.
+        run_id = store.create_run("demo")
+        task_id = store.add_task(run_id, make_task(), None)
+        store.set_task_state(task_id, TaskState.PENDING)
+        assert store.get_task(task_id).state is TaskState.PENDING
+
+
 class TestAttempts:
     def test_lifecycle_and_idempotent_finish(self, store: Store) -> None:
         run_id = store.create_run("demo")

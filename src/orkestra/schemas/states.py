@@ -1,4 +1,10 @@
-"""Legal state transition tables (enforced additionally by Store guards)."""
+"""Legal state transition tables, enforced by the Store on every write.
+
+These live in `schemas` rather than `kernel` because the store enforces
+them, and the documented dependency rule runs `cli -> kernel -> (store,
+...)`. A table the store must consult is a shared contract, not kernel
+logic, and it depends on nothing but `schemas.common`.
+"""
 
 from __future__ import annotations
 
