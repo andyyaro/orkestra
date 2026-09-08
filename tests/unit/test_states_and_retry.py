@@ -5,14 +5,14 @@ from __future__ import annotations
 import itertools
 
 from orkestra.kernel.retry import BackoffPolicy, next_agent
-from orkestra.kernel.states import (
+from orkestra.schemas.agent import ErrorKind
+from orkestra.schemas.common import RunState, TaskState
+from orkestra.schemas.states import (
     RUN_TRANSITIONS,
     TASK_TRANSITIONS,
     can_transition_run,
     can_transition_task,
 )
-from orkestra.schemas.agent import ErrorKind
-from orkestra.schemas.common import RunState, TaskState
 
 
 class TestTransitionTables:

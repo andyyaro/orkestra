@@ -18,6 +18,7 @@ from orkestra.schemas.agent import AgentEvent, AgentResult, Usage
 from orkestra.schemas.capability import CapabilityObservation
 from orkestra.schemas.common import AttemptState, RunState, TaskState, utc_now
 from orkestra.schemas.decision import HumanDecision
+from orkestra.schemas.states import can_transition_task
 from orkestra.schemas.task import Assignment, TaskSpec
 from orkestra.store.db import Database
 
@@ -221,6 +222,15 @@ class Store:
                 return
             if expected is not None and current not in expected:
                 msg = f"task {task_id}: cannot move {current} -> {new} (expected {expected})"
+                raise StateTransitionError(msg)
+            if not can_transition_task(current, new):
+                # TASK_TRANSITIONS is the state machine, not a comment about
+                # it: a move it does not list is a kernel bug, and silently
+                # writing it would hide the bug in the database.
+                msg = (
+                    f"task {task_id}: illegal transition {current.value} -> {new.value}"
+                    " (not in TASK_TRANSITIONS)"
+                )
                 raise StateTransitionError(msg)
             conn.execute(
                 "UPDATE tasks SET state = ?, updated_at = ? WHERE task_id = ?",
