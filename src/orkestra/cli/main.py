@@ -404,6 +404,90 @@ def demo(
 # ---------------------------------------------------------------- doctor
 
 
+async def _verify_rows(application: App, table: Table) -> int:
+    """The \\[verify] rows: does the gate resolve, run, and read the tree?
+
+    Three questions no other check asks, in the command QUICKSTART tells
+    every user to run, before a single token is spent: can each command
+    start; does it pass in a fresh checkout of HEAD; and does it actually
+    read the tree it is pointed at. Returns the number of problems found.
+    """
+    from orkestra.verify.binding import BindingStatus, prove_binding
+    from orkestra.verify.runner import gate_command_problem
+
+    label = escape("[verify] commands")
+    commands = application.config.verify.commands
+    if not commands:
+        table.add_row(
+            label,
+            "[yellow]none[/yellow]",
+            escape(
+                "no gate is configured, so Orkestra cannot verify anything an "
+                "agent writes - set commands = [...] under [verify] in "
+                f"{CONFIG_RELPATH}"
+            ),
+        )
+        return 0
+
+    broken = [
+        f"{command!r}: {problem}"
+        for command in commands
+        if (problem := gate_command_problem(command, strict=False))
+    ]
+    if broken:
+        table.add_row(label, "[red]cannot start[/red]", escape("; ".join(broken)))
+        # A command that cannot start makes the gate rows below meaningless.
+        return 1
+    table.add_row(label, "[green]resolve on PATH[/green]", escape("; ".join(commands)))
+
+    gate_label = escape("[verify] gate (fresh checkout of HEAD)")
+    if not application.config.verify.binding_check:
+        table.add_row(
+            gate_label,
+            "[yellow]not checked[/yellow]",
+            escape(
+                "verify.binding_check = false, so Orkestra cannot tell whether "
+                "your gate reads the tree it is pointed at"
+            ),
+        )
+        return 0
+
+    try:
+        async with application.workspaces.scratch_worktree("doctor") as path:
+            proof = await prove_binding(
+                path, commands, timeout_s=application.config.verify.timeout_s
+            )
+    except OrkestraError as exc:
+        table.add_row(gate_label, "[yellow]cannot check[/yellow]", escape(str(exc)))
+        return 0
+
+    problems = 0
+    if proof.baseline_exit not in (None, 0):
+        problems += 1
+        table.add_row(
+            gate_label,
+            "[red]fails[/red]",
+            escape(
+                f"your gate exits {proof.baseline_exit} on a clean checkout of HEAD - "
+                "every agent attempt will be rejected until it passes here. "
+                f"({proof.detail})"
+            ),
+        )
+    status_style = {
+        BindingStatus.BOUND: "[green]bound[/green]",
+        BindingStatus.UNBOUND: "[red]NOT bound[/red]",
+        BindingStatus.CANNOT_CHECK: "[yellow]cannot check[/yellow]",
+    }[proof.status]
+    if proof.status is BindingStatus.UNBOUND:
+        problems += 1
+    table.add_row(
+        escape("[verify] gate binding"),
+        status_style,
+        escape(f"{proof.reason} ({proof.detail})"),
+    )
+    return problems
+
+
 @app.command()
 def doctor() -> None:
     """Check Git, configuration, agents, and platform readiness."""
@@ -483,6 +567,7 @@ def doctor() -> None:
             "[green]ok[/green]",
             str(application.root / ".orkestra" / "orkestra.db"),
         )
+        problems += await _verify_rows(application, table)
 
         ready_agents = 0
         for name, adapter in application.adapters.items():

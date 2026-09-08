@@ -9,7 +9,50 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess  # nosec B404 - argv-only, no shell, fixed arguments
 from pathlib import Path
+
+
+def _pytest_command(root: Path) -> str:
+    """A pytest gate that reads the tree it is run in.
+
+    Bare ``pytest -q`` does not, in general. The console script resolves
+    imports through its own interpreter's ``sys.path``, and for a src-layout
+    project installed editable that path holds an absolute pointer to the
+    checkout the install was made from - so run in one of Orkestra's task
+    worktrees it happily tests a *different* tree and cannot fail. Prefer
+    ``uv run``, which re-resolves the environment for the current directory;
+    otherwise ``python3 -m pytest``, which at least puts the current
+    directory first. Orkestra also prepends a worktree-scoped PYTHONPATH
+    when it runs the gate, and proves the binding before trusting it.
+    """
+    if (root / "uv.lock").exists():
+        return "uv run pytest -q"
+    if _module_runs("python3", "pytest"):
+        return "python3 -m pytest -q"
+    return "pytest -q"
+
+
+def _module_runs(interpreter: str, module: str) -> bool:
+    """True if *interpreter* can actually run *module*.
+
+    `pytest` on PATH does not imply `python3 -m pytest` works: the console
+    script may belong to a different environment entirely, and suggesting a
+    gate that cannot start is worse than suggesting a weaker one.
+    """
+    executable = shutil.which(interpreter)
+    if not executable:
+        return False
+    try:
+        completed = subprocess.run(
+            [executable, "-m", module, "--version"],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0
 
 
 def detect_verify_commands(root: Path) -> list[str]:
@@ -37,7 +80,7 @@ def detect_verify_commands(root: Path) -> list[str]:
         uses_pytest = "pytest" in text or has("pytest.ini") or "import pytest" in joined
         uses_unittest = "import unittest" in joined or "from unittest" in joined
         if uses_pytest and (shutil.which("pytest") or (root / "uv.lock").exists()):
-            commands.append("uv run pytest -q" if (root / "uv.lock").exists() else "pytest -q")
+            commands.append(_pytest_command(root))
         elif uses_unittest or (tests_dir and sources):
             commands.append("python3 -m unittest discover -q")
 

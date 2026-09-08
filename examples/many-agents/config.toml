@@ -32,4 +32,4 @@ max_concurrency = 3
 max_attempts_per_task = 4
 
 [verify]
-commands = ["pytest -q"]
+commands = ["uv run pytest -q"]

@@ -30,6 +30,13 @@ class TestExplainBlock:
         text = explain_block("no independent reviewer could produce a verdict")
         assert "doctor" in text
 
+    def test_unbound_gate(self) -> None:
+        text = explain_block(
+            "verification gate is not bound to the worktree: the gate returned "
+            "exit 0 both on this worktree and with src/pkg/__init__.py corrupted"
+        )
+        assert "editable" in text and "uv run pytest" in text and "retry" in text
+
     def test_bad_acceptance_command(self) -> None:
         text = explain_block("verification setup error: command not found: 'greet.py'")
         assert "[verify]" in text

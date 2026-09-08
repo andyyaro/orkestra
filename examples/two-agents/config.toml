@@ -11,4 +11,4 @@ adapter = "claude-code"
 adapter = "codex-cli"
 
 [verify]
-commands = ["pytest -q"]
+commands = ["uv run pytest -q"]

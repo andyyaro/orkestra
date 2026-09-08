@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import secrets
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -161,6 +162,28 @@ class WorkspaceManager:
                 async with self._worktree_admin:
                     await self.repo.worktree_remove(merge_dir, force=True)
                     await self.repo.worktree_prune()
+
+    @contextlib.asynccontextmanager
+    async def scratch_worktree(self, purpose: str, ref: str | None = None) -> AsyncIterator[Path]:
+        """A throwaway detached worktree, removed however the body exits.
+
+        Detached on purpose: a branch can host only one worktree, and this
+        must never contend with the integration merge worktree. Used to run
+        checks (the gate binding canary, `orkestra doctor`) against a real
+        checkout without touching the user's tree or any task's tree.
+        """
+        target = ref or await self.repo.head_commit()
+        self.worktrees_dir.mkdir(parents=True, exist_ok=True)
+        path = self.worktrees_dir / f"scratch-{worktree_dirname(purpose, 'wt')}"
+        async with self._worktree_admin:
+            await self.repo.worktree_add_existing(path, target)
+        try:
+            yield path
+        finally:
+            async with self._worktree_admin:
+                with contextlib.suppress(WorkspaceError):
+                    await self.repo.worktree_remove(path, force=True)
+                await self.repo.worktree_prune()
 
     async def remove_workspace(self, workspace: Workspace, *, keep_branch: bool) -> None:
         async with self._worktree_admin:
