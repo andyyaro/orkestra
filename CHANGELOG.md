@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot start already is.
 
 ### Changed
+- Agents now launch with the same worktree-scoped `PYTHONPATH` their gate
+  uses. An agent that ran the project's tests inside its own worktree
+  previously got the unbound behaviour the gate is protected from: it
+  could see green where the gate saw red, and could not reproduce its own
+  rejection, which is the one thing a repair brief asks it to do.
 - Verification commands now run with a worktree-scoped `PYTHONPATH` (the
   worktree's `src/` when there is one, its root otherwise, then any
   inherited value), so the common Python case is bound by construction.

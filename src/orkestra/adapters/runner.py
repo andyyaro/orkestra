@@ -13,6 +13,7 @@ import os
 import signal
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from orkestra.schemas.agent import (
@@ -22,7 +23,7 @@ from orkestra.schemas.agent import (
     EventKind,
     ResultStatus,
 )
-from orkestra.verify.runner import subprocess_env
+from orkestra.verify.runner import gate_env, subprocess_env
 
 if TYPE_CHECKING:
     from orkestra.adapters.base import InvocationSpec, StreamParser
@@ -88,7 +89,7 @@ async def run_invocation(
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=subprocess_env(spec.env_extra),
+            env=gate_env(Path(spec.cwd), spec.env_extra),
             start_new_session=True,
             limit=_MAX_LINE_BYTES,
         )
