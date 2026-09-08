@@ -6,12 +6,12 @@ historical) and `docs/development/evidence/`.
 
 ## Current state (2026-09-08)
 
-- **Version:** 0.5.4 · latest published: **0.5.3** on
+- **Version:** 0.5.5 · latest published: **0.5.5** on
   [PyPI](https://pypi.org/project/orkestra-runtime/) and
   [GitHub releases](https://github.com/andyyaro/orkestra/releases)
 - **Repository:** https://github.com/andyyaro/orkestra · default branch
   `main` · protected (7 required CI checks, no force pushes)
-- **Quality gates (verified this date):** 545 tests collected, suite
+- **Quality gates (verified this date):** 548 tests collected, suite
   green locally and across the CI matrix (docker-gated tests skip
   without a daemon) · ruff
   format/lint clean · mypy `--strict` clean · bandit 0 findings ·
@@ -34,6 +34,7 @@ historical) and `docs/development/evidence/`.
 | 0.5.2 | 2026-07-25 | Agent efficiency + honesty pass (fleet #4 tier 2) |
 | 0.5.3 | 2026-07-25 | PR #6 review commitments: accept-time event, merge shas, injection labeling, demo diagnosability |
 | 0.5.4 | 2026-09-08 | Bound gates (a gate could pass on a tree it never read), worktree add/prune race, work-loss guard, verification records |
+| 0.5.5 | 2026-09-08 | `--version` reported 0.5.3 from a 0.5.4 install; the version is now single-sourced from package metadata |
 | 0.4.0 | 2026-07-25 | Progressive-disclosure configuration (`orkestra start`, presets, neutral effort, model discovery) |
 | 0.3.0 | 2026-07-25 | Usability (demo, diff/merge, plain-language gates, progress line) |
 | 0.2.0 | 2026-07-25 | Quota-aware scheduling, Docker sandbox (external agents), TUI, session reuse |
