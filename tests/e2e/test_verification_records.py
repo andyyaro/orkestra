@@ -1,0 +1,184 @@
+"""The ``verifications`` table must agree with what actually happened.
+
+These tests do not check that rows exist. They re-derive every fact from
+an independent source (the emitted event text, and git itself) and
+require the stored row to match it, because a verification record that
+disagrees with the run it describes is worse than no record at all.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+from orkestra.app import App, build_app
+from orkestra.schemas.common import RunState
+from orkestra.verify.record import BINDING_NOT_CHECKED, SCOPE_TASK
+from orkestra.workspace.git import GitRepo
+from tests.e2e.conftest import make_project
+from tests.e2e.test_orchestration import assign, manual_run, spec
+
+#: The exact shape VerificationOutcome.summary renders into the event.
+_SUMMARY_LINE = re.compile(r"^(PASS|FAIL) \(exit (-?\d+), ([\d.]+)s\): (.+)$")
+
+
+def _set_verify(app: App, commands: list[str]) -> App:
+    config_path = app.root / ".orkestra" / "config.toml"
+    rendered = ", ".join(f'"{c}"' for c in commands)
+    config_path.write_text(config_path.read_text() + f"\n[verify]\ncommands = [{rendered}]\n")
+    app.close()
+    return build_app(app.root, offline=True)
+
+
+def _summary_lines(app: App, run_id: str) -> list[tuple[str, int, str, str]]:
+    """(PASS/FAIL, exit code, duration to 1dp, command) from the events."""
+    parsed = []
+    for event in app.store.events_for_run(run_id, limit=1000):
+        text = str(event["text"])
+        if not text.startswith("verification "):
+            continue
+        for line in text.splitlines():
+            match = _SUMMARY_LINE.match(line.strip())
+            if match:
+                parsed.append((match.group(1), int(match.group(2)), match.group(3), match.group(4)))
+    return parsed
+
+
+async def _commit_gate_scripts(root: Path, scripts: dict[str, str]) -> None:
+    """Gate scripts must be committed: the gate runs in the task worktree,
+    which only ever contains committed files."""
+    for name, body in scripts.items():
+        (root / name).write_text(body)
+    await GitRepo(root).add_all_and_commit("add gate scripts")
+
+
+class TestVerificationRecordsMatchTheRun:
+    async def test_stored_exit_codes_and_durations_match_the_events(self, tmp_path: Path) -> None:
+        base = await make_project(tmp_path)
+        # A measurable sleep: a duration that is always 0.0 would let a
+        # hardcoded zero pass this test.
+        await _commit_gate_scripts(base.root, {"slow.py": "import time\ntime.sleep(0.35)\n"})
+        app = _set_verify(base, ["python3 slow.py", "true"])
+        try:
+            run_id = await manual_run(
+                app, [(spec("t", "FAKE:write:a.txt:x"), assign("alpha", "beta"))]
+            )
+            state = await app.orchestrator.execute(run_id)
+            assert state is RunState.COMPLETE
+
+            rows = app.store.verifications_for_run(run_id)
+            events = _summary_lines(app, run_id)
+            print(f"event summary lines: {events}")
+            print(
+                "stored rows: "
+                + str(
+                    [
+                        (r.scope, r.command, r.exit_code, round(r.duration_s, 3), r.binding)
+                        for r in rows
+                    ]
+                )
+            )
+            assert len(events) == 2, events
+            assert len(rows) == len(events)
+
+            # Every executed command, in order, with the same verdict, the
+            # same exit code and the same duration the event reported.
+            from_rows = [
+                ("PASS" if r.passed else "FAIL", r.exit_code, f"{r.duration_s:.1f}", r.command)
+                for r in rows
+            ]
+            assert from_rows == events
+
+            slow, fast = rows
+            assert slow.command == "python3 slow.py"
+            assert slow.duration_s >= 0.35, slow.duration_s
+            assert fast.command == "true"
+            # The sleep really is the slow one: the durations are measured,
+            # not copied from a single shared value.
+            assert slow.duration_s > fast.duration_s
+            assert slow.argv == ["python3", "slow.py"]
+            assert fast.argv == ["true"]
+        finally:
+            app.close()
+
+    async def test_recorded_tree_is_the_tree_that_was_verified(self, tmp_path: Path) -> None:
+        base = await make_project(tmp_path)
+        app = _set_verify(base, ["true"])
+        try:
+            run_id = await manual_run(
+                app, [(spec("t", "FAKE:write:proof.txt:contents"), assign("alpha", "beta"))]
+            )
+            assert await app.orchestrator.execute(run_id) is RunState.COMPLETE
+            row = app.store.verifications_for_run(run_id)[0]
+            repo = GitRepo(app.root)
+
+            # The commit sha is checkoutable and its tree is the recorded one.
+            derived_tree = await repo.rev_parse(f"{row.commit_sha}^{{tree}}")
+            print(f"commit={row.commit_sha} tree={row.tree_sha} derived={derived_tree}")
+            assert derived_tree == row.tree_sha
+
+            # And that tree is the agent's work, not the base tree.
+            _, listing, _ = await repo._git("ls-tree", "-r", "--name-only", row.tree_sha)
+            print(f"tree contents: {listing.split()}")
+            assert "proof.txt" in listing.split()
+            base_tree = await repo.rev_parse(f"{app.store.get_run(run_id).base_commit}^{{tree}}")
+            assert row.tree_sha != base_tree
+
+            assert row.scope == SCOPE_TASK
+            assert row.task_id == app.store.tasks_for_run(run_id)[0].task_id
+            assert row.binding == BINDING_NOT_CHECKED
+            assert row.env_fingerprint.startswith("sha256:")
+            assert row.output_digest.startswith("sha256:")
+        finally:
+            app.close()
+
+    async def test_only_executed_commands_are_recorded(self, tmp_path: Path) -> None:
+        base = await make_project(tmp_path)
+        await _commit_gate_scripts(base.root, {"boom.py": "import sys\nsys.exit(3)\n"})
+        # run_verification stops at the first failure, so the second command
+        # never runs and must not appear as evidence that it did.
+        app = _set_verify(base, ["python3 boom.py", "true"])
+        try:
+            run_id = await manual_run(
+                app, [(spec("t", "FAKE:write:a.txt:x"), assign("alpha", "beta"))]
+            )
+            await app.orchestrator.execute(run_id)
+            rows = app.store.verifications_for_run(run_id)
+            commands = [r.command for r in rows]
+            exits = [r.exit_code for r in rows]
+            print(f"recorded commands={commands} exits={exits}")
+            assert rows, "the failing gate ran, so it must have been recorded"
+            assert set(commands) == {"python3 boom.py"}
+            assert set(exits) == {3}
+            # Same failing gate on every retry, one row each, never "true".
+            assert len(rows) == len(_summary_lines(app, run_id))
+
+            summary = app.store.verification_summary(run_id)
+            print(f"summary: {summary}")
+            assert len(summary) == 1
+            assert summary[0]["scope"] == SCOPE_TASK
+            assert summary[0]["binding"] == BINDING_NOT_CHECKED
+            assert summary[0]["n"] == len(rows)
+            assert summary[0]["passed"] == 0
+            assert summary[0]["duration_s"] == pytest.approx(sum(r.duration_s for r in rows))
+        finally:
+            app.close()
+
+    async def test_executable_is_resolved_to_a_real_path(self, tmp_path: Path) -> None:
+        base = await make_project(tmp_path)
+        app = _set_verify(base, ["python3 -c pass"])
+        try:
+            run_id = await manual_run(
+                app, [(spec("t", "FAKE:write:a.txt:x"), assign("alpha", "beta"))]
+            )
+            assert await app.orchestrator.execute(run_id) is RunState.COMPLETE
+            row = app.store.verifications_for_run(run_id)[0]
+            print(f"exe_realpath={row.exe_realpath!r} exe_version={row.exe_version!r}")
+            # An exit code is a statement about a binary, not about a name.
+            assert Path(row.exe_realpath).is_absolute()
+            assert Path(row.exe_realpath).exists()
+            assert row.exe_version.lower().startswith("python")
+        finally:
+            app.close()

@@ -32,6 +32,7 @@ from orkestra.schemas.decision import DecisionOption, HumanDecision
 from orkestra.schemas.director import ReviewVerdict
 from orkestra.schemas.task import TaskBrief
 from orkestra.verify import BindingProof, BindingStatus, VerificationOutcome, run_verification
+from orkestra.verify.record import BINDING_NOT_CHECKED, SCOPE_TASK
 from orkestra.workspace.worktrees import Workspace
 
 if TYPE_CHECKING:
@@ -985,7 +986,56 @@ class Orchestrator:
             text,
             task_id=task.task_id,
         )
+        await self._record_verification(run_id, task.task_id, workspace.path, outcome, SCOPE_TASK)
         return outcome
+
+    async def _record_verification(
+        self,
+        run_id: str,
+        task_id: str | None,
+        cwd: Path,
+        outcome: VerificationOutcome,
+        scope: str,
+        binding: str = BINDING_NOT_CHECKED,
+    ) -> None:
+        """Persist what the gate actually did, next to the event prose.
+
+        The event says PASS or FAIL; these rows say against which tree,
+        with which executable, in which environment, and for how long -
+        the facts a later audit needs and prose cannot carry.
+
+        ``binding`` stays ``not_checked`` until a binding canary proves
+        the commands read the tree named here. Recording is best-effort:
+        a bookkeeping failure must never turn a real verdict into a
+        crash, so it degrades to a warning event.
+        """
+        from orkestra.verify.record import records_for_outcome
+        from orkestra.verify.runner import subprocess_env
+        from orkestra.workspace.git import GitRepo
+
+        try:
+            repo = GitRepo(cwd)
+            commit_sha = await repo.rev_parse("HEAD")
+            tree_sha = await repo.rev_parse("HEAD^{tree}")
+            records = await records_for_outcome(
+                outcome,
+                run_id=run_id,
+                task_id=task_id,
+                scope=scope,
+                commit_sha=commit_sha,
+                tree_sha=tree_sha,
+                cwd=cwd,
+                env=subprocess_env(),
+                binding=binding,
+            )
+            self.store.add_verifications(records)
+        except Exception as exc:  # bookkeeping must never fail a real verdict
+            self.emit(
+                run_id,
+                EventKind.WARNING,
+                f"could not record verification evidence ({type(exc).__name__}: {exc})",
+                task_id=task_id,
+            )
 
     async def _review(
         self, run_id: str, task: TaskRow, workspace: Workspace, implementer: str
