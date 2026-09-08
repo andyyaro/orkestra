@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-09-08
+
+### Fixed
+- `orkestra --version` reported `0.5.3` from a 0.5.4 install. The version
+  lived in two places, `pyproject.toml` and `src/orkestra/__init__.py`, and
+  the 0.5.4 release bumped only the first. The distribution metadata was
+  correct, so nothing failed: `pip` and PyPI both said 0.5.4 while the CLI
+  said 0.5.3.
+  It is now derived from the installed package's metadata, so there is one
+  source and it cannot drift. Three tests pin it, all of which fail against
+  0.5.4.
+
 ## [0.5.4] - 2026-09-08
 
 Two defects in the parts of Orkestra that decide whether work is real, both
