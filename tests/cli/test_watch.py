@@ -14,6 +14,7 @@ from typer.testing import CliRunner  # noqa: E402
 from orkestra.app import build_app  # noqa: E402
 from orkestra.cli.main import app as cli_app  # noqa: E402
 from orkestra.cli.watch import WatchApp  # noqa: E402
+from tests.cli.asserts import assert_exit  # noqa: E402
 from tests.cli.test_cli import FAKE_CONFIG  # noqa: E402
 
 runner = CliRunner()
@@ -24,7 +25,7 @@ def finished_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "proj"
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(cli_app, ["init", str(root), "--non-interactive"])
-    assert result.exit_code == 0, result.output
+    assert_exit(result, 0)
     (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
     (root / "SPEC.md").write_text("# TUI Demo\nBuild a widget.\n")
     subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
@@ -36,7 +37,7 @@ def finished_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     monkeypatch.chdir(root)
     result = runner.invoke(cli_app, ["run", "--offline"])
-    assert result.exit_code == 0, result.output
+    assert_exit(result, 0)
     return root
 
 
@@ -79,9 +80,9 @@ class TestWatchApp:
         root = tmp_path / "empty"
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli_app, ["init", str(root), "--non-interactive"])
-        assert result.exit_code == 0
+        assert_exit(result, 0)
         (root / ".orkestra" / "config.toml").write_text(FAKE_CONFIG)
         monkeypatch.chdir(root)
         result = runner.invoke(cli_app, ["watch"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "no runs found" in result.output

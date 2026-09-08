@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from orkestra.cli.main import app
+from tests.cli.asserts import assert_exit
 from tests.cli.test_cli import git_commit_all
 from tests.cli.test_start_journey import mock_detection
 
@@ -40,7 +41,7 @@ class TestNestedRepoGuard:
         sub = parent / "sub"
         before = _git_status(parent)
         result = runner.invoke(app, ["start", str(sub), "--non-interactive", "--no-run"])
-        assert result.exit_code == 1, result.output
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "inside an existing Git repository" in flat
         assert parent.name in flat  # tells the user where the repo root is
@@ -54,7 +55,7 @@ class TestNestedRepoGuard:
         sub = parent / "sub"
         before = _git_status(parent)
         result = runner.invoke(app, ["init", str(sub), "--non-interactive"])
-        assert result.exit_code == 1, result.output
+        assert_exit(result, 1)
         assert "inside an existing Git repository" in " ".join(result.output.split())
         assert not (sub / ".orkestra").exists()
         assert _git_status(parent) == before
@@ -65,7 +66,7 @@ class TestNestedRepoGuard:
         mock_detection(monkeypatch, {})
         parent = _parent_repo(tmp_path)
         result = runner.invoke(app, ["start", str(parent), "--non-interactive", "--no-run"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert (parent / ".orkestra" / "config.toml").exists()
 
 
@@ -79,7 +80,7 @@ class TestAgentsValidatedBeforeMutation:
             app,
             ["start", str(target), "--non-interactive", "--agents", "claude,cursor"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "unknown agent name" in " ".join(result.output.split())
         # validation must run before repo init / any file writes
         assert not (target / ".git").exists()
@@ -95,5 +96,5 @@ class TestAgentsValidatedBeforeMutation:
             app,
             ["start", str(target), "--non-interactive", "--agents", "claude"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert not (target / ".git").exists()

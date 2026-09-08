@@ -9,6 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from orkestra.cli.main import app
+from tests.cli.asserts import assert_exit, invoke
 from tests.cli.test_cli import FAKE_CONFIG, git_commit_all
 from tests.cli.test_start_journey import mock_detection
 
@@ -20,7 +21,7 @@ VERIFIED_CONFIG = FAKE_CONFIG + '\n[verify]\ncommands = ["true"]\n'
 def _project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, config: str) -> Path:
     root = tmp_path / "proj"
     monkeypatch.chdir(tmp_path)
-    assert runner.invoke(app, ["init", str(root), "--non-interactive"]).exit_code == 0
+    invoke(runner, ["init", str(root), "--non-interactive"], 0)
     (root / ".orkestra" / "config.toml").write_text(config)
     (root / "SPEC.md").write_text("# Demo\nBuild a widget.\n")
     git_commit_all(root)
@@ -31,7 +32,7 @@ def _project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, config: str) -> Pa
 @pytest.fixture
 def finished(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = _project(tmp_path, monkeypatch, FAKE_CONFIG)
-    assert runner.invoke(app, ["run", "--offline"]).exit_code == 0
+    invoke(runner, ["run", "--offline"], 0)
     return root
 
 
@@ -43,13 +44,13 @@ class TestMessageRendering:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["init", str(tmp_path / "p"), "--non-interactive"])
-        assert result.exit_code == 0
+        assert_exit(result, 0)
         assert "[verify] in .orkestra/config.toml" in result.output
         assert "add your own to  in" not in result.output
 
     def test_watch_help_names_the_extra(self) -> None:
         result = runner.invoke(app, ["watch", "--help"])
-        assert result.exit_code == 0
+        assert_exit(result, 0)
         assert "'tui' extra" in result.output
         assert "the  extra" not in result.output
 
@@ -59,7 +60,7 @@ class TestVerificationHonesty:
 
     def test_run_and_review_say_skipped_without_commands(self, finished: Path) -> None:
         result = runner.invoke(app, ["review"])
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "no test commands configured" in result.output
         assert "passed your" not in result.output
 
@@ -68,7 +69,7 @@ class TestVerificationHonesty:
     ) -> None:
         _project(tmp_path, monkeypatch, VERIFIED_CONFIG)
         run_result = runner.invoke(app, ["run", "--offline"])
-        assert run_result.exit_code == 0, run_result.output
+        assert_exit(run_result, 0)
         assert "verification: passed (your test commands" in run_result.output
         review = runner.invoke(app, ["review"])
         assert "passed your test" in review.output
@@ -82,13 +83,13 @@ class TestVerificationHonesty:
 class TestAcceptIdempotence:
     def test_second_accept_is_a_friendly_noop(self, finished: Path) -> None:
         first = runner.invoke(app, ["accept", "--yes"])
-        assert first.exit_code == 0, first.output
+        assert_exit(first, 0)
         assert "✓ accepted" in first.output
         head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=finished, capture_output=True, text=True
         ).stdout
         second = runner.invoke(app, ["accept", "--yes"])
-        assert second.exit_code == 0, second.output
+        assert_exit(second, 0)
         assert "already part of" in second.output
         assert "✓ accepted" not in second.output
         head_after = subprocess.run(
@@ -98,9 +99,9 @@ class TestAcceptIdempotence:
 
     def test_accept_after_cleanup_no_traceback(self, finished: Path) -> None:
         first = runner.invoke(app, ["accept", "--yes", "--cleanup"])
-        assert first.exit_code == 0, first.output
+        assert_exit(first, 0)
         second = runner.invoke(app, ["accept", "--yes"])
-        assert second.exit_code == 0, second.output
+        assert_exit(second, 0)
         assert "already part of" in second.output
         assert "Traceback" not in second.output
 
@@ -114,14 +115,14 @@ class TestAcceptIdempotence:
         assert branches
         subprocess.run(["git", "branch", "-D", branches[0]], cwd=finished, check=True)
         result = runner.invoke(app, ["accept", "--yes"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "no longer available" in result.output
         assert "Traceback" not in result.output
 
     def test_confirm_eof_gives_yes_guidance(self, finished: Path) -> None:
         # stdin ends before the y/N question is answered (CI, redirected input)
         result = runner.invoke(app, ["accept"], input="")
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "--yes" in result.output
         assert "Traceback" not in result.output
 
@@ -141,7 +142,7 @@ class TestBadRunIds:
     )
     def test_unknown_run_id(self, finished: Path, argv: list[str]) -> None:
         result = runner.invoke(app, argv)
-        assert result.exit_code == 1, result.output
+        assert_exit(result, 1)
         assert "not found" in result.output
         assert "Traceback" not in result.output
 
@@ -149,13 +150,13 @@ class TestBadRunIds:
 class TestControlOnFinishedRuns:
     def test_cancel_completed_run_refuses(self, finished: Path) -> None:
         result = runner.invoke(app, ["cancel"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "already finished" in result.output
         assert "cancel requested" not in result.output
 
     def test_pause_completed_run_refuses(self, finished: Path) -> None:
         result = runner.invoke(app, ["pause"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "already finished" in result.output
 
 
@@ -168,7 +169,7 @@ class TestStartWizard:
             app,
             ["start", str(tmp_path / "c"), "--non-interactive", "--preset", "custom", "--no-run"],
         )
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "interactive" in result.output
         assert "balanced" in result.output  # points at usable alternatives
 
@@ -178,7 +179,7 @@ class TestStartWizard:
         mock_detection(monkeypatch, {})
         # preset choice, verify skip, then only blank lines until EOF
         result = runner.invoke(app, ["start", str(tmp_path / "w")], input="1\n\n\n\n\n")
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         assert "can't be blank" in result.output.replace("\n", " ")
         assert "input ended" in result.output
         assert "--non-interactive" in result.output
@@ -193,7 +194,7 @@ class TestStartWizard:
             ["start", str(root)],
             input="1\n\nadd a greeting module\n\n\nn\n",
         )
-        assert result.exit_code == 0, result.output
+        assert_exit(result, 0)
         assert "add a greeting module" in (root / "SPEC.md").read_text()
 
 
@@ -211,7 +212,7 @@ class TestConfigErrorsArePlain:
         )
         assert 'effort = "ultra"' in (root / ".orkestra" / "config.toml").read_text()
         result = runner.invoke(app, ["run", "--offline"])
-        assert result.exit_code == 1
+        assert_exit(result, 1)
         flat = " ".join(result.output.split())
         assert "invalid configuration" in flat
         assert "agents.beta.effort" in flat
