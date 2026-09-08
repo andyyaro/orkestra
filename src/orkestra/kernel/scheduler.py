@@ -590,7 +590,7 @@ class Orchestrator:
             self.store.set_task_state(
                 task.task_id, TaskState.VERIFYING, expected=(TaskState.RUNNING,)
             )
-            verify_outcome = await self._verify(run_id, task, workspace)
+            verify_outcome = await self._verify(run_id, task, workspace, attempt_id)
             if verify_outcome is not None and not verify_outcome.passed:
                 record_task_outcome(
                     self.store,
@@ -1013,7 +1013,11 @@ class Orchestrator:
             return proof
 
     async def _verify(
-        self, run_id: str, task: TaskRow, workspace: Workspace
+        self,
+        run_id: str,
+        task: TaskRow,
+        workspace: Workspace,
+        attempt_id: str | None = None,
     ) -> VerificationOutcome | None:
         """Run the gate; returns the outcome, or None when nothing to run."""
         commands = self._gate_commands(run_id, task)
@@ -1031,7 +1035,9 @@ class Orchestrator:
             text,
             task_id=task.task_id,
         )
-        await self._record_verification(run_id, task.task_id, workspace.path, outcome, SCOPE_TASK)
+        await self._record_verification(
+            run_id, task.task_id, workspace.path, outcome, SCOPE_TASK, attempt_id=attempt_id
+        )
         return outcome
 
     async def _record_verification(
@@ -1042,6 +1048,7 @@ class Orchestrator:
         outcome: VerificationOutcome,
         scope: str,
         binding: str = BINDING_NOT_CHECKED,
+        attempt_id: str | None = None,
     ) -> None:
         """Persist what the gate actually did, next to the event prose.
 
@@ -1080,6 +1087,7 @@ class Orchestrator:
                 tree_sha=tree_sha,
                 tree_clean=clean,
                 dirty_digest=digest,
+                attempt_id=attempt_id,
                 cwd=cwd,
                 env=outcome.env,
                 binding=binding,

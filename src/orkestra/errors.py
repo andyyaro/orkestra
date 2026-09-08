@@ -23,10 +23,6 @@ class DagError(OrkestraError):
     """Task graph is invalid (cycles, unknown references)."""
 
 
-class AdapterError(OrkestraError):
-    """Agent adapter failure."""
-
-
 class WorkspaceError(OrkestraError):
     """Git/worktree operation failure."""
 

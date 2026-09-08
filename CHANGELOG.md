@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `orkestra demo` ran with no `[verify]` commands at all while telling the
+  user to watch for "a deterministic gate check after every task". One of
+  its three tasks was verified by nothing; the other two only by
+  plan-proposed `test -f <file>` checks, which cannot fail. It now ships a
+  real gate that parses every Python file in the worktree, so the narration
+  is true and every task is genuinely verified.
+- The demo's fake agents wrote a literal backslash-n instead of a newline,
+  so its showcase output was not valid Python. Nothing noticed, because the
+  gate only checked that the file existed. `FAKE:write` now decodes `\n`,
+  `\t` and `\\`, and the demo's files parse.
+- `verifications.attempt_id` was always NULL: the column and the record
+  plumbing existed, but the scheduler never passed an attempt id it had in
+  scope. Retries are now distinguishable, which is what the column is for.
+- The README claimed 472 tests, the collected count when it was written.
+  A test now asserts the claim against what pytest actually collects, so it
+  cannot drift again.
+
+### Removed
+- `GitRepo.is_dirty()`, dead code whose semantics were a trap: it counts
+  untracked files as dirty, while every real guard uses `tracked_changes()`
+  because untracked files are deliberately allowed to pass. Reaching for the
+  obvious name would have reintroduced a fixed bug.
+- `AdapterError` (never raised, caught, or exported), `GitRepo.commits_between`
+  and `prepare.plan_summary`, all unreferenced.
+
 ## [0.5.5] - 2026-09-08
 
 ### Fixed

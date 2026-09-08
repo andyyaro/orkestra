@@ -10,6 +10,7 @@ and the final report. No agent CLIs, no credentials, no tokens spent.
 from __future__ import annotations
 
 import asyncio
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,8 +43,34 @@ agent = "ada"
 [policy]
 max_concurrency = 2
 
+[verify]
+commands = ["{python} check_demo.py"]
+
 [probes]
 mode = "off"
+"""
+
+#: The demo's gate, and a real one on purpose: the demo tells the user to
+#: watch for "a deterministic gate check after every task", and a gate that
+#: cannot fail teaches the habit this tool exists to break. Parsing every
+#: Python file in the worktree reads the tree the task actually produced,
+#: so corrupting any of them, this checker included, fails the gate.
+_CHECK = """# Demo gate: every Python file in this tree must parse.
+import ast
+import pathlib
+import sys
+
+sources = sorted(pathlib.Path().glob("*.py"))
+if not sources:
+    print("no Python files to check")
+    sys.exit(1)
+for path in sources:
+    try:
+        ast.parse(path.read_text())
+    except SyntaxError as exc:
+        print(f"{path}: {exc}")
+        sys.exit(1)
+print("checked " + ", ".join(p.name for p in sources))
 """
 
 _SPEC = "# Demo\nScripted showcase project (fake agents, no quota).\n"
@@ -64,7 +91,8 @@ async def _run_demo(root: Path) -> bool:
     (root / ".gitignore").write_text(".orkestra/\n")
     (root / "SPEC.md").write_text(_SPEC)
     (root / ".orkestra").mkdir()
-    (root / ".orkestra" / "config.toml").write_text(_CONFIG)
+    (root / "check_demo.py").write_text(_CHECK)
+    (root / ".orkestra" / "config.toml").write_text(_CONFIG.format(python=sys.executable))
     await repo.add_all_and_commit("demo project")
 
     application: App = build_app(root, offline=True)
