@@ -17,6 +17,26 @@ from orkestra.verify.runner import subprocess_env
 _GIT_TIMEOUT_S = 120.0
 
 
+def _failure_reason(stderr: str) -> str:
+    """The line of git's stderr that says why, not the progress above it.
+
+    `git worktree add` narrates before it fails:
+
+        Preparing worktree (new branch 'ork/run_x/task_y')
+        fatal: a branch named 'ork/run_x/task_y' already exists
+
+    Taking the first line therefore reports the narration and drops the
+    diagnosis, which is the same way the console clip used to lose it.
+    """
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    if not lines:
+        return "(no stderr)"
+    serious = [line for line in lines if line.startswith(("fatal:", "error:"))]
+    if serious:
+        return " ".join(serious)
+    return lines[-1]
+
+
 class GitRepo:
     """Wrapper for one repository root (main checkout or a worktree)."""
 
@@ -68,8 +88,7 @@ class GitRepo:
             # the right, and the argv of a worktree command is long enough to
             # consume the whole budget on its own, which is how three CI
             # failures reached a human with the git error already cut off.
-            reason = stderr.strip().splitlines()
-            detail = reason[0] if reason else "(no stderr)"
+            detail = _failure_reason(stderr)
             msg = (
                 f"git {' '.join(args[:2])} failed (exit {code}): "
                 f"{detail[:400]} [argv: {' '.join(args)}]"
