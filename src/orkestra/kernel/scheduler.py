@@ -17,7 +17,7 @@ from orkestra.capabilities.ledger import record_task_outcome
 from orkestra.capabilities.matrix import build_matrix
 from orkestra.director import prompts
 from orkestra.errors import PolicyViolation, VerificationError, WorkspaceError
-from orkestra.ids import new_id
+from orkestra.ids import branch_name, new_id
 from orkestra.kernel.dag import TaskDag
 from orkestra.kernel.retry import FALLBACK_IMMEDIATELY, BackoffPolicy, next_agent
 from orkestra.schemas.agent import (
@@ -717,6 +717,18 @@ class Orchestrator:
                     )
                 await self.workspaces.remove_workspace(workspace, keep_branch=False)
 
+            if merge_sha is None:
+                # This attempt landed nothing. That is normal for a research
+                # or review task, and a lie for a task that committed work on
+                # an earlier attempt which never reached the integration
+                # branch: marking it done would report success over a commit
+                # nobody can reach. Asked of git, not of a local variable, so
+                # the answer is the same after `orkestra resume`.
+                unlanded = await self.workspaces.unlanded_work(run_id, task.task_id)
+                if unlanded is not None:
+                    await self._block_unlanded(run_id, task, unlanded)
+                    return
+
             record_task_outcome(
                 self.store,
                 run_id,
@@ -742,6 +754,39 @@ class Orchestrator:
             return
 
     # -------------------------------------------------------- sub-steps
+
+    async def _block_unlanded(self, run_id: str, task: TaskRow, sha: str) -> None:
+        """Stop rather than report success over a commit that never landed."""
+        branch = branch_name(run_id, task.task_id)
+        self.store.set_task_state(
+            task.task_id,
+            TaskState.BLOCKED,
+            expected=(TaskState.INTEGRATING, TaskState.VERIFYING),
+        )
+        self.emit(
+            run_id,
+            EventKind.ERROR,
+            f"task {task.key} committed work that never reached the integration "
+            f"branch, and this attempt landed nothing. Refusing to mark it done: "
+            f"see it with `git show {sha[:12]}` (branch {branch}).",
+            task_id=task.task_id,
+            data={"unlanded_sha": sha, "branch": branch},
+        )
+        self._open_decision(
+            run_id,
+            task.task_id,
+            question=f"Task {task.key} has work that never landed. What now?",
+            why=(
+                f"commit {sha[:12]} is on {branch} but not on the integration "
+                "branch, and the latest attempt produced nothing new"
+            ),
+            options=[
+                DecisionOption(key="retry", label="Run the task again"),
+                DecisionOption(key="skip", label="Accept the run without this task"),
+                DecisionOption(key="abort", label="Fail the run"),
+            ],
+            recommendation="retry",
+        )
 
     async def _make_workspace(self, run_id: str, task: TaskRow) -> Workspace:
         workspace = await self.workspaces.create_workspace(run_id, task.task_id)
