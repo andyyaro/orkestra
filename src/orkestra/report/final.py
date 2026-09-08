@@ -32,6 +32,7 @@ def build_report(store: Store, run_id: str) -> dict[str, Any]:
         },
         "tasks": [],
         "decisions": [d.model_dump(mode="json") for d in store.decisions_for_run(run_id)],
+        "oversight": store.catch_summary(run_id),
         "usage": store.usage_summary(run_id),
         "usage_total": _usage_total(store.usage_summary(run_id)),
         "agent_performance": store.ledger_summary(),
@@ -182,6 +183,31 @@ def render_markdown(report: dict[str, Any]) -> str:
                 else "OPEN"
             )
             lines.append(f"- `{decision['decision_id']}` ({status}) - {decision['question'][:200]}")
+    oversight = report.get("oversight") or {}
+    if oversight.get("tasks"):
+        caught_by_gate = oversight["tasks_gate_rejected"]
+        caught_by_review = oversight["tasks_review_rejected"]
+        pct = oversight["evidence_proved_pct"]
+        lines += [
+            "",
+            "## Oversight",
+            "",
+            "Whether the gate and the independent reviewer did work or performed it.",
+            "",
+            f"- tasks: {oversight['tasks']}",
+            f"- rejected by the gate at least once: {caught_by_gate}",
+            f"- sent back by a reviewer at least once: {caught_by_review}",
+            (
+                f"- verification results carrying a binding proof: "
+                f"{oversight['verifications_proved']}/{oversight['verifications']}"
+                + (f" ({pct}%)" if pct is not None else "")
+            ),
+        ]
+        if caught_by_gate == 0 and caught_by_review == 0:
+            lines.append(
+                "- nothing was caught this run: the second agent and the gate "
+                "agreed with the first one throughout"
+            )
     if report["usage"]:
         lines += [
             "",

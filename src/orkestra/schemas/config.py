@@ -101,8 +101,8 @@ class VerifyConfig(BaseModel):
 
     commands: list[str] = Field(default_factory=list)
     timeout_s: int = Field(default=900, ge=10, le=4 * 3600)
-    binding_check: bool = False
-    """Prove, once per run, that the gate actually reads the task worktree.
+    binding_check: bool = True
+    """Prove that the gate actually reads the task worktree.
 
     Orkestra corrupts one tracked source file in a throwaway worktree and
     requires the gate's exit code to change. A gate that does not react is
@@ -110,12 +110,12 @@ class VerifyConfig(BaseModel):
     .pth file pins an absolute path to your main checkout) and its green is
     worthless.
 
-    Off by default because it costs two extra full gate runs, which on a suite
-    the size of Orkestra's own turns `orkestra doctor` from three seconds into
-    thirteen minutes. The mitigation that fixes the common Python case, a
-    worktree-scoped PYTHONPATH, is always on and costs nothing; this setting
-    buys the audit that catches the cases the mitigation cannot fix, such as a
-    gate that never reads source at all. Turn it on when you want that.
+    On by default because the answer is cached on the gate and the
+    environment rather than recomputed per run. A verdict was identical
+    across three different trees of one repository and moved only when the
+    environment moved, so it is proved once per configuration and reused
+    until your commands or your environment change. Turn it off if you would
+    rather never pay that first proof.
     """
 
 

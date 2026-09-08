@@ -25,10 +25,20 @@ from tests.e2e.test_orchestration import assign, manual_run, spec
 _SUMMARY_LINE = re.compile(r"^(PASS|FAIL) \(exit (-?\d+), ([\d.]+)s\): (.+)$")
 
 
-def _set_verify(app: App, commands: list[str]) -> App:
+def _set_verify(app: App, commands: list[str], *, binding_check: bool = False) -> App:
+    """Configure the gate.
+
+    The binding canary defaults OFF here, on purpose. Most tests in this file
+    are about what gets recorded, not about binding, and leaving a global
+    default to drift through them makes their assertions mean something other
+    than what they say. The tests that are about binding turn it on.
+    """
     config_path = app.root / ".orkestra" / "config.toml"
     rendered = ", ".join(f'"{c}"' for c in commands)
-    config_path.write_text(config_path.read_text() + f"\n[verify]\ncommands = [{rendered}]\n")
+    config_path.write_text(
+        config_path.read_text()
+        + f"\n[verify]\ncommands = [{rendered}]\nbinding_check = {str(binding_check).lower()}\n"
+    )
     app.close()
     return build_app(app.root, offline=True)
 
@@ -249,5 +259,62 @@ class TestBindingProofReachesTheRecord:
             rows = app.store.verifications_for_run(run_id)
             assert rows
             assert {r.binding for r in rows} == {BINDING_NOT_CHECKED}
+        finally:
+            app.close()
+
+
+class TestBindingProofIsPaidOnce:
+    """On by default only works if the second run does not pay again."""
+
+    async def _project(self, tmp_path: Path) -> App:
+        app = await make_project(tmp_path)
+        (app.root / "seed.py").write_text("VALUE = 1\n")
+        (app.root / "check.py").write_text(
+            "import ast, pathlib\n"
+            "for path in pathlib.Path().glob('*.py'):\n"
+            "    ast.parse(path.read_text())\n"
+        )
+        await GitRepo(app.root).add_all_and_commit("seed and checker")
+        config_path = app.root / ".orkestra" / "config.toml"
+        config_path.write_text(
+            config_path.read_text() + f'\n[verify]\ncommands = ["{sys.executable} check.py"]\n'
+        )
+        app.close()
+        return build_app(app.root, offline=True)
+
+    async def test_the_check_defaults_on_and_proves_once(self, tmp_path: Path) -> None:
+        app = await self._project(tmp_path)
+        try:
+            assert app.config.verify.binding_check is True, (
+                "the differentiator must be on by default or the field never sees it"
+            )
+            calls: list[Path] = []
+            import orkestra.verify as verify_pkg
+
+            real = verify_pkg.prove_binding
+
+            async def counting(worktree, commands, **kwargs):  # type: ignore[no-untyped-def]
+                calls.append(worktree)
+                return await real(worktree, commands, **kwargs)
+
+            verify_pkg.prove_binding = counting  # type: ignore[assignment]
+            try:
+                for n in (1, 2):
+                    run_id = await manual_run(
+                        app,
+                        [(spec(f"t{n}", f"FAKE:write:mod{n}.py:X = {n}"), assign("alpha", "beta"))],
+                    )
+                    await app.orchestrator.execute(run_id)
+                    rows = app.store.verifications_for_run(run_id)
+                    print(f"run {n}: {[(r.scope, r.binding) for r in rows]}")
+                    assert rows and {r.binding for r in rows} == {BINDING_PROVED}
+            finally:
+                verify_pkg.prove_binding = real  # type: ignore[assignment]
+
+            print(f"prove_binding executed {len(calls)} time(s) across two runs")
+            assert len(calls) == 1, (
+                "the second run re-proved a verdict that cannot have changed; "
+                "the cache is the reason this can be on by default"
+            )
         finally:
             app.close()

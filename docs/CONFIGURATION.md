@@ -60,7 +60,7 @@ agents with different models).
 |---|---|---|
 | `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). These always run and are the authoritative gate; plan-generated `acceptance` entries run in addition to them and only when they validate as runnable commands. A command that cannot start is caught in pre-flight, before any agent is dispatched |
 | `timeout_s` | `900` | Per-command timeout |
-| `binding_check` | `false` | Prove, once per run and before any agent is dispatched, that the gate actually reads the tree it is pointed at (see below). Off by default because it costs two extra full gate runs |
+| `binding_check` | `true` | Prove that the gate actually reads the tree it is pointed at (see below). Proved once per gate and environment, then reused |
 
 ### Unbound gates: when a green gate proves nothing
 
@@ -91,18 +91,23 @@ Orkestra defends in two ways, one free and always on, one you opt into.
    otherwise. Never both, because the root holds a project's top-level
    modules and a project owning a `types.py` would shadow the standard
    library. This fixes the common Python case at no cost.
-2. **Opt in with `binding_check = true`.** Before the first agent is
-   dispatched, Orkestra corrupts one tracked source file in a throwaway
-   worktree and requires your gate's exit code to change. If it does not,
-   the run stops with a config defect, exactly as a `[verify]` command that
-   cannot start does. `orkestra doctor` reports the same fact, alongside
-   whether the gate passes in a fresh checkout of HEAD.
+2. **The proof, on by default.** Before the first agent is dispatched,
+   Orkestra corrupts one tracked source file in a throwaway worktree and
+   requires your gate's exit code to change. If it does not, the run stops
+   with a config defect, exactly as a `[verify]` command that cannot start
+   does. The verdict is recorded on every verification row, so evidence
+   that carries a proof is distinguishable from evidence that does not.
 
-   This is off by default because it costs two extra full gate runs. On a
-   suite that takes several minutes that turns `orkestra doctor` from
-   seconds into a coffee break. Turn it on when you want the audit, and in
-   particular when your gate is not Python, since the mitigation above
-   cannot help there.
+   It costs two extra gate runs, but only once. A verdict depends on your
+   gate and your environment, not on the tree being judged: measured across
+   three different trees of one repository it was identical, and it moved
+   only when the environment moved. So it is proved once and reused until
+   your commands or your environment change.
+
+   `orkestra doctor` reports a stored proof and never pays for a new one, so
+   a diagnostic stays fast. `orkestra doctor --prove-gate` forces the full
+   check, which also tells you whether your gate passes at all on a clean
+   checkout of HEAD. Set `binding_check = false` to skip it entirely.
 
 Writing a gate that binds:
 

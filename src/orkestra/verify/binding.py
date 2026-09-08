@@ -44,10 +44,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
+import os
 import shlex
 import shutil
 import tempfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
@@ -338,7 +340,20 @@ def _python_argv(commands: Sequence[str]) -> list[str] | None:
     return [fallback, "-c"] if fallback else None
 
 
+#: Marks the probe's own answer inside whatever else the import printed.
+_PROBE_MARK = "__orkestra_binding__:"
+
+
 def _probe_code(module: str) -> str:
+    """Ask the interpreter where a module comes from, legibly.
+
+    Importing a module runs it, and plenty of modules print on import
+    (logging setup, banners, deprecation notices). Reading the probe's whole
+    stdout as a path therefore mistakes that output for the answer and the
+    containment check fails against a path that was never a path. That is a
+    false UNBOUND, which is the failure mode that gets a checker switched
+    off, so the answer is marked and the noise ignored.
+    """
     return (
         "import importlib, os, sys\n"
         f"m = importlib.import_module({module!r})\n"
@@ -346,7 +361,7 @@ def _probe_code(module: str) -> str:
         "if not p:\n"
         "    found = list(getattr(m, '__path__', []) or [])\n"
         "    p = found[0] if found else ''\n"
-        "sys.stdout.write(os.path.realpath(p) if p else '')\n"
+        f"sys.stdout.write('\\n' + {_PROBE_MARK!r} + (os.path.realpath(p) if p else '') + '\\n')\n"
     )
 
 
@@ -361,7 +376,12 @@ async def resolve_python_source(
     if argv is None:  # pragma: no cover - a machine with no python at all
         return None
     code, out = await _capture([*argv, _probe_code(module)], worktree, env)
-    resolved = out.strip()
+    marked = [
+        line[len(_PROBE_MARK) :].strip()
+        for line in out.splitlines()
+        if line.startswith(_PROBE_MARK)
+    ]
+    resolved = marked[-1] if marked else ""
     return resolved if code == 0 and resolved else None
 
 
@@ -374,6 +394,31 @@ def _is_inside(path: str, root: Path) -> bool:
 
 
 # ----------------------------------------------------------------- proof
+
+
+def binding_cache_key(commands: Sequence[str], worktree: Path, env: Mapping[str, str]) -> str:
+    """Identity of the binding question, independent of which tree asks it.
+
+    A verdict is a property of the gate and the environment, not of the tree:
+    measured across three different trees of this repository the answer was
+    identical, and it flipped only when the environment changed. So the key
+    is the commands plus the environment with this worktree's own entries
+    removed, which is what makes the answer reusable at all. Leaving them in
+    would put an absolute worktree path in every key and the cache would
+    never hit.
+    """
+    root = Path(worktree).resolve()
+    external = [
+        entry
+        for entry in env.get("PYTHONPATH", "").split(os.pathsep)
+        if entry and not _is_inside(entry, root)
+    ]
+    normalized = dict(env)
+    normalized["PYTHONPATH"] = os.pathsep.join(external)
+    material = "\n".join(
+        [*sorted(commands), "--", *(f"{k}={normalized[k]}" for k in sorted(normalized))]
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 async def prove_binding(

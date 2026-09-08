@@ -48,14 +48,14 @@ class TestDoctorVerifyRows:
             monkeypatch,
             '\n[verify]\ncommands = ["true"]\nbinding_check = true\n',
         )
-        result = runner.invoke(app, ["doctor"])
+        result = runner.invoke(app, ["doctor", "--prove-gate"])
         print(result.output)
         assert_exit(result, 1)
         assert "NOT bound" in result.output
 
     def test_bound_gate_passes(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _project(tmp_path, monkeypatch, f'\n[verify]\ncommands = ["{PYTEST_GATE}"]\n')
-        result = runner.invoke(app, ["doctor"])
+        result = runner.invoke(app, ["doctor", "--prove-gate"])
         print(result.output)
         assert_exit(result, 0)
         assert "bound" in result.output
@@ -64,7 +64,7 @@ class TestDoctorVerifyRows:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _project(tmp_path, monkeypatch, '\n[verify]\ncommands = ["definitely-not-a-binary-xyz"]\n')
-        result = runner.invoke(app, ["doctor"])
+        result = runner.invoke(app, ["doctor", "--prove-gate"])
         print(result.output)
         assert_exit(result, 1)
         assert "cannot start" in result.output
@@ -77,7 +77,7 @@ class TestDoctorVerifyRows:
             monkeypatch,
             '\n[verify]\ncommands = ["false"]\nbinding_check = true\n',
         )
-        result = runner.invoke(app, ["doctor"])
+        result = runner.invoke(app, ["doctor", "--prove-gate"])
         print(result.output)
         assert_exit(result, 1)
         assert "fails" in result.output
@@ -86,7 +86,7 @@ class TestDoctorVerifyRows:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _project(tmp_path, monkeypatch, "")
-        result = runner.invoke(app, ["doctor"])
+        result = runner.invoke(app, ["doctor", "--prove-gate"])
         print(result.output)
         assert_exit(result, 0)
         assert "no gate is configured" in result.output
