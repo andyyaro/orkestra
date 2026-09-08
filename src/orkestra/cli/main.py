@@ -404,7 +404,7 @@ def demo(
 # ---------------------------------------------------------------- doctor
 
 
-async def _verify_rows(application: App, table: Table) -> int:
+async def _verify_rows(application: App, table: Table, *, prove: bool = False) -> int:
     """The \\[verify] rows: does the gate resolve, run, and read the tree?
 
     Three questions no other check asks, in the command QUICKSTART tells
@@ -412,7 +412,7 @@ async def _verify_rows(application: App, table: Table) -> int:
     start; does it pass in a fresh checkout of HEAD; and does it actually
     read the tree it is pointed at. Returns the number of problems found.
     """
-    from orkestra.verify.binding import BindingStatus, prove_binding
+    from orkestra.verify.binding import BindingStatus
     from orkestra.verify.runner import gate_command_problem
 
     label = escape("[verify] commands")
@@ -452,6 +452,37 @@ async def _verify_rows(application: App, table: Table) -> int:
         )
         return 0
 
+    # A diagnostic must stay a diagnostic. Proving binding costs two extra
+    # gate runs, which on a real suite is minutes, so doctor reports a proof
+    # that already exists and never pays for a new one: the first run does
+    # that, once, and stores it.
+    from orkestra.verify.binding import binding_cache_key, prove_binding
+    from orkestra.verify.runner import gate_env
+
+    key = binding_cache_key(commands, application.root, gate_env(application.root))
+    stored = application.store.cached_binding(key)
+    if stored is not None and not prove:
+        status, reason = stored
+        if status == BindingStatus.UNBOUND.value:
+            table.add_row(gate_label, "[red]unbound[/red]", escape(reason))
+            return 1
+        table.add_row(gate_label, "[green]bound[/green]", escape(reason))
+        return 0
+    if not prove:
+        table.add_row(
+            gate_label,
+            "[yellow]not proved yet[/yellow]",
+            escape(
+                "no binding proof stored for these commands in this environment; "
+                "your next `orkestra run` proves it once and reuses the answer, "
+                "or `orkestra doctor --prove-gate` does it now"
+            ),
+        )
+        return 0
+
+    # --prove-gate: run the gate for real. This also answers a question the
+    # cache cannot, namely whether the gate passes at all on a clean checkout
+    # of HEAD, which has caught a suite that only passed inside a dev venv.
     try:
         async with application.workspaces.scratch_worktree("doctor") as path:
             proof = await prove_binding(
@@ -473,7 +504,9 @@ async def _verify_rows(application: App, table: Table) -> int:
                 f"({proof.detail})"
             ),
         )
-    status_style = {
+    if proof.status is not BindingStatus.CANNOT_CHECK:
+        application.store.remember_binding(key, proof.status.value, proof.reason, list(commands))
+    style = {
         BindingStatus.BOUND: "[green]bound[/green]",
         BindingStatus.UNBOUND: "[red]NOT bound[/red]",
         BindingStatus.CANNOT_CHECK: "[yellow]cannot check[/yellow]",
@@ -481,15 +514,19 @@ async def _verify_rows(application: App, table: Table) -> int:
     if proof.status is BindingStatus.UNBOUND:
         problems += 1
     table.add_row(
-        escape("[verify] gate binding"),
-        status_style,
-        escape(f"{proof.reason} ({proof.detail})"),
+        escape("[verify] gate binding"), style, escape(f"{proof.reason} ({proof.detail})")
     )
     return problems
 
 
 @app.command()
-def doctor() -> None:
+def doctor(
+    prove_gate: bool = typer.Option(
+        False,
+        "--prove-gate",
+        help="Run your gate to prove it reads the tree (slow: two extra gate runs).",
+    ),
+) -> None:
     """Check Git, configuration, agents, and platform readiness."""
     from orkestra.app import find_project_root
 
@@ -567,7 +604,7 @@ def doctor() -> None:
             "[green]ok[/green]",
             str(application.root / ".orkestra" / "orkestra.db"),
         )
-        problems += await _verify_rows(application, table)
+        problems += await _verify_rows(application, table, prove=prove_gate)
 
         ready_agents = 0
         for name, adapter in application.adapters.items():

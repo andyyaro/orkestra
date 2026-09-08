@@ -242,7 +242,9 @@ class TestDefaults:
         env = gate_env(tmp_path)
         assert env["PYTHONPATH"].startswith(str((tmp_path / "src").resolve()))
 
-    def test_the_audit_is_opt_in(self) -> None:
-        # Two extra full gate runs is thirteen minutes on a suite the size of
-        # this one, so it must not be the price of `orkestra doctor`.
-        assert VerifyConfig().binding_check is False
+    def test_the_audit_is_on_because_it_is_now_cheap(self) -> None:
+        # It was off while it cost two extra gate runs per run. Cached on the
+        # gate and the environment it is paid once per configuration, which is
+        # what makes it affordable to be the default - and the default is the
+        # only reason the evidence field is ever anything but not_checked.
+        assert VerifyConfig().binding_check is True

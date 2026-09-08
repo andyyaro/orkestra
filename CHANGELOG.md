@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `verify.binding_check` now defaults to **true**. It was off because it cost
+  two extra gate runs per run, which meant the one measure of evidence
+  quality read `not_checked` for everybody, and the property the project is
+  built on was never actually demonstrated in the field. A verdict depends on
+  the gate and the environment rather than on the tree being judged (measured:
+  identical across three trees of one repository, moving only when the
+  environment moved), so it is now proved once per configuration, stored, and
+  reused. Schema migration 4 adds `binding_proofs`.
+- `orkestra doctor` reports a stored proof and never pays for a new one, so a
+  diagnostic stays a diagnostic. `orkestra doctor --prove-gate` forces the
+  full check, including whether the gate passes at all on a clean checkout.
+- `orkestra report` gained an **Oversight** section: how many tasks the gate
+  rejected, how many a reviewer sent back, and what share of verification
+  results carry a binding proof. If neither ever catches anything, the second
+  agent and the gate are agreeing with the first one at cost, and that should
+  be visible rather than assumed.
+
+### Fixed
+- The import probe read the interpreter's whole stdout as a path, so any
+  module that prints when imported (logging setup, banners, deprecation
+  notices) was mistaken for a resolved path and a correct gate was reported
+  UNBOUND. That blocked runs, which is the failure mode that gets a checker
+  switched off. The probe now marks its own answer and ignores the noise.
+
 ### Fixed
 - The binding proof now reaches the verification record. The canary and the
   `binding` column shipped in separate changes and were never joined, so a

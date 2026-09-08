@@ -603,6 +603,33 @@ class Store:
                 )
         return ids
 
+    # ---------------------------------------------------- binding proofs
+
+    def cached_binding(self, cache_key: str) -> tuple[str, str] | None:
+        """A previously proved (status, reason) for this gate and environment.
+
+        Cached on the question, not on the run: the same gate in the same
+        environment has the same answer whatever tree asks it, so the two
+        extra gate runs are paid once per configuration.
+        """
+        rows = self.db.query(
+            "SELECT status, reason FROM binding_proofs WHERE cache_key = ?", (cache_key,)
+        )
+        return (rows[0]["status"], rows[0]["reason"]) if rows else None
+
+    def remember_binding(
+        self, cache_key: str, status: str, reason: str, commands: list[str]
+    ) -> None:
+        """Record a binding verdict for reuse. Last writer wins on re-proof."""
+        with self.db.tx() as conn:
+            conn.execute(
+                "INSERT INTO binding_proofs (cache_key, status, reason, commands_json,"
+                " created_at) VALUES (?, ?, ?, ?, ?)"
+                " ON CONFLICT(cache_key) DO UPDATE SET status = excluded.status,"
+                " reason = excluded.reason, created_at = excluded.created_at",
+                (cache_key, status, redact(reason)[:2000], json.dumps(commands), _now()),
+            )
+
     def _verification_from_row(self, row: Any) -> VerificationRow:
         try:
             argv = json.loads(row["argv_json"])
@@ -659,6 +686,47 @@ class Store:
             (run_id,),
         )
         return [dict(r) for r in rows]
+
+    def catch_summary(self, run_id: str) -> dict[str, Any]:
+        """How often the gate or an independent reviewer caught something.
+
+        The question this answers is whether cross-review and deterministic
+        verification are doing work or performing it. If a run never has a
+        task rejected by either, the second agent and the gate cost time and
+        money to agree with the first one, and that should be visible rather
+        than inferred.
+
+        ``evidence_proved`` is the share of verification results that carry a
+        proof the gate read the tree it judged. A verdict without that is a
+        weaker claim, and reporting the two as one number would hide it.
+        """
+        tasks = self.db.query("SELECT COUNT(*) AS n FROM tasks WHERE run_id = ?", (run_id,))
+        gated = self.db.query(
+            "SELECT COUNT(DISTINCT task_id) AS n FROM verifications"
+            " WHERE run_id = ? AND exit_code != 0 AND task_id IS NOT NULL",
+            (run_id,),
+        )
+        reviewed = self.db.query(
+            "SELECT COUNT(DISTINCT task_id) AS n FROM events"
+            " WHERE run_id = ? AND task_id IS NOT NULL AND text LIKE 'review requested changes%'",
+            (run_id,),
+        )
+        verifications = self.db.query(
+            "SELECT COUNT(*) AS n,"
+            " SUM(CASE WHEN binding = 'proved' THEN 1 ELSE 0 END) AS proved"
+            " FROM verifications WHERE run_id = ?",
+            (run_id,),
+        )
+        total_v = int(verifications[0]["n"] or 0)
+        proved = int(verifications[0]["proved"] or 0)
+        return {
+            "tasks": int(tasks[0]["n"] or 0),
+            "tasks_gate_rejected": int(gated[0]["n"] or 0),
+            "tasks_review_rejected": int(reviewed[0]["n"] or 0),
+            "verifications": total_v,
+            "verifications_proved": proved,
+            "evidence_proved_pct": round(100.0 * proved / total_v, 1) if total_v else None,
+        }
 
     # ------------------------------------------------------------- usage
 

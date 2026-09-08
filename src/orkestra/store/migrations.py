@@ -164,4 +164,19 @@ MIGRATIONS: list[str] = [
     CREATE INDEX idx_verifications_run ON verifications(run_id);
     CREATE INDEX idx_verifications_task ON verifications(task_id);
     """,
+    # A binding verdict is a property of the gate and the environment, not of
+    # the tree: it was identical across three different trees of one repo and
+    # flipped only when the environment changed. Proving it costs two extra
+    # gate runs, which is why it was opt-in; cached on that identity it is paid
+    # once per configuration instead of once per run, which is what lets it be
+    # on by default.
+    """
+    CREATE TABLE binding_proofs (
+        cache_key TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        commands_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """,
 ]

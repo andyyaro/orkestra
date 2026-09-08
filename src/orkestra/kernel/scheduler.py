@@ -972,8 +972,16 @@ class Orchestrator:
         """Once per run: does the gate actually read the tree it is given?
 
         Runs in a throwaway detached worktree of the run's integration
-        head, so it costs no agent quota and cannot disturb a task. The
-        result is cached for the run: every task asks, one task pays.
+        head, so it costs no agent quota and cannot disturb a task.
+
+        Cached twice over. In memory for the run, so every task asks and one
+        pays; and in the project's database on the gate and the environment,
+        because that is what the answer actually depends on. Measured across
+        three trees of one repository the verdict was identical and moved
+        only when the environment did, so a stored proof stays true until the
+        gate or the environment changes. That is what makes two extra gate
+        runs affordable enough to be on by default.
+
         Returns None when there is nothing to prove or the check is off.
         """
         if not self.config.verify.commands or not self.config.verify.binding_check:
@@ -984,6 +992,21 @@ class Orchestrator:
                 return cached
             from orkestra.ids import integration_branch
             from orkestra.verify import prove_binding
+            from orkestra.verify.binding import binding_cache_key
+            from orkestra.verify.runner import gate_env
+
+            commands = list(self.config.verify.commands)
+            key = binding_cache_key(commands, self.root, gate_env(self.root))
+            stored = self.store.cached_binding(key)
+            if stored is not None:
+                status, reason = stored
+                proof = BindingProof(
+                    status=BindingStatus(status),
+                    reason=reason,
+                    commands=tuple(commands),
+                )
+                self._gate_binding_proofs[run_id] = proof
+                return proof
 
             branch = integration_branch(run_id)
             try:
@@ -995,15 +1018,18 @@ class Orchestrator:
                 async with self.workspaces.scratch_worktree(run_id, ref) as path:
                     proof = await prove_binding(
                         path,
-                        self.config.verify.commands,
+                        commands,
                         timeout_s=self.config.verify.timeout_s,
                     )
             except WorkspaceError as exc:
                 proof = BindingProof.cannot_check(
                     f"could not create a scratch worktree to test the gate in ({exc})",
-                    commands=tuple(self.config.verify.commands),
+                    commands=tuple(commands),
                 )
             self._gate_binding_proofs[run_id] = proof
+            # CANNOT-CHECK is a circumstance, not an answer, so it is not stored.
+            if proof.status is not BindingStatus.CANNOT_CHECK:
+                self.store.remember_binding(key, proof.status.value, proof.reason, commands)
             kind = {
                 BindingStatus.BOUND: EventKind.COMPLETED,
                 BindingStatus.UNBOUND: EventKind.ERROR,
