@@ -104,8 +104,13 @@ def worktree_pythonpath(cwd: Path, existing: str | None = None) -> str:
     after ours, so a user's own PYTHONPATH still works.
     """
     root = Path(cwd).resolve()
-    entries = [str(root / "src")] if (root / "src").is_dir() else []
-    entries.append(str(root))
+    # Only one of these, never both. The worktree root carries the project's
+    # top-level modules, and a project with its own types.py or queue.py at the
+    # root would shadow the standard library for every gate we run. A src
+    # layout keeps importable code under src/, so naming the root there buys
+    # nothing and risks exactly that.
+    src = root / "src"
+    entries = [str(src)] if src.is_dir() else [str(root)]
     if existing:
         entries.extend(part for part in existing.split(os.pathsep) if part)
     seen: set[str] = set()

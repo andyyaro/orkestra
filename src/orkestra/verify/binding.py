@@ -281,23 +281,30 @@ def _candidates(sources: Sequence[str], touched: Sequence[str]) -> list[str]:
 
 
 def _module_name(rel: str, worktree: Path) -> str | None:
-    """Dotted import name for a .py file, walking up while __init__.py exists."""
+    """Dotted import name for a .py file, walking up while __init__.py exists.
+
+    Walking up from the file is what makes a src layout come out right:
+    ``src/orkestra/verify/binding.py`` stops at ``src``, which is not a
+    package, and yields ``orkestra.verify.binding`` rather than dragging the
+    ``src`` prefix along.
+    """
     path = PurePosixPath(rel)
     if path.suffix != ".py":
         return None
-    parts = list(path.parts)
-    parts[-1] = path.name[: -len(".py")]
-    if parts[-1] == "__init__":
-        parts.pop()
-    if not parts:
-        return None
-    # Trim leading directories that are not packages (src/, lib/, …).
-    while len(parts) > 1:
-        package_root = worktree.joinpath(*parts[:-1]) / "__init__.py"
-        if package_root.exists():
+    stem = path.name[: -len(".py")]
+    directory = worktree / path.parent
+    # For __init__.py the package itself is the module, so the name comes
+    # entirely from the directories.
+    dotted = [] if stem == "__init__" else [stem]
+    while (directory / "__init__.py").exists():
+        dotted.insert(0, directory.name)
+        parent = directory.parent
+        if parent == directory:
             break
-        parts.pop(0)
-    return ".".join(parts)
+        directory = parent
+    if not dotted:
+        return None
+    return ".".join(dotted)
 
 
 def _python_argv(commands: Sequence[str]) -> list[str] | None:

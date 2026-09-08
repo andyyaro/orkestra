@@ -14,6 +14,7 @@ the gate.
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 import sys
@@ -22,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from orkestra.verify.binding import BindingStatus, prove_binding
+from orkestra.verify.binding import BindingStatus, _module_name, prove_binding
 from orkestra.verify.runner import run_verification, worktree_pythonpath
 
 SABOTAGE = 'raise RuntimeError("SABOTAGED")\n'
@@ -177,13 +178,54 @@ class TestBindingCanary:
 
 
 class TestWorktreePythonPath:
-    def test_src_layout_puts_the_worktree_first(self, tmp_path: Path) -> None:
+    def test_src_layout_names_src_and_not_the_root(self, tmp_path: Path) -> None:
         (tmp_path / "src").mkdir()
         value = worktree_pythonpath(tmp_path, "/somewhere/else/src")
-        assert value.split(":")[0] == str((tmp_path / "src").resolve())
-        assert value.split(":")[1] == str(tmp_path.resolve())
+        entries = value.split(os.pathsep)
+        assert entries[0] == str((tmp_path / "src").resolve())
+        # The root must NOT be here: it holds the project's top-level modules,
+        # and a project owning a types.py would shadow the standard library.
+        assert str(tmp_path.resolve()) not in entries
         assert value.endswith("/somewhere/else/src")
 
-    def test_flat_layout_and_no_duplicates(self, tmp_path: Path) -> None:
+    def test_flat_layout_names_the_root_and_no_duplicates(self, tmp_path: Path) -> None:
         value = worktree_pythonpath(tmp_path, f"{tmp_path.resolve()}:")
         assert value == str(tmp_path.resolve())
+
+    def test_a_project_owning_types_py_does_not_break_the_interpreter(self, tmp_path: Path) -> None:
+        """The shadowing this function must never cause, stated as behaviour."""
+        (tmp_path / "src").mkdir()
+        (tmp_path / "types.py").write_text("raise RuntimeError('stdlib shadowed')\n")
+        env = dict(os.environ)
+        env["PYTHONPATH"] = worktree_pythonpath(tmp_path)
+        result = subprocess.run(
+            [sys.executable, "-c", "import types; print(types.__name__)"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "types"
+
+
+class TestModuleName:
+    """A src layout must not drag its `src` prefix into the dotted name."""
+
+    def test_package_init(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "src" / "widget"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("")
+        assert _module_name("src/widget/__init__.py", tmp_path) == "widget"
+
+    def test_nested_module_under_src(self, tmp_path: Path) -> None:
+        sub = tmp_path / "src" / "widget" / "verify"
+        sub.mkdir(parents=True)
+        (tmp_path / "src" / "widget" / "__init__.py").write_text("")
+        (sub / "__init__.py").write_text("")
+        (sub / "core.py").write_text("")
+        assert _module_name("src/widget/verify/core.py", tmp_path) == "widget.verify.core"
+
+    def test_top_level_script_is_its_own_module(self, tmp_path: Path) -> None:
+        (tmp_path / "tool.py").write_text("")
+        assert _module_name("tool.py", tmp_path) == "tool"
