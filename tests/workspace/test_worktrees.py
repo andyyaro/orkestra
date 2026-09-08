@@ -5,6 +5,7 @@ Real `git` repositories in tmp dirs; no network, no agents.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from orkestra.errors import PolicyViolation, WorkspaceError
 from orkestra.policy import PolicyEngine
 from orkestra.schemas.config import PolicyConfig
 from orkestra.workspace import GitRepo, WorkspaceManager
+from orkestra.workspace.worktrees import Workspace
 
 
 def make_policy() -> PolicyEngine:
@@ -168,3 +170,60 @@ class TestGitSafety:
         sha = await project.repo.add_all_and_commit("hook bypass check")
         assert sha is not None  # hook exit 1 would have blocked the commit
         assert not (project.root / "hook-marker.txt").exists()
+
+
+class TestConcurrentWorktreeAdministration:
+    """Concurrent worktree administration must complete and stay consistent.
+
+    `git worktree add` builds .git/worktrees/<name>/ in steps, and
+    `git worktree prune` deletes any entry that has no gitdir yet, so a prune
+    landing inside another add's window kills it:
+
+        fatal: could not open '.git/worktrees/<name>/locked' for writing:
+        No such file or directory
+
+    That is the cause of a macOS CI flake seen three times, in which a task
+    blocked, the run stopped for a human decision, and the test reported only
+    `assert 2 == 0`. It was observed in a stress run (1 in 200) and reproduced
+    outside Orkestra at about 2.5% by running adds against concurrent prunes.
+
+    This test does NOT reliably reproduce that race: through asyncio the
+    subprocess spawns are staggered enough that it did not fire in 12 runs
+    against the unserialized code. What it does guard is the fix itself. The
+    serialization added to WorkspaceManager is a lock taken on paths that
+    already nest inside _integration_lock, so the live risk is a deadlock or a
+    stalled add, and this exercises exactly those paths concurrently.
+    """
+
+    async def test_adds_survive_concurrent_prunes(self, project: WorkspaceManager) -> None:
+        import asyncio
+
+        run_id = "run_race01"
+        await project.start_run(run_id)
+
+        # Stale registrations give the concurrent prune real work to do: a
+        # prune with nothing to collect returns before it can race anything.
+        doomed = [await project.create_workspace(run_id, f"task_p{i}") for i in range(5)]
+        for workspace in doomed[:3]:
+            shutil.rmtree(workspace.path)
+
+        async def add(index: int) -> Workspace:
+            return await project.create_workspace(run_id, f"task_a{index}")
+
+        async def drop(workspace: Workspace) -> None:
+            await project.remove_workspace(workspace, keep_branch=False)
+
+        # Fire adds and remove+prune cycles at the same instant: this is the
+        # overlap that git does not protect, and it raises WorkspaceError.
+        created = await asyncio.gather(
+            *(add(i) for i in range(8)),
+            *(drop(w) for w in doomed),
+        )
+
+        # Every add that was asked for exists and is registered.
+        workspaces = [w for w in created if isinstance(w, Workspace)]
+        assert len(workspaces) == 8
+        live = {str(Path(p).resolve()) for p in await project.repo.worktree_list()}
+        for workspace in workspaces:
+            assert workspace.path.exists()
+            assert str(workspace.path.resolve()) in live
