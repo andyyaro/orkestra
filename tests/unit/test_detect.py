@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from orkestra.cli import detect as detect_module
 from orkestra.cli.detect import detect_verify_commands, spec_nudges
 
 
@@ -14,11 +17,16 @@ class TestDetectVerify:
         (tmp_path / "uv.lock").write_text("")
         assert detect_verify_commands(tmp_path) == ["uv run pytest -q"]
 
-    def test_pytest_without_uv_lock_avoids_the_unbound_console_script(self, tmp_path: Path) -> None:
+    def test_pytest_without_uv_lock_avoids_the_unbound_console_script(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         # Bare `pytest -q` resolves imports through its own interpreter, which
         # for an editable src-layout install points at another checkout - so
         # it can pass on a tree it never read. `python3 -m` puts the current
         # directory first instead.
+        # PATH is stubbed so the assertion measures the heuristic, not the
+        # machine the suite happens to run on.
+        monkeypatch.setattr(detect_module.shutil, "which", lambda name: f"/usr/bin/{name}")
         (tmp_path / "pytest.ini").write_text("[pytest]\n")
         (tmp_path / "tests").mkdir()
         (tmp_path / "tests" / "test_y.py").write_text(
