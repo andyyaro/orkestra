@@ -64,7 +64,16 @@ class GitRepo:
         stderr = stderr_b.decode("utf-8", errors="replace")
         code = proc.returncode if proc.returncode is not None else -1
         if check and code != 0:
-            msg = f"git {' '.join(args)} failed (exit {code}): {stderr.strip()[:500]}"
+            # Reason first, argv last. Console renderers clip event text from
+            # the right, and the argv of a worktree command is long enough to
+            # consume the whole budget on its own, which is how three CI
+            # failures reached a human with the git error already cut off.
+            reason = stderr.strip().splitlines()
+            detail = reason[0] if reason else "(no stderr)"
+            msg = (
+                f"git {' '.join(args[:2])} failed (exit {code}): "
+                f"{detail[:400]} [argv: {' '.join(args)}]"
+            )
             raise WorkspaceError(msg)
         return code, stdout, stderr
 

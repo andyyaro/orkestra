@@ -18,6 +18,7 @@ from rich.table import Table
 
 import orkestra
 from orkestra.app import CONFIG_RELPATH, App, build_app
+from orkestra.cli.text import clip
 from orkestra.errors import ConfigError, OrkestraError
 from orkestra.schemas.agent import AgentEvent, EventKind
 from orkestra.schemas.common import RunState
@@ -217,7 +218,7 @@ def _print_event(_run_id: str, event: AgentEvent) -> None:
         EventKind.STARTED: "cyan",
     }
     style = styles.get(event.kind)
-    text = escape(event.text.strip().replace("\n", " ")[:220])
+    text = escape(clip(event.text.strip().replace("\n", " "), 220))
     if not text:
         return
     label = event.kind.value
@@ -1120,7 +1121,7 @@ def logs(
         task_id = matching[0].task_id
     for event in application.store.events_for_run(resolved, limit=limit, task_id=task_id):
         text = str(event["text"])
-        body = text if full else text[:200] + ("…" if len(text) > 200 else "")
+        body = text if full else clip(text, 200)
         console.print(
             f"[dim]{event['ts'][:19]}[/dim] {event['kind']:>9} {escape(body)}",
             highlight=False,

@@ -17,6 +17,8 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, RichLog, Static
 
+from orkestra.cli.text import clip
+
 if TYPE_CHECKING:
     from orkestra.app import App as OrkestraApp
 
@@ -118,7 +120,7 @@ class WatchApp(TextualApp[None]):
             if event["event_id"] <= self._last_event_id:
                 continue
             self._last_event_id = event["event_id"]
-            text = str(event["text"]).replace("\n", " ")[:200]
+            text = clip(str(event["text"]).replace("\n", " "), 200)
             if text:
                 log.write(f"{event['ts'][11:19]} {event['kind']:>9}  {text}")
 
