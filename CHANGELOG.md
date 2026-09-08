@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-09-08
+
+Two defects in the parts of Orkestra that decide whether work is real, both
+found by running the system rather than reading it, and both reproduced
+before being fixed.
+
+The first: a `[verify]` gate could return green on a tree it never read. A
+src-layout project installed editable puts an absolute path to the main
+checkout on `sys.path` through a `.pth` file, so `pytest -q` run inside a
+task worktree tests the main checkout. Replacing a worktree source file
+with `raise RuntimeError` left the gate green and exiting 0. Bare
+`pytest -q` was the command this project's own docs and every shipped
+example prescribed.
+
+The second: a macOS CI flake, seen three times and reported only as
+`assert 2 == 0`, was a race between `git worktree add` and
+`git worktree prune`.
+
+### Fixed
+- **Concurrent worktree administration.** `git worktree add` builds
+  `.git/worktrees/<name>/` in steps and `git worktree prune` deletes any
+  entry without a gitdir yet, so a prune landing inside another add's
+  window killed it. Tasks run concurrently and pruned from three places,
+  only one of which was serialized. Reproduced outside Orkestra at about
+  2.5%.
+- **A task can no longer be reported done over a commit that never
+  landed.** A retry force-deleted the previous attempt's branch in order
+  to recreate it, and that branch was the only thing holding the attempt's
+  commit; an orphaned commit is indistinguishable from work never done,
+  which is why every state-shaped assertion stayed green while a task's
+  output vanished. Attempt branches are now moved aside rather than
+  deleted, and the kernel asks Git whether any of them holds a commit that
+  is not an ancestor of the integration tip before marking a task done.
+- Command failures lead with the reason rather than the argv, and console
+  truncation is marked. A worktree command's argv consumed the entire
+  220-character event budget, so git's own error was always the first
+  thing discarded.
+
 ### Added
 - **Bound gates.** Orkestra now proves that your `[verify]` commands
   actually read the tree they are pointed at before treating their exit
