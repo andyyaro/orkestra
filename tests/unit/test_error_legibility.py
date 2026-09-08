@@ -69,3 +69,24 @@ class TestGitFailureMessage:
         # This is the assertion the old format could not satisfy: with the argv
         # leading, 220 characters held nothing but the command.
         assert "fatal" in rendered or "invalid" in rendered.lower()
+
+    async def test_progress_narration_does_not_displace_the_reason(self, repo: GitRepo) -> None:
+        """git narrates to stderr before it fails; the fatal line is the reason."""
+        # A branch that already exists makes git print "Preparing worktree (...)"
+        # and only then the fatal line, which is the shape that hid the cause of
+        # a macOS CI flake through two rounds of fixing.
+        await repo.worktree_add(repo.root / ".orkestra" / "worktrees" / "first", "taken", "HEAD")
+        with pytest.raises(WorkspaceError) as excinfo:
+            await repo.worktree_add(
+                repo.root / ".orkestra" / "worktrees" / "second", "taken", "HEAD"
+            )
+        message = str(excinfo.value)
+        assert "already exists" in message
+        assert "Preparing worktree" not in message.split("[argv:")[0]
+
+    async def test_reason_is_reported_when_git_says_nothing(self, repo: GitRepo) -> None:
+        from orkestra.workspace.git import _failure_reason
+
+        assert _failure_reason("") == "(no stderr)"
+        assert _failure_reason("   \n  \n") == "(no stderr)"
+        assert _failure_reason("just a note\nand another") == "and another"
