@@ -115,10 +115,6 @@ class GitRepo:
         code, _, _ = await self._git("rev-parse", "--verify", "HEAD", check=False)
         return code == 0
 
-    async def is_dirty(self) -> bool:
-        _, out, _ = await self._git("status", "--porcelain")
-        return bool(out.strip())
-
     async def tracked_changes(self) -> list[str]:
         """Modified/staged/deleted tracked paths (untracked excluded)."""
         _, out, _ = await self._git("status", "--porcelain")
@@ -269,12 +265,6 @@ class GitRepo:
     async def diff_stat(self, base: str, head: str = "HEAD") -> str:
         _, out, _ = await self._git("diff", "--stat", f"{base}..{head}")
         return out.strip()
-
-    async def commits_between(self, base: str, head: str = "HEAD") -> list[str]:
-        _, out, _ = await self._git("rev-list", f"{base}..{head}")
-        return [line for line in out.splitlines() if line.strip()]
-
-    # ------------------------------------------------------ integration
 
     async def merge_no_ff(self, branch: str, message: str) -> str | None:
         """Merge *branch*; the merge commit sha on success, None on

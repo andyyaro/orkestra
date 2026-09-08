@@ -8,6 +8,8 @@ as the example third-party adapter.
 Directives (one per line, anywhere in the instructions):
 
     FAKE:write:<relpath>:<content>   write a file into the workspace
+                                    (\n and \t in <content> become real
+                                    newlines and tabs; \\ is a backslash)
     FAKE:fail[:detail]               emit an error result
     FAKE:rate_limit[:agent]          emit a rate_limit error (optionally only as <agent>)
     FAKE:exit:<code>                 exit with a raw code (crash simulation)
@@ -39,6 +41,24 @@ FAKE_VERSION = "1.0.0"
 def emit(obj: dict[str, Any]) -> None:
     sys.stdout.write(json.dumps(obj) + "\n")
     sys.stdout.flush()
+
+
+def _unescape(content: str) -> str:
+    """Turn the directive's ``\\n``/``\\t`` into real whitespace.
+
+    A directive is one line, so a multi-line file has to arrive escaped.
+    Writing it back verbatim produced files with a literal backslash-n, which
+    is a syntax error in every language the demo writes: the demo shipped
+    unparseable Python for months because its gate only checked that the file
+    existed.
+    """
+    sentinel = "\x00"
+    return (
+        content.replace("\\\\", sentinel)
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .replace(sentinel, "\\")
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -95,7 +115,7 @@ def main(argv: list[str]) -> int:
                 error_detail = f"refusing to write outside workspace: {parts[1]}"
                 break
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(parts[2] + "\n", encoding="utf-8")
+            target.write_text(_unescape(parts[2]) + "\n", encoding="utf-8")
             emit({"type": "tool", "name": f"write:{parts[1]}"})
             wrote_something = True
         elif op == "rate_limit":

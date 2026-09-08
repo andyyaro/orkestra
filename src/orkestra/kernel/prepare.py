@@ -18,7 +18,6 @@ from orkestra.schemas.common import RunState
 if TYPE_CHECKING:
     from orkestra.director import DirectorService
     from orkestra.kernel.scheduler import Orchestrator
-    from orkestra.schemas.director import DirectorPlan
 
 
 async def prepare_run(
@@ -159,15 +158,3 @@ async def _prepare(
         f"({json.dumps([p.task.key for p in plan.tasks])}); "
         f"integration branch {integration}",
     )
-
-
-def plan_summary(plan: DirectorPlan) -> str:
-    lines = []
-    for planned in plan.tasks:
-        deps = f" <- {', '.join(planned.task.depends_on)}" if planned.task.depends_on else ""
-        lines.append(
-            f"{planned.task.key} [{planned.task.kind.value}] "
-            f"primary={planned.assignment.primary} "
-            f"reviewers={','.join(planned.assignment.reviewers)}{deps}"
-        )
-    return "\n".join(lines)
