@@ -39,3 +39,6 @@ htmlcov/
 *.pem
 *.key
 .claude/
+
+# Local session working note, deliberately not published.
+SESSION_HANDOFF.md
