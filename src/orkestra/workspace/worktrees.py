@@ -41,6 +41,14 @@ class WorkspaceManager:
         # The integration branch can host only one merge worktree at a time;
         # concurrent task completions must take turns.
         self._integration_lock = asyncio.Lock()
+        # `git worktree add` builds .git/worktrees/<name>/ in steps, and
+        # `git worktree prune` deletes any entry that has no gitdir yet. A
+        # prune that lands inside another add's window therefore kills it:
+        #   fatal: could not open '.git/worktrees/<name>/locked' for writing
+        # Git does not serialize these for us, so the administrative commands
+        # take turns here. They are short; the agent work they bracket is not
+        # held up by this.
+        self._worktree_admin = asyncio.Lock()
 
     # ---------------------------------------------------------- checks
 
@@ -93,24 +101,25 @@ class WorkspaceManager:
         branch = branch_name(run_id, task_id)
         self.worktrees_dir.mkdir(parents=True, exist_ok=True)
         path = self.worktrees_dir / worktree_dirname(run_id, task_id)
-        if await self.repo.branch_exists(branch):
-            # A previous attempt left the branch. Its worktree (if any) must
-            # be removed FIRST: git refuses to delete a branch a worktree
-            # still holds, which would dead-end the retry path.
-            prefix = f"{run_id}-{task_id}-"
-            for existing in await self.repo.worktree_list():
-                candidate = Path(existing)
-                if candidate.name.startswith(prefix):
-                    with contextlib.suppress(WorkspaceError):
-                        await self.repo.worktree_remove(candidate, force=True)
-            await self.repo.worktree_prune()
-            with contextlib.suppress(WorkspaceError):
-                await self.repo.delete_branch(branch, force=True)
+        async with self._worktree_admin:
             if await self.repo.branch_exists(branch):
-                # Still held (e.g. by a worktree outside our directory):
-                # use a fresh name rather than dead-ending the retry.
-                branch = f"{branch}-{secrets.token_hex(3)}"
-        await self.repo.worktree_add(path, branch, base)
+                # A previous attempt left the branch. Its worktree (if any) must
+                # be removed FIRST: git refuses to delete a branch a worktree
+                # still holds, which would dead-end the retry path.
+                prefix = f"{run_id}-{task_id}-"
+                for existing in await self.repo.worktree_list():
+                    candidate = Path(existing)
+                    if candidate.name.startswith(prefix):
+                        with contextlib.suppress(WorkspaceError):
+                            await self.repo.worktree_remove(candidate, force=True)
+                await self.repo.worktree_prune()
+                with contextlib.suppress(WorkspaceError):
+                    await self.repo.delete_branch(branch, force=True)
+                if await self.repo.branch_exists(branch):
+                    # Still held (e.g. by a worktree outside our directory):
+                    # use a fresh name rather than dead-ending the retry.
+                    branch = f"{branch}-{secrets.token_hex(3)}"
+            await self.repo.worktree_add(path, branch, base)
         return Workspace(path=path, branch=branch, base_commit=base, task_id=task_id)
 
     async def commit_workspace(self, workspace: Workspace, message: str) -> str | None:
@@ -140,7 +149,8 @@ class WorkspaceManager:
             # the user's checkout; serialized because a branch can host only
             # one worktree at a time.
             merge_dir = self.worktrees_dir / f"integrate-{worktree_dirname(run_id, 'merge')}"
-            await self.repo.worktree_add_existing(merge_dir, integration)
+            async with self._worktree_admin:
+                await self.repo.worktree_add_existing(merge_dir, integration)
             try:
                 merge_repo = GitRepo(merge_dir)
                 return await merge_repo.merge_no_ff(
@@ -148,13 +158,15 @@ class WorkspaceManager:
                     f"orkestra: integrate {title} ({workspace.task_id})",
                 )
             finally:
-                await self.repo.worktree_remove(merge_dir, force=True)
-                await self.repo.worktree_prune()
+                async with self._worktree_admin:
+                    await self.repo.worktree_remove(merge_dir, force=True)
+                    await self.repo.worktree_prune()
 
     async def remove_workspace(self, workspace: Workspace, *, keep_branch: bool) -> None:
-        if workspace.path.exists():
-            await self.repo.worktree_remove(workspace.path, force=True)
-        await self.repo.worktree_prune()
+        async with self._worktree_admin:
+            if workspace.path.exists():
+                await self.repo.worktree_remove(workspace.path, force=True)
+            await self.repo.worktree_prune()
         if not keep_branch and await self.repo.branch_exists(workspace.branch):
             await self.repo.delete_branch(workspace.branch, force=True)
 
@@ -166,6 +178,7 @@ class WorkspaceManager:
         Prunes stale registrations and reports recorded paths that no
         longer exist so the kernel can re-plan those tasks.
         """
-        await self.repo.worktree_prune()
-        live = {Path(p).resolve() for p in await self.repo.worktree_list()}
+        async with self._worktree_admin:
+            await self.repo.worktree_prune()
+            live = {Path(p).resolve() for p in await self.repo.worktree_list()}
         return [p for p in recorded_paths if Path(p).resolve() not in live]
