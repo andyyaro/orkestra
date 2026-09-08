@@ -60,7 +60,7 @@ agents with different models).
 |---|---|---|
 | `commands` | `[]` | Deterministic acceptance commands (parsed with shlex, run without a shell, exit codes inspected by the kernel). These always run and are the authoritative gate; plan-generated `acceptance` entries run in addition to them and only when they validate as runnable commands. A command that cannot start is caught in pre-flight, before any agent is dispatched |
 | `timeout_s` | `900` | Per-command timeout |
-| `binding_check` | `true` | Prove, once per run and before any agent is dispatched, that the gate actually reads the tree it is pointed at (see below). Costs two extra gate runs per run |
+| `binding_check` | `false` | Prove, once per run and before any agent is dispatched, that the gate actually reads the tree it is pointed at (see below). Off by default because it costs two extra full gate runs |
 
 ### Unbound gates: when a green gate proves nothing
 
@@ -84,19 +84,25 @@ never read, silently, always.
 Two things make this worth naming. It is the default modern Python layout,
 and the failure is false-clean, so nothing downstream can notice.
 
-Orkestra defends in three ways:
+Orkestra defends in two ways, one free and always on, one you opt into.
 
-1. It prepends a worktree-scoped `PYTHONPATH` (the worktree's `src/`, then
-   the worktree root) when it runs your commands, so the common Python case
-   is bound by construction.
-2. Before the first agent is dispatched, it corrupts one tracked source
-   file in a throwaway worktree and requires your gate's exit code to
-   change. If it does not, the run stops with a config defect, exactly as a
-   `[verify]` command that cannot start does. Turn this off with
-   `binding_check = false` if your suite is too slow to run twice.
-3. `orkestra doctor` reports the same three facts (commands resolve, the
-   gate passes in a fresh checkout of HEAD, the gate is bound) before you
-   spend anything.
+1. **Always on.** It prepends a worktree-scoped `PYTHONPATH` when it runs
+   your commands: the worktree's `src/` if there is one, the worktree root
+   otherwise. Never both, because the root holds a project's top-level
+   modules and a project owning a `types.py` would shadow the standard
+   library. This fixes the common Python case at no cost.
+2. **Opt in with `binding_check = true`.** Before the first agent is
+   dispatched, Orkestra corrupts one tracked source file in a throwaway
+   worktree and requires your gate's exit code to change. If it does not,
+   the run stops with a config defect, exactly as a `[verify]` command that
+   cannot start does. `orkestra doctor` reports the same fact, alongside
+   whether the gate passes in a fresh checkout of HEAD.
+
+   This is off by default because it costs two extra full gate runs. On a
+   suite that takes several minutes that turns `orkestra doctor` from
+   seconds into a coffee break. Turn it on when you want the audit, and in
+   particular when your gate is not Python, since the mitigation above
+   cannot help there.
 
 Writing a gate that binds:
 

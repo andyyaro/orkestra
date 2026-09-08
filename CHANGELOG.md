@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   command is resolved on PATH, executed once in a fresh checkout of HEAD,
   and put through the binding canary - so an unresolvable, failing,
   vacuous or unbound gate is caught before any quota is spent.
-- `verify.binding_check` (default `true`) runs the canary once per run,
+- `verify.binding_check` (default `false`) runs the canary once per run,
   before the first agent is dispatched. An unbound gate is a config
   defect, classified and explained exactly as a `[verify]` command that
   cannot start already is.

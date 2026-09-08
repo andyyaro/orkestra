@@ -23,8 +23,9 @@ from pathlib import Path
 
 import pytest
 
+from orkestra.schemas.config import VerifyConfig
 from orkestra.verify.binding import BindingStatus, _module_name, prove_binding
-from orkestra.verify.runner import run_verification, worktree_pythonpath
+from orkestra.verify.runner import gate_env, run_verification, worktree_pythonpath
 
 SABOTAGE = 'raise RuntimeError("SABOTAGED")\n'
 
@@ -229,3 +230,19 @@ class TestModuleName:
     def test_top_level_script_is_its_own_module(self, tmp_path: Path) -> None:
         (tmp_path / "tool.py").write_text("")
         assert _module_name("tool.py", tmp_path) == "tool"
+
+
+class TestDefaults:
+    """The fix is on by default; the audit that costs two gate runs is not."""
+
+    def test_the_mitigation_is_always_on(self, tmp_path: Path) -> None:
+        # gate_env is what actually binds the common Python case, and nothing
+        # gates it behind a setting.
+        (tmp_path / "src").mkdir()
+        env = gate_env(tmp_path)
+        assert env["PYTHONPATH"].startswith(str((tmp_path / "src").resolve()))
+
+    def test_the_audit_is_opt_in(self) -> None:
+        # Two extra full gate runs is thirteen minutes on a suite the size of
+        # this one, so it must not be the price of `orkestra doctor`.
+        assert VerifyConfig().binding_check is False

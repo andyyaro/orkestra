@@ -27,6 +27,9 @@ class TestDetectVerify:
         # PATH is stubbed so the assertion measures the heuristic, not the
         # machine the suite happens to run on.
         monkeypatch.setattr(detect_module.shutil, "which", lambda name: f"/usr/bin/{name}")
+        # The interpreter probe is stubbed too: whether THIS machine's python3
+        # happens to have pytest is not what this test is about.
+        monkeypatch.setattr(detect_module, "_module_runs", lambda _i, _m: True)
         (tmp_path / "pytest.ini").write_text("[pytest]\n")
         (tmp_path / "tests").mkdir()
         (tmp_path / "tests" / "test_y.py").write_text(

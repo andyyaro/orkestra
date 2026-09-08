@@ -43,7 +43,11 @@ class TestDoctorVerifyRows:
     def test_unbound_gate_is_a_problem(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _project(tmp_path, monkeypatch, '\n[verify]\ncommands = ["true"]\n')
+        _project(
+            tmp_path,
+            monkeypatch,
+            '\n[verify]\ncommands = ["true"]\nbinding_check = true\n',
+        )
         result = runner.invoke(app, ["doctor"])
         print(result.output)
         assert_exit(result, 1)
@@ -68,7 +72,11 @@ class TestDoctorVerifyRows:
     def test_gate_that_fails_in_a_fresh_checkout_is_reported(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _project(tmp_path, monkeypatch, '\n[verify]\ncommands = ["false"]\n')
+        _project(
+            tmp_path,
+            monkeypatch,
+            '\n[verify]\ncommands = ["false"]\nbinding_check = true\n',
+        )
         result = runner.invoke(app, ["doctor"])
         print(result.output)
         assert_exit(result, 1)

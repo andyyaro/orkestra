@@ -22,8 +22,14 @@ from tests.e2e.test_orchestration import assign, manual_run, spec
 PYTEST_GATE = f"{shlex.quote(sys.executable)} -m pytest -q -p no:cacheprovider tests"
 
 
-async def _project_with_source(tmp_path: Path, commands: list[str], *, extra: str = "") -> App:
-    """A real, tiny Python project whose gate is `commands`."""
+async def _project_with_source(
+    tmp_path: Path, commands: list[str], *, extra: str = "\nbinding_check = true"
+) -> App:
+    """A real, tiny Python project whose gate is `commands`.
+
+    The binding audit is opt-in (it costs two extra gate runs), so these
+    tests turn it on: exercising it is the whole point of this module.
+    """
     base = await make_project(tmp_path)
     root = base.root
     (root / "widget.py").write_text("VALUE = 41\n\n\ndef bump() -> int:\n    return VALUE + 1\n")
