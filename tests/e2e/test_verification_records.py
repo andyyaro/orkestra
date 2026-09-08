@@ -9,13 +9,14 @@ disagrees with the run it describes is worse than no record at all.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 from orkestra.app import App, build_app
 from orkestra.schemas.common import RunState
-from orkestra.verify.record import BINDING_NOT_CHECKED, SCOPE_TASK
+from orkestra.verify.record import BINDING_NOT_CHECKED, BINDING_PROVED, SCOPE_TASK
 from orkestra.workspace.git import GitRepo
 from tests.e2e.conftest import make_project
 from tests.e2e.test_orchestration import assign, manual_run, spec
@@ -180,5 +181,73 @@ class TestVerificationRecordsMatchTheRun:
             assert Path(row.exe_realpath).is_absolute()
             assert Path(row.exe_realpath).exists()
             assert row.exe_version.lower().startswith("python")
+        finally:
+            app.close()
+
+
+class TestBindingProofReachesTheRecord:
+    """The row must carry the canary's verdict, not a standing default.
+
+    This is the whole point of the binding work: an exit code is evidence
+    about a tree only if the command read that tree, so the record has to
+    say which. The canary and the column shipped in separate changes and
+    were not joined, so every row said `not_checked` while the same run's
+    event said BOUND. Correct events, inert feature.
+    """
+
+    async def test_a_proved_gate_is_recorded_as_proved(self, tmp_path: Path) -> None:
+        app = await make_project(tmp_path)
+        (app.root / "seed.py").write_text("VALUE = 1\n")
+        # A file, not an inline -c: quoting a Python one-liner inside TOML
+        # inside an f-string is how you get a config that does not parse.
+        (app.root / "check.py").write_text(
+            "import ast, pathlib\n"
+            "for path in pathlib.Path().glob('*.py'):\n"
+            "    ast.parse(path.read_text())\n"
+        )
+        await GitRepo(app.root).add_all_and_commit("checker")
+        config_path = app.root / ".orkestra" / "config.toml"
+        config_path.write_text(
+            config_path.read_text()
+            + f'\n[verify]\ncommands = ["{sys.executable} check.py"]\nbinding_check = true\n'
+        )
+        app.close()
+        app = build_app(app.root, offline=True)
+        try:
+            run_id = await manual_run(
+                app,
+                [(spec("t", "FAKE:write:mod.py:def f():\\n    return 1"), assign("alpha", "beta"))],
+            )
+            await app.orchestrator.execute(run_id)
+            rows = app.store.verifications_for_run(run_id)
+            events = [
+                str(e["text"])
+                for e in app.store.events_for_run(run_id, limit=1000)
+                if "gate binding" in str(e["text"])
+            ]
+            print(f"canary said: {events[:1]}")
+            print(f"rows recorded: {[(r.scope, r.binding) for r in rows]}")
+
+            assert events, "the canary did not run, so this proves nothing"
+            assert "BOUND" in events[0]
+            assert rows, "no verification rows to carry the proof"
+            # The row must agree with the canary, not sit at the default.
+            assert {r.binding for r in rows} == {BINDING_PROVED}
+        finally:
+            app.close()
+
+    async def test_without_the_canary_the_row_claims_nothing(self, tmp_path: Path) -> None:
+        """Unproved must stay unproved: silence is not evidence."""
+        app = await make_project(tmp_path)
+        app = _set_verify(app, ["true"])  # binding_check defaults to false
+        try:
+            run_id = await manual_run(
+                app,
+                [(spec("t", "FAKE:write:out.txt:done"), assign("alpha", "beta"))],
+            )
+            await app.orchestrator.execute(run_id)
+            rows = app.store.verifications_for_run(run_id)
+            assert rows
+            assert {r.binding for r in rows} == {BINDING_NOT_CHECKED}
         finally:
             app.close()
