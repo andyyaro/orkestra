@@ -139,6 +139,11 @@ class GitRepo:
         _, out, _ = await self._git("rev-parse", "--abbrev-ref", "HEAD")
         return out.strip()
 
+    async def merge_base(self, left: str, right: str) -> str:
+        """Best common ancestor of two refs, or "" when they share none."""
+        code, out, _ = await self._git("merge-base", left, right, check=False)
+        return out.strip() if code == 0 else ""
+
     async def branch_exists(self, branch: str) -> bool:
         code, _, _ = await self._git("show-ref", "--verify", f"refs/heads/{branch}", check=False)
         return code == 0
@@ -150,6 +155,26 @@ class GitRepo:
 
     async def create_branch(self, branch: str, at: str) -> None:
         await self._git("branch", branch, at)
+
+    async def rename_branch(self, old: str, new: str) -> None:
+        """Move a branch aside, keeping whatever commits it holds."""
+        for name in (old, new):
+            if not name.startswith("ork/"):
+                msg = f"refusing to rename non-Orkestra branch {name!r}"
+                raise WorkspaceError(msg)
+        await self._git("branch", "-m", old, new)
+
+    async def branches_with_prefix(self, prefix: str) -> list[str]:
+        """Local branch names starting with *prefix*, in ref order.
+
+        The trailing glob matters: `refs/heads/<p>` matches only that ref
+        and things nested under it, so an attempt branch named
+        `<p>-attempt-ab12cd` would not be listed without it.
+        """
+        _, out, _ = await self._git(
+            "for-each-ref", "--format=%(refname:short)", f"refs/heads/{prefix}*"
+        )
+        return [line.strip() for line in out.splitlines() if line.strip()]
 
     async def delete_branch(self, branch: str, force: bool = False) -> None:
         if not branch.startswith("ork/"):

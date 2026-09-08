@@ -114,8 +114,18 @@ class WorkspaceManager:
                         with contextlib.suppress(WorkspaceError):
                             await self.repo.worktree_remove(candidate, force=True)
                 await self.repo.worktree_prune()
-                with contextlib.suppress(WorkspaceError):
-                    await self.repo.delete_branch(branch, force=True)
+                # A previous attempt's branch may be the only thing holding
+                # its commits. Deleting it orphans them, and an orphaned
+                # commit is indistinguishable from work that was never done,
+                # so move it aside instead and let unlanded_work find it.
+                if await self._holds_work(branch, base):
+                    with contextlib.suppress(WorkspaceError):
+                        await self.repo.rename_branch(
+                            branch, f"{branch}-attempt-{secrets.token_hex(3)}"
+                        )
+                else:
+                    with contextlib.suppress(WorkspaceError):
+                        await self.repo.delete_branch(branch, force=True)
                 if await self.repo.branch_exists(branch):
                     # Still held (e.g. by a worktree outside our directory):
                     # use a fresh name rather than dead-ending the retry.
@@ -185,13 +195,45 @@ class WorkspaceManager:
                     await self.repo.worktree_remove(path, force=True)
                 await self.repo.worktree_prune()
 
+    async def _holds_work(self, branch: str, base: str) -> bool:
+        """True if *branch* has commits beyond *base*."""
+        if not await self.repo.branch_exists(branch):
+            return False
+        return await self.repo.rev_parse(branch) != base
+
+    async def unlanded_work(self, run_id: str, task_id: str) -> str | None:
+        """Sha of work this task committed that is not on the integration branch.
+
+        Read from git rather than from process state, so it survives a
+        resume: the question "did this task produce a commit that never
+        landed" has the same answer in a fresh process as in the one that
+        made the commit.
+        """
+        integration = integration_branch(run_id)
+        if not await self.repo.branch_exists(integration):
+            return None
+        prefix = branch_name(run_id, task_id)
+        for candidate in await self.repo.branches_with_prefix(prefix):
+            head = await self.repo.rev_parse(candidate)
+            if head != await self.repo.merge_base(candidate, integration):
+                # Not an ancestor of the integration tip: it never landed.
+                return head
+        return None
+
     async def remove_workspace(self, workspace: Workspace, *, keep_branch: bool) -> None:
         async with self._worktree_admin:
             if workspace.path.exists():
                 await self.repo.worktree_remove(workspace.path, force=True)
             await self.repo.worktree_prune()
-        if not keep_branch and await self.repo.branch_exists(workspace.branch):
-            await self.repo.delete_branch(workspace.branch, force=True)
+        if keep_branch or not await self.repo.branch_exists(workspace.branch):
+            return
+        # A branch holding commits is the only copy of that work once its
+        # worktree is gone. Deleting it orphans the commit, and an orphaned
+        # commit is indistinguishable from work that was never done.
+        head = await self.repo.rev_parse(workspace.branch)
+        if head != workspace.base_commit:
+            return
+        await self.repo.delete_branch(workspace.branch, force=True)
 
     # ------------------------------------------------------- recovery
 

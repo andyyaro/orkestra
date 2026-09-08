@@ -227,3 +227,65 @@ class TestConcurrentWorktreeAdministration:
         for workspace in workspaces:
             assert workspace.path.exists()
             assert str(workspace.path.resolve()) in live
+
+
+class TestUnlandedWork:
+    """The guard's arming condition: committed, and not on the integration tip.
+
+    It is asked of Git rather than of process state, so it answers the same
+    after a resume, and it is about containment rather than about conflicts,
+    so it covers every path that can strand a commit. It must also stay quiet
+    when a retry legitimately produces nothing because the work already
+    landed: a checker that halts a run on a correct configuration is the
+    failure mode that gets checkers switched off.
+    """
+
+    async def test_quiet_when_the_task_never_committed(self, project: WorkspaceManager) -> None:
+        run_id = "run_u1"
+        await project.start_run(run_id)
+        workspace = await project.create_workspace(run_id, "task_a1")
+        assert await project.unlanded_work(run_id, "task_a1") is None
+        await project.remove_workspace(workspace, keep_branch=False)
+        assert await project.unlanded_work(run_id, "task_a1") is None
+
+    async def test_quiet_when_the_work_landed(self, project: WorkspaceManager) -> None:
+        run_id = "run_u2"
+        await project.start_run(run_id)
+        workspace = await project.create_workspace(run_id, "task_b2")
+        (workspace.path / "feature.py").write_text("VALUE = 1\n")
+        await project.commit_workspace(workspace, "add feature")
+        merged = await project.integrate(run_id, workspace, "feature")
+        assert merged is not None
+        # This is the legitimate empty retry: nothing new, but nothing lost.
+        assert await project.unlanded_work(run_id, "task_b2") is None
+
+    async def test_speaks_when_a_commit_never_reached_integration(
+        self, project: WorkspaceManager
+    ) -> None:
+        run_id = "run_u3"
+        await project.start_run(run_id)
+        workspace = await project.create_workspace(run_id, "task_c3")
+        (workspace.path / "feature.py").write_text("VALUE = 2\n")
+        sha = await project.commit_workspace(workspace, "work that will not land")
+        assert sha is not None
+        # Committed, never integrated: exactly what must not be reported done.
+        unlanded = await project.unlanded_work(run_id, "task_c3")
+        print(f"committed {sha[:12]}, unlanded_work reported {unlanded}")
+        assert unlanded == sha
+
+    async def test_a_retry_moves_the_previous_attempt_aside(
+        self, project: WorkspaceManager
+    ) -> None:
+        """Recreating a workspace must not orphan the commits it held."""
+        run_id = "run_u4"
+        await project.start_run(run_id)
+        first = await project.create_workspace(run_id, "task_d4")
+        (first.path / "feature.py").write_text("VALUE = 3\n")
+        sha = await project.commit_workspace(first, "attempt one")
+        await project.remove_workspace(first, keep_branch=True)
+
+        await project.create_workspace(run_id, "task_d4")  # the retry
+        preserved = await project.repo.branches_with_prefix(first.branch)
+        print(f"branches after retry: {preserved}")
+        assert any(b != first.branch for b in preserved), "the attempt branch was not kept"
+        assert await project.unlanded_work(run_id, "task_d4") == sha
