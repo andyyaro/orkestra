@@ -57,9 +57,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Store.add_verifications()`, `Store.verifications_for_run()` and
   `Store.verification_summary()` read and write those rows.
 - `binding` records whether anything ever proved the gate read the tree
-  the row names, and `tree_clean` records whether the worktree had
-  uncommitted changes when the gate ran, so a consumer can tell a tree
-  sha that describes what ran from one that does not.
+  the row names, and `tree_clean` plus `dirty_digest` record whether the
+  worktree had uncommitted changes when the gate ran, so a consumer can
+  tell a tree sha that describes what ran from one that does not.
+  Verification runs on every task while only a mutating task commits
+  first, so a research or review task is always gated over a dirty tree.
+- `env_fingerprint` is captured from the environment the gate actually
+  ran in, carried on the outcome, rather than rebuilt afterwards. A
+  rebuilt one agrees with reality only while nothing passes `env_extra`,
+  and the worktree-scoped `PYTHONPATH` above passes one on every run.
+- `attempt_id` distinguishes a retry's rows from the attempt before it.
+- The version probe never executes a binary that resolves inside the tree
+  under test, runs beside the executable rather than in the worktree, and
+  reports nothing when the probe itself fails instead of storing an error
+  message as a version. `argv_json` is redacted per element and trimmed
+  by element, so a secret-shaped argument or a long command line can no
+  longer leave a row whose argv does not parse.
 
 ## [0.5.3] - 2026-07-25
 

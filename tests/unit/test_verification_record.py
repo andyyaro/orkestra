@@ -9,6 +9,7 @@ tree), and the rule that only executed commands become records.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -73,6 +74,9 @@ class TestBindingDefault:
             "task_id": None,
             "commit_sha": "c",
             "tree_sha": "t",
+            "tree_clean": True,
+            "dirty_digest": "",
+            "attempt_id": None,
             "command": "true",
             "argv_json": '["true"]',
             "exe_realpath": "/bin/true",
@@ -148,3 +152,107 @@ class TestStoreRoundTrip:
         store = Store(Database(tmp_path / "db.sqlite"))
         assert store.add_verifications([]) == []
         assert store.verifications_for_run("run_1") == []
+
+
+class TestColumnsMeanWhatTheySay:
+    """Three columns previously described something other than what ran."""
+
+    async def test_environment_is_captured_not_rebuilt(self, tmp_path: Path) -> None:
+        """The fingerprint must describe the environment the gate really got.
+
+        Rebuilding it afterwards agrees with reality only while nothing
+        passes env_extra, and the gate binding work passes a worktree
+        PYTHONPATH on every run.
+        """
+        from orkestra.verify.runner import gate_env, run_verification, subprocess_env
+
+        outcome = await run_verification(
+            ["true"], tmp_path, env_extra={"ORKESTRA_TEST_MARKER": "captured"}
+        )
+        # What actually ran, versus what a second reconstruction would guess.
+        assert outcome.env.get("ORKESTRA_TEST_MARKER") == "captured"
+        print("captured  :", env_fingerprint(outcome.env))
+        print("rebuilt   :", env_fingerprint(subprocess_env()))
+        print("gate_env  :", env_fingerprint(gate_env(tmp_path)))
+        assert env_fingerprint(outcome.env) != env_fingerprint(subprocess_env())
+
+        records = await records_for_outcome(
+            outcome,
+            run_id="r",
+            task_id=None,
+            scope=SCOPE_TASK,
+            commit_sha="c",
+            tree_sha="t",
+            cwd=tmp_path,
+            env=outcome.env,
+        )
+        assert records[0].env_fingerprint == env_fingerprint(outcome.env)
+
+    async def test_a_repo_local_binary_is_never_probed(self, tmp_path: Path) -> None:
+        """A gate binary living in the tree is the code under test."""
+        from orkestra.verify.record import probe_version
+
+        fake = tmp_path / "pytest"
+        witness = tmp_path / "probe-ran"
+        fake.write_text(f"#!/bin/sh\ntouch {witness}\necho 'pytest 1.0'\n")
+        fake.chmod(0o755)
+
+        version = await probe_version(str(fake), "pytest", tmp_path, {"PATH": "/usr/bin"})
+        assert version == ""
+        assert not witness.exists(), "a binary inside the worktree was executed"
+
+    async def test_argv_survives_redaction_and_truncation(self, tmp_path: Path) -> None:
+        """A stored argv must still parse as JSON, or it is simply lost."""
+        from orkestra.store.repo import _argv_json
+
+        stored = _argv_json('["pytest", "--token=sk-not-a-real-secret-value-here"]')
+        parsed = json.loads(stored)
+        assert parsed[0] == "pytest"
+
+        long_argv = json.dumps(["pytest", *[f"--flag-{i}={'x' * 200}" for i in range(60)]])
+        trimmed = json.loads(_argv_json(long_argv))
+        assert trimmed[0] == "pytest"
+        assert len(_argv_json(long_argv)) <= 4000
+
+
+class TestTreeShaHonesty:
+    """`tree_sha` names HEAD's tree, which is not always what the gate read."""
+
+    async def test_dirty_worktree_is_recorded_as_such(self, tmp_path: Path) -> None:
+        from orkestra.verify.record import dirty_state
+        from orkestra.workspace.git import GitRepo
+
+        root = tmp_path / "proj"
+        root.mkdir()
+        repo = GitRepo(root)
+        await repo.init()
+        (root / "a.py").write_text("VALUE = 1\n")
+        await repo.add_all_and_commit("initial")
+
+        clean, digest = await dirty_state(repo)
+        assert clean is True
+        assert digest == ""
+
+        # Verification runs on every task; only a mutating task commits
+        # first. So this is the ordinary case for research and review work.
+        (root / "a.py").write_text("VALUE = 2\n")
+        dirty, dirty_digest = await dirty_state(repo)
+        print("clean:", clean, "| dirty:", dirty, "| digest:", dirty_digest[:24])
+        assert dirty is False
+        assert dirty_digest != ""
+
+        records = await records_for_outcome(
+            _outcome(_result("true")),
+            run_id="r",
+            task_id=None,
+            scope=SCOPE_TASK,
+            commit_sha=await repo.rev_parse("HEAD"),
+            tree_sha=await repo.rev_parse("HEAD^{tree}"),
+            tree_clean=dirty,
+            dirty_digest=dirty_digest,
+            cwd=root,
+            env={"PATH": "/usr/bin"},
+        )
+        # The row still carries a tree sha, but no longer claims it is what ran.
+        assert records[0].tree_clean is False
+        assert records[0].dirty_digest == dirty_digest

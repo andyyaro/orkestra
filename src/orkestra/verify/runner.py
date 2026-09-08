@@ -153,6 +153,15 @@ class CommandResult:
 @dataclass
 class VerificationOutcome:
     results: list[CommandResult] = field(default_factory=list)
+    env: dict[str, str] = field(default_factory=dict)
+    """The environment the commands actually ran in.
+
+    Captured rather than reconstructed. A record that rebuilds the
+    environment afterwards describes an environment that may never have
+    existed: `gate_env` varies with the worktree and with `env_extra`, so
+    a second call is a guess that happens to be right only while no
+    caller passes anything.
+    """
 
     @property
     def passed(self) -> bool:
@@ -189,7 +198,8 @@ async def run_verification(
     env_extra: dict[str, str] | None = None,
 ) -> VerificationOutcome:
     """Run each command in order; stop at first failure."""
-    outcome = VerificationOutcome()
+    env = gate_env(cwd, env_extra)
+    outcome = VerificationOutcome(env=env)
     for command in commands:
         argv = shlex.split(command)
         if not argv:
@@ -201,7 +211,7 @@ async def run_verification(
                 cwd=str(cwd),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=gate_env(cwd, env_extra),
+                env=env,
                 start_new_session=True,
             )
         except FileNotFoundError as exc:

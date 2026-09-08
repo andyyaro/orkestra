@@ -1004,19 +1004,28 @@ class Orchestrator:
         with which executable, in which environment, and for how long -
         the facts a later audit needs and prose cannot carry.
 
+        Two honesty details. The environment comes from the outcome, so
+        it is the one the gate really ran in rather than one rebuilt
+        afterwards. And ``tree_sha`` names HEAD's tree, which describes
+        what the gate read only if the worktree was clean: `_verify` runs
+        on every task, while only a mutating task commits first, so a
+        research or review task is gated over a dirty tree. `tree_clean`
+        and `dirty_digest` record that, so a later audit can say
+        CANNOT-CHECK instead of wrongly agreeing.
+
         ``binding`` stays ``not_checked`` until a binding canary proves
         the commands read the tree named here. Recording is best-effort:
         a bookkeeping failure must never turn a real verdict into a
         crash, so it degrades to a warning event.
         """
-        from orkestra.verify.record import records_for_outcome
-        from orkestra.verify.runner import subprocess_env
+        from orkestra.verify.record import dirty_state, records_for_outcome
         from orkestra.workspace.git import GitRepo
 
         try:
             repo = GitRepo(cwd)
             commit_sha = await repo.rev_parse("HEAD")
             tree_sha = await repo.rev_parse("HEAD^{tree}")
+            clean, digest = await dirty_state(repo)
             records = await records_for_outcome(
                 outcome,
                 run_id=run_id,
@@ -1024,8 +1033,10 @@ class Orchestrator:
                 scope=scope,
                 commit_sha=commit_sha,
                 tree_sha=tree_sha,
+                tree_clean=clean,
+                dirty_digest=digest,
                 cwd=cwd,
-                env=subprocess_env(),
+                env=outcome.env,
                 binding=binding,
             )
             self.store.add_verifications(records)

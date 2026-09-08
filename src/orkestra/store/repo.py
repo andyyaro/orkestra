@@ -73,6 +73,23 @@ class WorkspaceRow:
     state: str
 
 
+def _argv_json(argv_json: str) -> str:
+    """Redact and bound an argv list without breaking its JSON.
+
+    Redacting the serialized string can eat the quotes that hold it
+    together, and slicing it can cut mid-string; either way the argv is
+    silently lost on read. Redact each element, then drop elements until
+    the whole thing fits.
+    """
+    try:
+        argv = [redact(str(part)) for part in json.loads(argv_json)]
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps([])
+    while len(json.dumps(argv)) > 4000 and argv:
+        argv.pop()
+    return json.dumps(argv)
+
+
 @dataclass(frozen=True)
 class VerificationRow:
     verification_id: str
@@ -81,6 +98,9 @@ class VerificationRow:
     scope: str
     commit_sha: str
     tree_sha: str
+    tree_clean: bool
+    dirty_digest: str
+    attempt_id: str | None
     command: str
     argv: list[str]
     exe_realpath: str
@@ -555,9 +575,10 @@ class Store:
             for verification_id, record in zip(ids, records, strict=True):
                 conn.execute(
                     "INSERT INTO verifications (verification_id, run_id, task_id, scope,"
-                    " commit_sha, tree_sha, command, argv_json, exe_realpath, exe_version,"
+                    " commit_sha, tree_sha, tree_clean, dirty_digest, attempt_id,"
+                    " command, argv_json, exe_realpath, exe_version,"
                     " env_fingerprint, exit_code, duration_s, output_digest, binding,"
-                    " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         verification_id,
                         record.run_id,
@@ -565,8 +586,11 @@ class Store:
                         record.scope,
                         record.commit_sha,
                         record.tree_sha,
+                        int(record.tree_clean),
+                        record.dirty_digest,
+                        record.attempt_id,
                         redact(record.command)[:2000],
-                        redact(record.argv_json)[:4000],
+                        _argv_json(record.argv_json),
                         record.exe_realpath,
                         record.exe_version,
                         record.env_fingerprint,
@@ -582,7 +606,9 @@ class Store:
     def _verification_from_row(self, row: Any) -> VerificationRow:
         try:
             argv = json.loads(row["argv_json"])
-        except json.JSONDecodeError:  # pragma: no cover - written as JSON above
+        except json.JSONDecodeError:
+            # Reachable if a row predates _argv_json, which redacts each
+            # element and trims the list rather than the serialized string.
             argv = []
         return VerificationRow(
             verification_id=row["verification_id"],
@@ -591,6 +617,9 @@ class Store:
             scope=row["scope"],
             commit_sha=row["commit_sha"],
             tree_sha=row["tree_sha"],
+            tree_clean=bool(row["tree_clean"]),
+            dirty_digest=row["dirty_digest"] or "",
+            attempt_id=row["attempt_id"],
             command=row["command"],
             argv=argv,
             exe_realpath=row["exe_realpath"] or "",

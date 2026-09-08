@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from orkestra.verify.runner import CommandResult, VerificationOutcome
+from orkestra.workspace.git import GitRepo
 
 #: What tree the result is a statement about.
 SCOPE_TASK = "task"
@@ -126,16 +127,28 @@ def resolve_executable(argv0: str, cwd: Path, env: Mapping[str, str]) -> str:
 async def probe_version(exe: str, argv0: str, cwd: Path, env: Mapping[str, str]) -> str:
     """First line of ``<exe> --version``, or "" when it cannot be asked.
 
-    Only executables named in ``_VERSION_PROBE_SAFE`` are probed; see the
-    note there for why an arbitrary gate entry is not.
+    Two guards, both about not executing the code under test. An
+    executable that resolves INSIDE the tree is never probed: a repo-local
+    ``./tools/pytest`` is a project-chosen binary that happens to carry an
+    allowlisted name, and probing it would run the very code the gate
+    exists to judge. And the probe runs beside the executable rather than
+    in the worktree, so a repo-local plugin or conftest cannot reach it
+    either.
+
+    The allowlist itself is keyed on the name as written, because that is
+    the name a user chose; the resolved file is routinely called something
+    else (``python3`` resolves to ``python3.13``) and keying on it would
+    quietly stop probing anything.
     """
     if not exe or Path(argv0).name not in _VERSION_PROBE_SAFE:
+        return ""
+    if _is_within(exe, cwd):
         return ""
     try:
         proc = await asyncio.create_subprocess_exec(
             exe,
             "--version",
-            cwd=str(cwd),
+            cwd=str(Path(exe).parent),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=dict(env),
@@ -151,8 +164,33 @@ async def probe_version(exe: str, argv0: str, cwd: Path, env: Mapping[str, str])
         proc.kill()
         await proc.wait()
         return ""
+    if proc.returncode != 0:
+        # A runner that rejects --version has no version to report; storing
+        # its error message as one would be a lie in a column called version.
+        return ""
     text = (stdout or stderr).decode(errors="replace").strip()
     return text.splitlines()[0][:200] if text else ""
+
+
+def _is_within(path: str, root: Path) -> bool:
+    """True if *path* resolves inside *root*."""
+    try:
+        Path(path).resolve().relative_to(Path(root).resolve())
+    except (ValueError, OSError):
+        return False
+    return True
+
+
+async def dirty_state(repo: GitRepo) -> tuple[bool, str]:
+    """Whether the worktree is clean, and a digest of what differs.
+
+    A tree sha describes what a gate read only if nothing was uncommitted
+    when it ran. `_verify` runs on every task while only a mutating task
+    commits first, so this is the ordinary case, not the exotic one.
+    """
+    _, out, _ = await repo._git("status", "--porcelain", check=False)
+    porcelain = out.strip()
+    return (not porcelain), (_sha256(porcelain) if porcelain else "")
 
 
 @dataclass(frozen=True)
@@ -164,6 +202,9 @@ class VerificationRecord:
     scope: str
     commit_sha: str
     tree_sha: str
+    tree_clean: bool
+    dirty_digest: str
+    attempt_id: str | None
     command: str
     argv_json: str
     exe_realpath: str
@@ -191,6 +232,9 @@ async def records_for_outcome(
     scope: str,
     commit_sha: str,
     tree_sha: str,
+    tree_clean: bool = True,
+    dirty_digest: str = "",
+    attempt_id: str | None = None,
     cwd: Path,
     env: Mapping[str, str],
     binding: str = BINDING_NOT_CHECKED,
@@ -217,6 +261,9 @@ async def records_for_outcome(
                 scope=scope,
                 commit_sha=commit_sha,
                 tree_sha=tree_sha,
+                tree_clean=tree_clean,
+                dirty_digest=dirty_digest,
+                attempt_id=attempt_id,
                 command=result.command,
                 argv_json=json.dumps(argv),
                 exe_realpath=exe_realpath,
