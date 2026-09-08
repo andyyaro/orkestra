@@ -128,4 +128,40 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE usage_log ADD COLUMN cached_input_tokens INTEGER NOT NULL DEFAULT 0;
     """,
+    # A verification result used to exist only as rendered event prose, so its
+    # duration, environment and the tree it ran against could not be queried,
+    # audited or compared later. One row per gate command actually executed.
+    # Both a commit sha and a tree sha are stored: the tree sha names the
+    # committed tree HEAD pointed at, the commit sha is what an audit verb can
+    # check out ("git checkout <tree>" does not work). The tree sha describes
+    # what the gate READ only when tree_clean is 1: verification runs on every
+    # task while only a mutating task commits first, so a research or review
+    # task is gated over a dirty worktree. dirty_digest fingerprints what
+    # differed, so an audit can report CANNOT-CHECK rather than agreeing with
+    # a row whose tree is not the tree that ran.
+    """
+    CREATE TABLE verifications (
+        verification_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        task_id TEXT,
+        scope TEXT NOT NULL,
+        commit_sha TEXT NOT NULL,
+        tree_sha TEXT NOT NULL,
+        tree_clean INTEGER NOT NULL,
+        dirty_digest TEXT NOT NULL,
+        attempt_id TEXT,
+        command TEXT NOT NULL,
+        argv_json TEXT NOT NULL,
+        exe_realpath TEXT,
+        exe_version TEXT,
+        env_fingerprint TEXT NOT NULL,
+        exit_code INTEGER NOT NULL,
+        duration_s REAL NOT NULL,
+        output_digest TEXT,
+        binding TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_verifications_run ON verifications(run_id);
+    CREATE INDEX idx_verifications_task ON verifications(task_id);
+    """,
 ]

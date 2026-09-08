@@ -21,6 +21,7 @@ from orkestra.schemas.decision import HumanDecision
 from orkestra.schemas.states import can_transition_task
 from orkestra.schemas.task import Assignment, TaskSpec
 from orkestra.store.db import Database
+from orkestra.verify.record import VerificationRecord
 
 
 def _now() -> str:
@@ -70,6 +71,50 @@ class WorkspaceRow:
     branch: str
     base_commit: str
     state: str
+
+
+def _argv_json(argv_json: str) -> str:
+    """Redact and bound an argv list without breaking its JSON.
+
+    Redacting the serialized string can eat the quotes that hold it
+    together, and slicing it can cut mid-string; either way the argv is
+    silently lost on read. Redact each element, then drop elements until
+    the whole thing fits.
+    """
+    try:
+        argv = [redact(str(part)) for part in json.loads(argv_json)]
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps([])
+    while len(json.dumps(argv)) > 4000 and argv:
+        argv.pop()
+    return json.dumps(argv)
+
+
+@dataclass(frozen=True)
+class VerificationRow:
+    verification_id: str
+    run_id: str
+    task_id: str | None
+    scope: str
+    commit_sha: str
+    tree_sha: str
+    tree_clean: bool
+    dirty_digest: str
+    attempt_id: str | None
+    command: str
+    argv: list[str]
+    exe_realpath: str
+    exe_version: str
+    env_fingerprint: str
+    exit_code: int
+    duration_s: float
+    output_digest: str
+    binding: str
+    created_at: str
+
+    @property
+    def passed(self) -> bool:
+        return self.exit_code == 0
 
 
 class Store:
@@ -513,6 +558,107 @@ class Store:
             )
             for r in self.db.query(sql, tuple(params))
         ]
+
+    # ----------------------------------------------------- verifications
+
+    def add_verifications(self, records: list[VerificationRecord]) -> list[str]:
+        """Persist executed gate commands; returns the new ids in order.
+
+        One transaction for the whole outcome: a partially recorded gate
+        run would be worse evidence than none.
+        """
+        if not records:
+            return []
+        now = _now()
+        ids = [new_id("vrf") for _ in records]
+        with self.db.tx() as conn:
+            for verification_id, record in zip(ids, records, strict=True):
+                conn.execute(
+                    "INSERT INTO verifications (verification_id, run_id, task_id, scope,"
+                    " commit_sha, tree_sha, tree_clean, dirty_digest, attempt_id,"
+                    " command, argv_json, exe_realpath, exe_version,"
+                    " env_fingerprint, exit_code, duration_s, output_digest, binding,"
+                    " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        verification_id,
+                        record.run_id,
+                        record.task_id,
+                        record.scope,
+                        record.commit_sha,
+                        record.tree_sha,
+                        int(record.tree_clean),
+                        record.dirty_digest,
+                        record.attempt_id,
+                        redact(record.command)[:2000],
+                        _argv_json(record.argv_json),
+                        record.exe_realpath,
+                        record.exe_version,
+                        record.env_fingerprint,
+                        record.exit_code,
+                        record.duration_s,
+                        record.output_digest,
+                        record.binding,
+                        now,
+                    ),
+                )
+        return ids
+
+    def _verification_from_row(self, row: Any) -> VerificationRow:
+        try:
+            argv = json.loads(row["argv_json"])
+        except json.JSONDecodeError:
+            # Reachable if a row predates _argv_json, which redacts each
+            # element and trims the list rather than the serialized string.
+            argv = []
+        return VerificationRow(
+            verification_id=row["verification_id"],
+            run_id=row["run_id"],
+            task_id=row["task_id"],
+            scope=row["scope"],
+            commit_sha=row["commit_sha"],
+            tree_sha=row["tree_sha"],
+            tree_clean=bool(row["tree_clean"]),
+            dirty_digest=row["dirty_digest"] or "",
+            attempt_id=row["attempt_id"],
+            command=row["command"],
+            argv=argv,
+            exe_realpath=row["exe_realpath"] or "",
+            exe_version=row["exe_version"] or "",
+            env_fingerprint=row["env_fingerprint"],
+            exit_code=int(row["exit_code"]),
+            duration_s=float(row["duration_s"]),
+            output_digest=row["output_digest"] or "",
+            binding=row["binding"],
+            created_at=row["created_at"],
+        )
+
+    def verifications_for_run(
+        self, run_id: str, scope: str | None = None, task_id: str | None = None
+    ) -> list[VerificationRow]:
+        """Executed gate commands for a run, oldest first."""
+        sql = "SELECT * FROM verifications WHERE run_id = ?"
+        params: list[object] = [run_id]
+        if scope is not None:
+            sql += " AND scope = ?"
+            params.append(scope)
+        if task_id is not None:
+            sql += " AND task_id = ?"
+            params.append(task_id)
+        # Rows are keyed by an opaque id, so insertion order (rowid) is the
+        # only chronological ordering available; created_at ties within a batch.
+        sql += " ORDER BY rowid"
+        return [self._verification_from_row(r) for r in self.db.query(sql, tuple(params))]
+
+    def verification_summary(self, run_id: str) -> list[dict[str, Any]]:
+        """Per-scope counts and total wall clock, for reports and doctor."""
+        rows = self.db.query(
+            "SELECT scope, binding, COUNT(*) AS n,"
+            " SUM(CASE WHEN exit_code = 0 THEN 1 ELSE 0 END) AS passed,"
+            " SUM(duration_s) AS duration_s FROM verifications WHERE run_id = ?"
+            " GROUP BY scope, binding ORDER BY scope, binding",
+            (run_id,),
+        )
+        return [dict(r) for r in rows]
 
     # ------------------------------------------------------------- usage
 

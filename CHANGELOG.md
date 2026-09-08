@@ -33,15 +33,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Verification commands now run with a worktree-scoped `PYTHONPATH` (the
-  worktree's `src/`, then its root, then any inherited value), so the
-  common Python case is bound by construction. `PYTHONPATH` was already
+  worktree's `src/` when there is one, its root otherwise, then any
+  inherited value), so the common Python case is bound by construction.
+  Never both: the root holds a project's top-level modules, and a project
+  owning a `types.py` would shadow the standard library. `PYTHONPATH` was already
   in the subprocess environment allowlist; no policy change was needed.
 - `orkestra init` no longer suggests bare `pytest -q` for a project
   without a `uv.lock`: it suggests `python3 -m pytest -q`, which puts the
-  current directory first. The shipped examples and
+  current directory first, after checking that interpreter really has
+  pytest. The shipped examples and
   `docs/CONFIGURATION.md` now use `uv run pytest -q`, which re-resolves
   the environment per directory. `docs/CONFIGURATION.md` explains what an
   unbound gate is and how to avoid one.
+- Verification results are now persisted as data, not only rendered into
+  event prose. A new `verifications` table (schema migration 3) records
+  one row per gate command that actually ran: the scope, the commit sha
+  and the tree sha it ran against, the command and its argv, the
+  resolved executable and version, a fingerprint of the environment, the
+  exit code, the measured duration, a digest of the captured output, and
+  a `binding` column. `duration_s` previously died in an f-string, so
+  nothing about a verification could be queried, audited or compared
+  afterwards.
+- `Store.add_verifications()`, `Store.verifications_for_run()` and
+  `Store.verification_summary()` read and write those rows.
+- `binding` records whether anything ever proved the gate read the tree
+  the row names, and `tree_clean` plus `dirty_digest` record whether the
+  worktree had uncommitted changes when the gate ran, so a consumer can
+  tell a tree sha that describes what ran from one that does not.
+  Verification runs on every task while only a mutating task commits
+  first, so a research or review task is always gated over a dirty tree.
+- `env_fingerprint` is captured from the environment the gate actually
+  ran in, carried on the outcome, rather than rebuilt afterwards. A
+  rebuilt one agrees with reality only while nothing passes `env_extra`,
+  and the worktree-scoped `PYTHONPATH` above passes one on every run.
+- `attempt_id` distinguishes a retry's rows from the attempt before it.
+- The version probe never executes a binary that resolves inside the tree
+  under test, runs beside the executable rather than in the worktree, and
+  reports nothing when the probe itself fails instead of storing an error
+  message as a version. `argv_json` is redacted per element and trimmed
+  by element, so a secret-shaped argument or a long command line can no
+  longer leave a row whose argv does not parse.
 
 ## [0.5.3] - 2026-07-25
 
