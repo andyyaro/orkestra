@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/andyyaro/orkestra/main/docs/assets/brand/lockup/lockup-color.png" alt="orkestra" width="460">
+</p>
+
 # Orkestra
 
 [![CI](https://github.com/andyyaro/orkestra/actions/workflows/ci.yml/badge.svg)](https://github.com/andyyaro/orkestra/actions/workflows/ci.yml)
