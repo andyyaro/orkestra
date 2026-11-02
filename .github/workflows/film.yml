@@ -1,0 +1,53 @@
+name: film page
+
+# Publishes the launch film's watch page to GitHub Pages. The MP4, captions and poster live in the
+# film-v1 release, not in git; this puts them next to media/launch-film/deploy/film.html.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "media/launch-film/deploy/**"
+      - "docs/assets/brand/lockup/lockup-white.svg"
+      - "docs/assets/brand/icons/favicon.svg"
+      - ".github/workflows/film.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Put the page and the film together
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _site/film
+          cp media/launch-film/deploy/film.html media/launch-film/deploy/index.html _site/
+          cp docs/assets/brand/lockup/lockup-white.svg _site/film/logo.svg
+          cp docs/assets/brand/icons/favicon.svg _site/film/icon.svg
+          gh release download film-v1 --repo "$GITHUB_REPOSITORY" --dir _site/film \
+            --pattern orkestra-launch.mp4 --pattern orkestra-launch.vtt --pattern poster.jpg
+          ls -la _site _site/film
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}film.html
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

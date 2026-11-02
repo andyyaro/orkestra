@@ -1,0 +1,111 @@
+<template>
+  <style>
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    #s4-k { left: 192px; top: 300px; }
+    #s4-hl1 { left: 192px; top: 345px; font-size: 120px; }
+    #s4-k2 { left: 192px; top: 280px; }
+    #s4-hl2 { left: 192px; top: 330px; font-size: 168px; }
+    .s4-ulw { position: relative; display: inline-block; }
+    #s4-ul { position: absolute; left: 0.02em; right: 0.3em; bottom: -0.06em; height: 9px; background: #e8391f; }
+    #s4-win { left: 1040px; top: 280px; width: 784px; height: 424px; }
+    #s4-log { padding: 24px 30px; font-family: "Geist Mono", monospace; font-size: 26px; line-height: 1.7; color: #9a948a; }
+    #s4-log .row { display: block; height: 1.7em; white-space: pre; }
+    #s4-bound { position: absolute; left: 1040px; top: 736px; display: flex; align-items: center; gap: 18px; }
+    #s4-bound .chip { position: static; }
+    #s4-bound .mono { font-size: 28px; color: #f2eee6; }
+    #s4-sum1 { position: absolute; left: 192px; top: 712px; font-family: "Geist Mono", monospace; font-size: 26px; color: #9a948a; white-space: nowrap; }
+    #s4-sum2 { position: absolute; left: 192px; top: 758px; font-family: "Geist Mono", monospace; font-size: 26px; color: #f2eee6; white-space: nowrap; }
+  </style>
+  <div id="root" data-composition-id="s4-repair" data-width="1920" data-height="1080">
+    <div id="s4-k" class="kicker">04 / repair<span class="k-rest">bounded, never forever</span></div>
+    <div id="s4-hl1" class="hl"><span class="w" id="s4-w-changes">changes</span><br /><span class="w acc" id="s4-w-req">requested?</span></div>
+
+    <div id="s4-win" class="win">
+      <div class="win-bar"><i></i><i></i><i></i><span class="t">orkestra logs</span></div>
+      <div id="s4-log">
+        <span class="row" id="s4-l1"><span class="acc">✕</span> review by grace: changes requested</span>
+        <span class="row" id="s4-l2" style="color:#f2eee6">  "demo reviewer wants a docstring"</span>
+        <span class="row" id="s4-l3"><span class="acc">▲</span> review requested changes (cycle 1)</span>
+        <span class="row" id="s4-l4" style="color:#f2eee6">↻ feature-a · attempt 2 · agent ada</span>
+        <span class="row" id="s4-l5"><span class="ok">✓</span> verification passed: PASS (exit 0)</span>
+        <span class="row" id="s4-l6"><span class="ok">✓</span> review by grace: approved</span>
+        <span class="row" id="s4-l7"><span class="ok">✓</span> task feature-a done, landed as 2d63c4c</span>
+      </div>
+    </div>
+    <div id="s4-bound"><span class="chip">bounded</span><span class="mono">max_review_cycles = 2</span></div>
+
+    <div id="s4-k2" class="kicker">05 / safe<span class="k-rest">your repo, untouched</span></div>
+    <div id="s4-hl2" class="hl">
+      <span class="w" id="s4-w-your">your</span> <span class="w" id="s4-w-branches">branches</span><br />
+      <span class="w" id="s4-w-are">are</span> <span class="s4-ulw"><span class="w" id="s4-w-never">never</span> <span class="w" id="s4-w-touched">touched.</span><span id="s4-ul"></span></span>
+    </div>
+    <div id="s4-sum1">starting point: your code as of commit 72b8c61</div>
+    <div id="s4-sum2">(nothing of yours has been changed)</div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s4[0], S1 = TM.s4[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const tl = gsap.timeline({ paused: true });
+      const wordIn = (el, t) =>
+        tl.fromTo(el, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, Math.max(0, t - 0.03));
+      const blurOut = (els, t, d = 0.18) => tl.to(els, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power3.in" }, t);
+      const typeOn = (el, t, n, d) => {
+        tl.set(el, { opacity: 1 }, t);
+        tl.fromTo(el, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: d, ease: "power2.out" }, t);
+      };
+      const line = (el, t) => tl.fromTo(el, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.2, ease: "expo.out" }, t);
+
+      gsap.set(["#s4-k", "#s4-hl1 .w", "#s4-win", "#s4-l1", "#s4-l2", "#s4-l3", "#s4-l4", "#s4-l5", "#s4-l6", "#s4-l7", "#s4-bound",
+        "#s4-k2", "#s4-hl2 .w", "#s4-sum1", "#s4-sum2"], { opacity: 0 });
+      gsap.set("#s4-ul", { scaleX: 0, transformOrigin: "0% 50%" });
+
+      // "Changes requested? It repairs, and tries again. But never forever."
+      typeOn("#s4-k", 0.05, 17, 0.35);
+      wordIn("#s4-w-changes", W("v10", "changes"));
+      wordIn("#s4-w-req", W("v10", "requested"));
+      tl.fromTo("#s4-win", { x: 320, opacity: 0, filter: "blur(12px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "power3.out" }, 0.15);
+      line("#s4-l1", W("v10", "requested"));
+      line("#s4-l2", W("v10", "requested") + 0.35);
+      line("#s4-l3", W("v10", "it") - 0.1);
+      line("#s4-l4", W("v10", "repairs"));
+      line("#s4-l5", W("v10", "tries") - 0.05);
+      line("#s4-l6", W("v10", "again"));
+      line("#s4-l7", W("v10", "again") + 0.35);
+      tl.fromTo("#s4-bound", { opacity: 0, y: 12, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.35, ease: "expo.out" }, W("v10", "never") - 0.05);
+
+      // "Your branches are never touched."
+      const v11 = W("v11", "your");
+      blurOut(["#s4-k", "#s4-hl1 .w"], v11 - 0.3);
+      tl.to(["#s4-win", "#s4-bound"], { x: 260, opacity: 0, filter: "blur(10px)", duration: 0.3, ease: "power3.in" }, v11 - 0.32);
+      typeOn("#s4-k2", v11 - 0.05, 22, 0.4);
+      [["#s4-w-your", "your"], ["#s4-w-branches", "branches"], ["#s4-w-are", "are"], ["#s4-w-never", "never"], ["#s4-w-touched", "touched"]].forEach(([s, w]) => wordIn(s, W("v11", w)));
+      tl.to("#s4-ul", { scaleX: 1, duration: 0.35, ease: "expo.out" }, W("v11", "touched") + 0.3);
+      tl.fromTo("#s4-sum1", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2 }, W("v11", "are"));
+      tl.fromTo("#s4-sum2", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2 }, W("v11", "touched"));
+
+      blurOut(["#s4-k2", "#s4-hl2 .w", "#s4-ul", "#s4-sum1", "#s4-sum2"], S1 - S0 - 0.25, 0.2);
+
+      window.__timelines["s4-repair"] = tl;
+    })();
+  </script>
+</template>

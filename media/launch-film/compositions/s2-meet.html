@@ -1,0 +1,121 @@
+<template>
+  <style>
+    @font-face { font-family: "Montserrat"; src: url("assets/fonts/Montserrat-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    #s2-k { left: 192px; top: 330px; }
+    #s2-hl { left: 192px; top: 372px; font-size: 120px; }
+    #s2-sub { position: absolute; left: 192px; top: 530px; font-family: "Montserrat", sans-serif; font-weight: 600; font-size: 24px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a948a; }
+    #s2-l1 { left: 192px; top: 604px; }
+    #s2-l2 { left: 192px; top: 662px; }
+    #s2-l3 { left: 192px; top: 720px; }
+    #s2-l3 .txt { color: #e8391f; }
+    #s2-win { left: 1040px; top: 250px; width: 784px; height: 580px; }
+    #s2-body { padding: 24px 30px; font-family: "Geist Mono", monospace; font-size: 22px; line-height: 1.7; color: #9a948a; }
+    #s2-body .row { display: block; height: 1.7em; white-space: pre; }
+    #s2-body .cell { display: inline-block; }
+    .s2-state { position: relative; display: inline-block; width: 11ch; height: 1.7em; vertical-align: top; }
+    .s2-state span { position: absolute; left: 0; top: 0; }
+    .s2-run { color: #f2eee6; }
+    .s2-sep { height: 1px; background: rgba(242, 238, 230, 0.09); margin: 14px 0 12px; }
+    .s2-log { display: block; height: 1.7em; white-space: pre; }
+  </style>
+  <div id="root" data-composition-id="s2-meet" data-width="1920" data-height="1080">
+    <div id="s2-win" class="win">
+      <div class="win-bar"><i></i><i></i><i></i><span class="t">orkestra watch</span></div>
+      <div id="s2-body">
+        <div id="s2-content">
+<span class="row"><span class="dim">run </span><span style="color:#f2eee6">run_522f70d8</span><span class="dim"> · project </span>orkestra-demo</span>
+<span class="row"> </span>
+<span class="row dim">task       kind       state      primary  reviewer</span>
+<span class="row">feature-b  implement  <span class="s2-state" id="s2-st-b"><span id="s2-b0" class="dim">pending</span><span id="s2-b1" class="s2-run">running</span><span id="s2-b2" class="s2-run">verifying</span><span id="s2-b3" class="s2-run">reviewing</span><span id="s2-b4" class="ok">done</span></span>grace    ada</span>
+<span class="row">feature-a  implement  <span class="s2-state" id="s2-st-a"><span id="s2-a0" class="dim">pending</span><span id="s2-a1" class="s2-run">running</span><span id="s2-a2" class="s2-run">verifying</span><span id="s2-a3" class="s2-run">reviewing</span><span id="s2-a4" class="s2-run">running</span><span id="s2-a5" class="s2-run">verifying</span></span>ada      grace</span>
+<span class="row">docs       document   <span class="s2-state"><span class="dim">pending</span></span>ada      grace</span>
+<div class="s2-sep"></div>
+<span class="s2-log" id="s2-g1"><span class="dim">▸ </span>external agent started</span>
+<span class="s2-log" id="s2-g2"><span class="dim">▸ </span>external agent started</span>
+<span class="s2-log" id="s2-g3"><span class="ok">✓ </span>verification passed: PASS (exit 0)</span>
+<span class="s2-log" id="s2-g4"><span class="ok">✓ </span>review by ada: approved (severity none)</span>
+<span class="s2-log" id="s2-g5"><span class="acc">✕ </span>review by grace: changes requested</span>
+<span class="s2-log" id="s2-g6"><span class="ok">✓ </span>task feature-b done (agent grace)</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="s2-k" class="kicker">the system</div>
+    <div id="s2-hl" class="hl"><span class="w" id="s2-w-meet">meet</span> <span class="w" id="s2-w-ork">orkestra.</span></div>
+    <div id="s2-sub">01 / a local-first runtime</div>
+    <div id="s2-l1" class="list"><span class="slash">/</span>many coding agents</div>
+    <div id="s2-l2" class="list"><span class="slash">/</span>one repo</div>
+    <div id="s2-l3" class="list"><span class="slash">/</span><span class="txt">nothing lands unreviewed</span></div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s2[0], S1 = TM.s2[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const tl = gsap.timeline({ paused: true });
+      const typeOn = (el, t, n, d) =>
+        tl.fromTo(el, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: d, ease: "power2.out" }, t);
+      const blurOut = (els, t, d = 0.18) => tl.to(els, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power3.in" }, t);
+
+      const later = ["#s2-hl .w", "#s2-sub", "#s2-l1", "#s2-l2", "#s2-l3", "#s2-k",
+        "#s2-b1", "#s2-b2", "#s2-b3", "#s2-b4", "#s2-a1", "#s2-a2", "#s2-a3", "#s2-a4", "#s2-a5",
+        "#s2-g1", "#s2-g2", "#s2-g3", "#s2-g4", "#s2-g5", "#s2-g6"];
+      gsap.set(later, { opacity: 0 });
+
+      // the window slides in on the build and lands on the drop (13.051)
+      tl.fromTo("#s2-win", { x: 520, opacity: 0, filter: "blur(12px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power3.out" }, F(TM.drop) - 0.6);
+
+      // the TUI runs: state swaps are hits (0 ms sets), the log prints line by line
+      const swap = (from, to, t) => { tl.set(from, { opacity: 0 }, t); tl.set(to, { opacity: 1 }, t); };
+      const D = F(TM.drop), M = W("v06", "many"), ORK = W("v05", "or");
+      swap("#s2-b0", "#s2-b1", D); swap("#s2-a0", "#s2-a1", D);
+      tl.set("#s2-g1", { opacity: 1 }, D); tl.set("#s2-g2", { opacity: 1 }, D + 0.4);
+      swap("#s2-b1", "#s2-b2", ORK + 0.7); swap("#s2-a1", "#s2-a2", ORK + 0.9); tl.set("#s2-g3", { opacity: 1 }, ORK + 0.9);
+      swap("#s2-b2", "#s2-b3", M); swap("#s2-a2", "#s2-a3", M + 0.2); tl.set("#s2-g4", { opacity: 1 }, M + 0.4);
+      tl.set("#s2-g5", { opacity: 1 }, W("v06", "agents") + 0.2);
+      swap("#s2-b3", "#s2-b4", W("v06", "one")); swap("#s2-a3", "#s2-a4", W("v06", "one")); tl.set("#s2-g6", { opacity: 1 }, W("v06", "one") + 0.2);
+      swap("#s2-a4", "#s2-a5", W("v06", "unreviewed") + 0.4);
+
+      // left column: kicker types on, "meet" grey then cream, "orkestra." resolves
+      tl.set("#s2-k", { opacity: 1 }, D + 0.3);
+      typeOn("#s2-k", D + 0.3, 12, 0.36);
+      tl.fromTo("#s2-w-meet", { opacity: 0, filter: "blur(8px)", color: "#57514a" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, W("v05", "meet") - 0.03);
+      tl.to("#s2-w-meet", { color: "#f2eee6", duration: 0.3, ease: "power2.inOut" }, ORK + 0.1);
+      tl.fromTo("#s2-w-ork", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.22, ease: "expo.out" }, ORK - 0.03);
+      tl.set("#s2-sub", { opacity: 1 }, ORK + 0.7); typeOn("#s2-sub", ORK + 0.7, 26, 0.55);
+
+      // "many coding agents. one repo. nothing lands unreviewed."
+      [["#s2-l1", "many", 20], ["#s2-l2", "one", 10], ["#s2-l3", "nothing", 26]].forEach(([sel, wi, n]) => {
+        tl.set(sel, { opacity: 1 }, W("v06", wi) - 0.05);
+        typeOn(sel, W("v06", wi) - 0.05, n, Math.min(0.6, n * 0.022));
+      });
+
+      // hand-off: the left column blurs away, the window morphs into the next scene's big window
+      blurOut(["#s2-k", "#s2-hl .w", "#s2-sub", "#s2-l1", "#s2-l2", "#s2-l3"], S1 - S0 - 0.7, 0.2);
+      tl.to(["#s2-content", "#s2-win .win-bar > *"], { opacity: 0, filter: "blur(6px)", duration: 0.15, ease: "power3.in" }, S1 - S0 - 0.65);
+      // the empty window grows into the next scene's window (320, 250, 1280 x 540): transforms only
+      tl.to("#s2-win", { x: 320 - 1040, y: 0, scaleX: 1280 / 784, scaleY: 540 / 580, transformOrigin: "0% 0%", duration: 0.5, ease: "power2.inOut" }, S1 - S0 - 0.55);
+
+      window.__timelines["s2-meet"] = tl;
+    })();
+  </script>
+</template>

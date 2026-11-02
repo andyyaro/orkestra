@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orkestra launch film</title>
+<meta name="description" content="63 seconds on Orkestra: many coding agents on one repository, each task in its own Git worktree, your tests as the referee, and a different agent reviewing every change.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="Orkestra launch film">
+<meta property="og:description" content="Coordinate many agents. Deliver one verified result.">
+<meta property="og:image" content="https://andyyaro.github.io/orkestra/film/poster.jpg">
+<meta property="og:type" content="video.other">
+<link rel="icon" href="film/icon.svg" type="image/svg+xml">
+<style>
+  /* Orkestra's brand: ink #161412, cream #F2EEE6, signal red #E8391F. Red text on ink uses a lighter red so it reads. */
+  :root { --bg: #161412; --card: #1d1a17; --ink: #f2eee6; --ink2: rgba(242, 238, 230, 0.74); --hair: rgba(242, 238, 230, 0.14); --red: #e8391f; --red-press: #f0553d; --red-text: #f26a50; }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); color: var(--ink); -webkit-text-size-adjust: 100%; }
+  body { margin: 0; font: 17px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  a { color: var(--red-text); }
+  a:focus-visible, video:focus-visible, summary:focus-visible { outline: 3px solid var(--red-text); outline-offset: 3px; border-radius: 6px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 16px 56px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+  header img { display: block; height: 30px; width: auto; }
+  header a.back { font-size: 15px; text-decoration: none; }
+  h1 { font-size: clamp(28px, 4.4vw, 44px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 10px; font-weight: 700; }
+  .lede { color: var(--ink2); font-size: clamp(17px, 2vw, 20px); margin: 0 0 24px; max-width: 760px; }
+  .player { border-radius: 18px; overflow: hidden; background: #000; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--hair); }
+  video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 8px; }
+  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border-radius: 22px; font-weight: 700; font-size: 19px; text-decoration: none; }
+  .btn.primary { background: var(--red); color: var(--bg); }
+  .btn.primary:hover { background: var(--red-press); }
+  .btn.secondary { background: rgba(242, 238, 230, 0.12); color: var(--ink); }
+  .meta { color: var(--ink2); font-size: 15px; margin: 8px 0 0; }
+  details { margin-top: 32px; background: var(--card); border-radius: 14px; padding: 4px 20px; border: 1px solid var(--hair); }
+  summary { cursor: pointer; font-weight: 600; padding: 14px 0; min-height: 44px; }
+  details p { margin: 0 0 12px; }
+  .credits { margin-top: 32px; color: var(--ink2); font-size: 14px; line-height: 1.6; border-top: 1px solid var(--hair); padding-top: 20px; }
+  .credits p { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="https://github.com/andyyaro/orkestra" aria-label="Orkestra on GitHub"><img src="film/logo.svg" alt="Orkestra" width="106" height="30"></a>
+    <a class="back" href="https://github.com/andyyaro/orkestra">On GitHub</a>
+  </header>
+  <main>
+    <h1>Orkestra, in 63 seconds</h1>
+    <p class="lede">Many coding agents on one repository. Every task runs in its own Git worktree, your tests are the referee, and a different agent reviews every change before it lands. Your branches are never touched.</p>
+    <div class="player">
+      <video controls playsinline preload="metadata" poster="film/poster.jpg" width="1920" height="1080" aria-label="Orkestra launch film, 63 seconds, with narration">
+        <source src="film/orkestra-launch.mp4" type="video/mp4">
+        <track kind="captions" src="film/orkestra-launch.vtt" srclang="en" label="English" default>
+        Your browser cannot play this video. <a href="film/orkestra-launch.mp4">Download the MP4</a>.
+      </video>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/andyyaro/orkestra#see-it-in-60-seconds---free">Try the demo</a>
+      <a class="btn secondary" href="https://github.com/andyyaro/orkestra#how-it-works-the-part-for-skeptics">How it works</a>
+    </div>
+    <p class="meta">63 seconds, 1920 × 1080, captions in the player. <a href="film/orkestra-launch.mp4" download>Download the MP4 (7.9 MB)</a> · <a href="film/orkestra-launch.vtt" download>Captions file (WebVTT)</a></p>
+
+    <details>
+      <summary>Transcript</summary>
+      <p>You already use coding agents. Claude Code. Codex. Antigravity. One at a time is slow. All at once is chaos.</p>
+      <p>Meet Orkestra. Many coding agents. One repo. Nothing lands unreviewed.</p>
+      <p>A director plans the work, and every task runs in its own Git worktree. Your tests are the referee. And a different agent reviews every change before it lands.</p>
+      <p>Changes requested? It repairs, and tries again. But never forever. Your branches are never touched.</p>
+      <p>557 tests. Crash-safe resume. Secrets redacted. Open source, on GitHub and PyPI.</p>
+      <p>See it in 60 seconds, for free.</p>
+      <p>Orkestra.</p>
+    </details>
+
+    <div class="credits">
+      <p>Every window is drawn from the text of one real run of "orkestra demo" on Orkestra 0.5.5, with some long lines trimmed; none is a screen recording. The token in the "secrets redacted" beat is fake.</p>
+      <p>Narration: Kokoro-82M, voice af_heart. Music: "Peace" by Diego Nava (Mixkit). Sound effects: Mixkit. The terminal is HyperFrames' code-terminal-run. <a href="https://github.com/andyyaro/orkestra/tree/main/media/launch-film">How the film was made</a>.</p>
+    </div>
+  </main>
+</div>
+</body>
+</html>

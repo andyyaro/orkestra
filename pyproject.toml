@@ -72,6 +72,8 @@ packages = ["src/orkestra"]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# The launch film's build scripts are kept as they rendered the film, not as package code.
+extend-exclude = ["media"]
 
 [tool.ruff.lint]
 select = [

@@ -1,0 +1,58 @@
+<template>
+  <style>
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    #s6-k { left: 192px; top: 150px; }
+    #s6-hl { left: 192px; top: 192px; font-size: 120px; }
+    #s6-cap { left: 192px; top: 914px; }
+  </style>
+  <div id="root" data-composition-id="s6-try" data-width="1920" data-height="1080">
+    <div id="s6-k" class="kicker">08 / try it<span class="k-rest">free, in 60 seconds</span></div>
+    <div id="s6-hl" class="hl">
+      <span class="w" id="s6-w-see">see</span> <span class="w" id="s6-w-it">it</span> <span class="w" id="s6-w-in">in</span> <span class="w" id="s6-w-60">60</span> <span class="w" id="s6-w-sec">seconds.</span><br />
+      <span class="w acc" id="s6-w-free">free.</span>
+    </div>
+    <div id="s6-cap" class="caption">No agent CLIs. No logins. No tokens spent.</div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s6[0], S1 = TM.s6[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const tl = gsap.timeline({ paused: true });
+      const wordIn = (el, t) =>
+        tl.fromTo(el, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, t - 0.03);
+
+      gsap.set(["#s6-k", "#s6-hl .w", "#s6-cap"], { opacity: 0 });
+
+      tl.set("#s6-k", { opacity: 1 }, 0.1);
+      tl.fromTo("#s6-k", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.3, ease: "power2.out" }, 0.1);
+      // "See it in sixty seconds, for free."
+      [["#s6-w-see", "see"], ["#s6-w-it", "it"], ["#s6-w-in", "in"], ["#s6-w-60", "60|sixty"], ["#s6-w-sec", "seconds"]].forEach(([s, w]) => wordIn(s, W("v14", w)));
+      tl.fromTo("#s6-w-free", { opacity: 0, x: -30, filter: "blur(10px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.22, ease: "expo.out" }, W("v14", "free") - 0.03);
+      // the terminal (registry: code-terminal-run) runs `orkestra demo` below, mounted from index.html
+      tl.fromTo("#s6-cap", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power2.out" }, F(VO.v14.end) + 1.4);
+
+      tl.to(["#s6-k", "#s6-hl .w", "#s6-cap"], { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, S1 - S0 - 0.26);
+
+      window.__timelines["s6-try"] = tl;
+    })();
+  </script>
+</template>

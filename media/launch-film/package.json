@@ -1,0 +1,14 @@
+{
+  "name": "orkestra-launch-film",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.8.173 preview",
+    "check": "npx --yes hyperframes@0.8.173 check",
+    "render": "npx --yes hyperframes@0.8.173 render",
+    "music": "python3 sound/music.py",
+    "pick": "python3 narration/pick.py takes-kokoro",
+    "mix": "python3 sound/mix.py",
+    "build": "python3 build.py"
+  }
+}

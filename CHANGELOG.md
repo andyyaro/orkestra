@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The launch film.** A 63-second film of what Orkestra does, drawn from a
+  real `orkestra demo` run: the plan, a worktree per task, your gate, a
+  review by a different agent and the bounded repair. It plays at the top of
+  the README and on its
+  [watch page](https://andyyaro.github.io/orkestra/film.html), with captions
+  and a transcript. Its source is in [media/launch-film/](media/launch-film/);
+  the MP4 is a release asset, not in git, and
+  [film.yml](.github/workflows/film.yml) publishes the page to GitHub Pages.
+  Ruff skips `media/`, where the film's build scripts are kept as they
+  rendered it.
+
 ### Changed
 - `verify.binding_check` now defaults to **true**. It was off because it cost
   two extra gate runs per run, which meant the one measure of evidence

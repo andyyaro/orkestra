@@ -1,0 +1,86 @@
+<template>
+  <style>
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    #s7-glow {
+      position: absolute; left: 260px; top: 70px; width: 1400px; height: 800px;
+      background:
+        radial-gradient(closest-side, rgba(232, 57, 31, 0.22), rgba(232, 57, 31, 0) 100%),
+        radial-gradient(closest-side, rgba(242, 238, 230, 0.06), rgba(242, 238, 230, 0) 70%);
+    }
+    #s7-lock { position: absolute; left: 0; right: 0; top: 390px; height: 160px; display: flex; justify-content: center; align-items: center; gap: 35px; }
+    #s7-mark { width: 160px; height: 160px; display: block; overflow: visible; }
+    #s7-word { height: 60px; width: auto; display: block; }
+    #s7-cta-row { position: absolute; left: 0; right: 0; top: 628px; display: flex; justify-content: center; }
+    #s7-cta { font-family: "Geist Mono", monospace; font-weight: 500; font-size: 28px; color: #f2eee6; background: #e8391f; padding: 20px 34px; border-radius: 10px; white-space: pre; }
+    #s7-url-row { position: absolute; left: 0; right: 0; top: 740px; display: flex; justify-content: center; }
+    #s7-url { font-size: 30px; color: #9a948a; letter-spacing: -0.01em; }
+  </style>
+  <div id="root" data-composition-id="s7-end" data-width="1920" data-height="1080">
+    <div id="s7-glow"></div>
+    <div id="s7-lock">
+      <svg id="s7-mark" viewBox="0 0 120 120" aria-label="orkestra mark">
+        <defs>
+          <mask id="s7-m" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160">
+            <rect x="-20" y="-20" width="160" height="160" fill="#FFFFFF" />
+            <path d="M72 60 L 93 60" fill="none" stroke="#000000" stroke-width="17" />
+          </mask>
+        </defs>
+        <g mask="url(#s7-m)">
+          <path id="s7-b1" d="M18 60 C 40 60, 44 30, 70 30" fill="none" stroke="#F2EEE6" stroke-width="9" stroke-linecap="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110" />
+          <path id="s7-b2" d="M18 60 C 40 60, 44 90, 70 90" fill="none" stroke="#F2EEE6" stroke-width="9" stroke-linecap="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110" />
+          <rect id="s7-gate" x="77" y="60" width="11" height="0" rx="5.5" fill="#E8391F" />
+        </g>
+        <path id="s7-line" d="M18 60 L 104 60" fill="none" stroke="#F2EEE6" stroke-width="9" stroke-linecap="round" pathLength="100" stroke-dasharray="100 120" stroke-dashoffset="110" />
+        <circle id="s7-n1" cx="18" cy="60" r="0" fill="#F2EEE6" />
+        <circle id="s7-n2" cx="104" cy="60" r="0" fill="#F2EEE6" />
+      </svg>
+      <img id="s7-word" src="assets/wordmark-cream.svg" alt="orkestra" />
+    </div>
+    <div id="s7-cta-row"><div id="s7-cta">uv tool install 'orkestra-runtime[tui]'</div></div>
+    <div id="s7-url-row"><div id="s7-url">github.com/andyyaro/orkestra</div></div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s7[0], S1 = TM.s7[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const tl = gsap.timeline({ paused: true });
+
+      gsap.set(["#s7-glow", "#s7-word", "#s7-cta", "#s7-url"], { opacity: 0 });
+
+      // the final hit (bar 36): the mark performs, node -> line -> branches -> the gate drops -> the result
+      tl.fromTo("#s7-glow", { opacity: 0 }, { opacity: 1, duration: 0.9, ease: "power2.out" }, 0);
+      tl.to("#s7-n1", { attr: { r: 10 }, duration: 0.3, ease: "back.out(1.6)" }, 0);
+      tl.to("#s7-line", { attr: { "stroke-dashoffset": 0 }, duration: 0.45, ease: "power3.out" }, 0.06);
+      tl.to(["#s7-b1", "#s7-b2"], { attr: { "stroke-dashoffset": 0 }, duration: 0.45, ease: "power3.out" }, 0.16);
+      tl.to("#s7-gate", { attr: { y: 18, height: 84 }, duration: 0.32, ease: "expo.out" }, 0.42);
+      tl.to("#s7-n2", { attr: { r: 10 }, duration: 0.3, ease: "back.out(1.6)" }, 0.5);
+      // "Orkestra." the wordmark resolves on the voice
+      tl.fromTo("#s7-word", { opacity: 0, clipPath: "inset(0 100% 0 0)", filter: "blur(8px)" },
+        { opacity: 1, clipPath: "inset(0 0% 0 0)", filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, W("v15", "or") - 0.08);
+      // one action: the install command, held to the end
+      tl.fromTo("#s7-cta", { opacity: 0, y: 16, filter: "blur(6px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.45, ease: "expo.out" }, 1.55);
+      tl.fromTo("#s7-url", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 2.0);
+
+      window.__timelines["s7-end"] = tl;
+    })();
+  </script>
+</template>

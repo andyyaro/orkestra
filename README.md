@@ -11,6 +11,12 @@
 
 > **Coordinate many agents. Deliver one verified result.**
 
+<p align="center">
+  <a href="https://andyyaro.github.io/orkestra/film.html"><img src="docs/assets/readme/orkestra-in-action.webp" alt="How Orkestra works, from the launch film: a director's plan gives each task its own Git worktree branch, your own test gate passes on both, a different agent reviews the first one's change and asks for a docstring, and the log shows the repair, the second review and the task landing, bounded by max_review_cycles = 2. Select to watch the 63-second film." width="920"></a>
+</p>
+
+<p align="center"><b>Watch the 63-second launch film:</b> <a href="https://andyyaro.github.io/orkestra/film.html">with sound and captions</a> · <a href="https://andyyaro.github.io/orkestra/film/orkestra-launch.mp4">MP4, 7.9 MB</a> · <a href="media/launch-film/">how it was made</a></p>
+
 You already use coding agents - Claude Code, OpenAI Codex, Google
 Antigravity. Orkestra makes **two or more of them work on the same
 project at once**, safely: every task runs in its own isolated Git

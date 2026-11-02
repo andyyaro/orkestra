@@ -1,0 +1,153 @@
+<template>
+  <style>
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    .s3-k { left: 320px; top: 192px; }
+    .s3-cap { left: 320px; top: 822px; }
+    #s3-win { left: 320px; top: 250px; width: 1280px; height: 540px; }
+    #s3-win2 { left: 980px; top: 250px; width: 620px; height: 540px; }
+    #s3-winL { left: 320px; top: 250px; width: 620px; height: 540px; }
+    .s3-body { padding: 36px 40px; font-family: "Geist Mono", monospace; font-size: 27px; line-height: 1.7; color: #9a948a; }
+    .s3-body .row { display: block; height: 1.7em; white-space: pre; }
+    #s3-plan { white-space: normal; color: #f2eee6; max-width: 1180px; margin-bottom: 0.85em; }
+    #s3-gatecmd { position: absolute; left: 40px; top: 36px; color: #f2eee6; white-space: pre; }
+    .s3-gate { display: inline-block; }
+    .s3-branch { color: #9a948a; }
+    #s3-a { position: absolute; left: 0; right: 0; top: 44px; }
+    .s3-split { padding: 30px 28px; font-family: "Geist Mono", monospace; font-size: 25px; line-height: 1.75; color: #9a948a; }
+    .s3-split .row { display: block; height: 1.75em; white-space: pre; }
+    .s3-plus { color: #8fbf8a; }
+    #s3-falsebg { position: absolute; left: 20px; top: calc(30px + 1.75em); width: 320px; height: 1.75em; background: rgba(232, 57, 31, 0.16); border-left: 3px solid #e8391f; }
+    #s3-chip1 { right: 1000px; top: 232px; }
+    #s3-chip2 { right: 340px; top: 232px; }
+  </style>
+  <div id="root" data-composition-id="s3-how" data-width="1920" data-height="1080">
+    <div id="s3-win" class="win">
+      <div class="win-bar"><i></i><i></i><i></i><span class="t" id="s3-title">orkestra demo</span></div>
+      <div id="s3-a" class="s3-body">
+        <div id="s3-plan"><span class="acc">▸ The plan:</span> two independent tasks run in PARALLEL, each in its own isolated Git worktree, then a third task builds on both.</div>
+        <div id="s3-gatecmd"><span class="acc">$</span> python check_demo.py   <span class="dim">your gate, run by Orkestra</span></div>
+        <span class="row dim" id="s3-hdr">task        agent    worktree branch                     <span class="s3-gate" id="s3-ghdr">gate</span></span>
+        <span class="row" id="s3-r1">feature-a   ada      <span class="s3-branch">ork/run_522f70d8/task_345016e8</span>      <span class="s3-gate ok" id="s3-g1">✓ PASS  exit 0</span></span>
+        <span class="row" id="s3-r2">feature-b   grace    <span class="s3-branch">ork/run_522f70d8/task_181d0f78</span>      <span class="s3-gate ok" id="s3-g2">✓ PASS  exit 0</span></span>
+        <span class="row" id="s3-r3">docs        ada      <span class="dim">waits for feature-a, feature-b</span>      <span class="s3-gate dim" id="s3-g3">· waiting</span></span>
+      </div>
+
+    </div>
+
+    <div id="s3-winL" class="win">
+      <div class="win-bar"><i></i><i></i><i></i><span class="t">feature_a.py · ada</span></div>
+      <div id="s3-b" class="s3-split">
+        <span class="row dim">attempt 1</span>
+        <span class="row dim">@@ -0,0 +1,2 @@</span>
+        <span class="row s3-plus" id="s3-d1">+def feature_a():</span>
+        <span class="row s3-plus" id="s3-d2">+    return 'A'</span>
+      </div>
+    </div>
+
+    <div id="s3-win2" class="win">
+      <div class="win-bar"><i></i><i></i><i></i><span class="t">review · grace</span></div>
+      <div class="s3-split" style="position: relative">
+        <div id="s3-falsebg"></div>
+        <span class="row" id="s3-j1">{</span>
+        <span class="row" id="s3-j2">  "approve": <span class="acc">false</span>,</span>
+        <span class="row" id="s3-j3">  "findings": [</span>
+        <span class="row" id="s3-j4" style="color:#f2eee6">    "demo reviewer wants a docstring"</span>
+        <span class="row" id="s3-j5">  ],</span>
+        <span class="row" id="s3-j6">  "severity": "medium"</span>
+        <span class="row" id="s3-j7">}</span>
+      </div>
+    </div>
+    <div id="s3-chip1" class="chip">ada · wrote</div>
+    <div id="s3-chip2" class="chip">grace · reviews</div>
+
+    <div id="s3-k1" class="kicker s3-k">01 / plan<span class="k-rest">a director splits the work</span></div>
+    <div id="s3-k2" class="kicker s3-k">02 / verify<span class="k-rest">your tests are the referee</span></div>
+    <div id="s3-k3" class="kicker s3-k">03 / review<span class="k-rest">a different agent signs off</span></div>
+    <div id="s3-c1" class="caption s3-cap">A director plans the work. Every task gets its own Git worktree.</div>
+    <div id="s3-c2" class="caption s3-cap">Every change must pass your own test commands. Not taken on trust.</div>
+    <div id="s3-c3" class="caption s3-cap">A different agent reviews every change before it lands.</div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s3[0], S1 = TM.s3[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const tl = gsap.timeline({ paused: true });
+      const typeOn = (el, t, n, d) => {
+        tl.set(el, { opacity: 1 }, t);
+        tl.fromTo(el, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: d, ease: "power2.out" }, t);
+      };
+      const blurIn = (el, t, d = 0.2) =>
+        tl.fromTo(el, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: d, ease: "power2.out" }, t);
+      const blurOut = (els, t, d = 0.16) => tl.to(els, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power3.in" }, t);
+
+      gsap.set(["#s3-plan", "#s3-gatecmd", "#s3-hdr", "#s3-r1", "#s3-r2", "#s3-r3", "#s3-ghdr", "#s3-g1", "#s3-g2", "#s3-g3",
+        "#s3-b", "#s3-winL", "#s3-d1", "#s3-d2", "#s3-win2", "#s3-chip1", "#s3-chip2", "#s3-falsebg",
+        "#s3-j1", "#s3-j2", "#s3-j3", "#s3-j4", "#s3-j5", "#s3-j6", "#s3-j7",
+        "#s3-k1", "#s3-k2", "#s3-k3", "#s3-c1", "#s3-c2", "#s3-c3"], { opacity: 0 });
+
+      // 01 / plan: "A director plans the work, and every task runs in its own Git worktree."
+      tl.fromTo("#s3-win .win-bar > *", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power2.out" }, 0);
+      typeOn("#s3-k1", 0.02, 40, 0.6);
+      blurIn("#s3-plan", W("v07", "director") - 0.05, 0.25);
+      blurIn("#s3-c1", W("v07", "plans") + 0.2);
+      blurIn("#s3-hdr", W("v07", "and") , 0.18);
+      blurIn("#s3-r1", W("v07", "every") - 0.04, 0.18);
+      blurIn("#s3-r2", W("v07", "task") - 0.04, 0.18);
+      blurIn("#s3-r3", W("v07", "runs") - 0.04, 0.18);
+      tl.to("#s3-a .s3-branch", { color: "#f2eee6", duration: 0.3, ease: "power2.inOut" }, W("v07", "git"));
+
+      // 02 / verify: "Your tests are the referee."
+      const v2 = W("v08", "your");
+      blurOut(["#s3-k1", "#s3-c1", "#s3-plan"], v2 - 0.28);
+      typeOn("#s3-k2", v2, 40, 0.6);
+      blurIn("#s3-gatecmd", v2 + 0.05);
+      blurIn("#s3-c2", v2 + 0.3);
+      blurIn("#s3-ghdr", v2 + 0.05, 0.18);
+      tl.fromTo("#s3-g1", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25, ease: "expo.out" }, W("v08", "tests"));
+      tl.fromTo("#s3-g2", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25, ease: "expo.out" }, W("v08", "are") + 0.1);
+      blurIn("#s3-g3", W("v08", "referee"), 0.2);
+
+      // 03 / review: the window splits in two, ada's change and grace's verdict
+      const v3 = W("v09", "and");
+      blurOut(["#s3-k2", "#s3-c2"], v3 - 0.25);
+      tl.to("#s3-a", { opacity: 0, filter: "blur(6px)", duration: 0.15, ease: "power3.in" }, v3 - 0.2);
+      tl.to("#s3-win .win-bar > *", { opacity: 0, duration: 0.12, ease: "power3.in" }, v3 - 0.2);
+      tl.to("#s3-win", { scaleX: 620 / 1280, transformOrigin: "0% 0%", duration: 0.5, ease: "power2.inOut" }, v3 - 0.05);
+      tl.set("#s3-win", { opacity: 0 }, v3 + 0.45);
+      tl.set("#s3-winL", { opacity: 1 }, v3 + 0.45);
+      typeOn("#s3-k3", v3, 41, 0.6);
+      blurIn("#s3-c3", v3 + 0.3);
+      tl.fromTo("#s3-win2", { x: 320, opacity: 0, filter: "blur(12px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "power3.out" }, v3 + 0.2);
+      blurIn("#s3-b", v3 + 0.45, 0.2);
+      tl.fromTo(["#s3-d1", "#s3-d2"], { opacity: 0 }, { opacity: 1, duration: 0.12, stagger: 0.12 }, v3 + 0.6);
+      tl.fromTo("#s3-chip1", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "expo.out" }, v3 + 0.55);
+      tl.fromTo("#s3-chip2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "expo.out" }, W("v09", "reviews") - 0.05);
+      tl.fromTo(["#s3-j1", "#s3-j2", "#s3-j3", "#s3-j4", "#s3-j5", "#s3-j6", "#s3-j7"], { opacity: 0 }, { opacity: 1, duration: 0.1, stagger: 0.07 }, W("v09", "reviews"));
+      tl.fromTo("#s3-falsebg", { opacity: 0, scaleX: 0, transformOrigin: "0% 50%" }, { opacity: 1, scaleX: 1, duration: 0.3, ease: "expo.out" }, W("v09", "change"));
+
+      // out on the bar: the stage empties into the breakdown
+      blurOut(["#s3-winL", "#s3-win2", "#s3-chip1", "#s3-chip2", "#s3-k3", "#s3-c3"], S1 - S0 - 0.26, 0.22);
+
+      window.__timelines["s3-how"] = tl;
+    })();
+  </script>
+</template>

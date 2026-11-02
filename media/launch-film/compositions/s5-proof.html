@@ -1,0 +1,123 @@
+<template>
+  <style>
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    #s5-k { left: 192px; top: 250px; }
+    #s5-num { position: absolute; left: 180px; top: 292px; font-weight: 600; font-size: 300px; line-height: 1; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: #f2eee6; }
+    #s5-label { position: absolute; left: 192px; top: 610px; font-weight: 500; font-size: 44px; letter-spacing: -0.02em; color: #f2eee6; }
+    #s5-track { position: absolute; left: 192px; top: 690px; width: 620px; height: 6px; border-radius: 3px; background: rgba(242, 238, 230, 0.12); overflow: hidden; }
+    #s5-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #e8391f; }
+    #s5-tsub { position: absolute; left: 192px; top: 716px; font-size: 26px; color: #9a948a; }
+    .s5-col { position: absolute; left: 1080px; }
+    #s5-i1 { top: 300px; }
+    #s5-i1c { top: 362px; font-family: "Geist Mono", monospace; font-size: 26px; color: #f2eee6; }
+    #s5-i1s { top: 404px; font-size: 28px; color: #9a948a; white-space: nowrap; }
+    #s5-i2 { top: 520px; }
+    #s5-i2c { top: 582px; font-family: "Geist Mono", monospace; font-size: 26px; color: #f2eee6; white-space: pre; }
+    #s5-i2s { top: 624px; font-size: 28px; color: #9a948a; white-space: nowrap; }
+    .s5-swap { position: relative; display: inline-block; }
+    #s5-red { position: absolute; left: 0; top: -2px; padding: 0 6px; margin-left: -6px; color: #e8391f; background: rgba(232, 57, 31, 0.16); white-space: pre; }
+    #s5-k2 { left: 192px; top: 300px; }
+    #s5-hl { left: 192px; top: 350px; font-size: 200px; }
+    #s5-o1 { left: 192px; top: 620px; }
+    #s5-o2 { left: 192px; top: 680px; }
+    #s5-o3 { left: 192px; top: 740px; }
+  </style>
+  <div id="root" data-composition-id="s5-proof" data-width="1920" data-height="1080">
+    <div id="s5-k" class="kicker">06 / proof<span class="k-rest">built to be trusted</span></div>
+    <div id="s5-num">0</div>
+    <div id="s5-label">tests, all passing.</div>
+    <div id="s5-track"><div id="s5-fill"></div></div>
+    <div id="s5-tsub">pytest, Orkestra v0.5.5</div>
+
+    <div id="s5-i1" class="list s5-col"><span class="slash">/</span>crash-safe resume</div>
+    <div id="s5-i1c" class="s5-col"><span class="acc">$</span> orkestra resume</div>
+    <div id="s5-i1s" class="s5-col">Reconcile state after an interruption, and continue.</div>
+
+    <div id="s5-i2" class="list s5-col"><span class="slash">/</span>secrets redacted</div>
+    <div id="s5-i2c" class="s5-col">GITHUB_TOKEN=<span class="s5-swap"><span id="s5-tok">ghp_7Rq2Xb9LmN4kP8sTz</span><span id="s5-red">[REDACTED]</span></span></div>
+    <div id="s5-i2s" class="s5-col">Redacted at write time, in logs and reports.</div>
+
+    <div id="s5-k2" class="kicker">07 / open source<span class="k-rest">apache-2.0</span></div>
+    <div id="s5-hl" class="hl"><span class="w" id="s5-w-open">open</span> <span class="w" id="s5-w-source">source.</span></div>
+    <div id="s5-o1" class="list"><span class="slash">/</span>github.com/andyyaro/orkestra</div>
+    <div id="s5-o2" class="list"><span class="slash">/</span>pypi: orkestra-runtime</div>
+    <div id="s5-o3" class="list"><span class="slash">/</span>apache-2.0 · v0.5.5</div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s5[0], S1 = TM.s5[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const tl = gsap.timeline({ paused: true });
+      const wordIn = (el, t) =>
+        tl.fromTo(el, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, t - 0.03);
+      const blurIn = (el, t, d = 0.2) =>
+        tl.fromTo(el, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: d, ease: "power2.out" }, t);
+      const blurOut = (els, t, d = 0.18) => tl.to(els, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power3.in" }, t);
+      const wipe = (el, t, d) => {
+        tl.set(el, { opacity: 1 }, t);
+        tl.fromTo(el, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: d, ease: "power2.out" }, t);
+      };
+
+      gsap.set(["#s5-k", "#s5-num", "#s5-label", "#s5-track", "#s5-tsub", "#s5-i1", "#s5-i1c", "#s5-i1s", "#s5-i2", "#s5-i2c", "#s5-i2s", "#s5-red",
+        "#s5-k2", "#s5-hl .w", "#s5-o1", "#s5-o2", "#s5-o3"], { opacity: 0 });
+      gsap.set("#s5-fill", { scaleX: 0, transformOrigin: "0% 50%" });
+
+      // "Five hundred and fifty-seven tests." The count lands on "tests" (mk-progress-stat's numeral + track)
+      wipe("#s5-k", 0.05, 0.4);
+      const c0 = W("v12", "557|five"), c1 = W("v12", "tests");
+      blurIn("#s5-num", c0 - 0.05, 0.15);
+      blurIn("#s5-track", c0 - 0.05, 0.15);
+      const n = { v: 0 };
+      const num = document.querySelector("#s5-num");
+      tl.to(n, { v: 557, duration: c1 - c0, ease: "power2.out", onUpdate: () => { num.textContent = String(Math.round(n.v)); } }, c0);
+      tl.to("#s5-fill", { scaleX: 1, duration: c1 - c0, ease: "power2.out" }, c0);
+      blurIn("#s5-label", c1 - 0.03, 0.18);
+      blurIn("#s5-tsub", c1 + 0.4, 0.2);
+
+      // "Crash-safe resume."
+      wipe("#s5-i1", W("v12", "crash") - 0.05, 0.35);
+      blurIn("#s5-i1c", W("v12", "resume"), 0.18);
+      blurIn("#s5-i1s", W("v12", "resume") + 0.25, 0.2);
+
+      // "Secrets redacted." The token is fake; the marker is the real one
+      wipe("#s5-i2", W("v12", "secrets") - 0.05, 0.35);
+      blurIn("#s5-i2c", W("v12", "secrets") + 0.1, 0.18);
+      tl.to("#s5-tok", { opacity: 0, filter: "blur(6px)", duration: 0.12, ease: "power3.in" }, W("v12", "redacted"));
+      tl.fromTo("#s5-red", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, W("v12", "redacted") + 0.08);
+      blurIn("#s5-i2s", W("v12", "redacted") + 0.35, 0.2);
+
+      blurOut(["#s5-k", "#s5-num", "#s5-label", "#s5-track", "#s5-tsub", "#s5-i1", "#s5-i1c", "#s5-i1s", "#s5-i2", "#s5-i2c", "#s5-i2s"], W("v13", "open") - 0.5, 0.2);
+
+      // "Open source, on GitHub and PyPI."
+      wipe("#s5-k2", W("v13", "open") - 0.3, 0.35);
+      wordIn("#s5-w-open", W("v13", "open"));
+      wordIn("#s5-w-source", W("v13", "source"));
+      wipe("#s5-o1", W("v13", "github") - 0.05, 0.4);
+      wipe("#s5-o2", W("v13", "pypi|pie") - 0.05, 0.35);
+      wipe("#s5-o3", W("v13", "pypi|pie") + 0.8, 0.35);
+
+      blurOut(["#s5-k2", "#s5-hl .w", "#s5-o1", "#s5-o2", "#s5-o3"], S1 - S0 - 0.25, 0.2);
+
+      window.__timelines["s5-proof"] = tl;
+    })();
+  </script>
+</template>

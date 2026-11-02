@@ -1,0 +1,140 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+  {"id":"color-ground","type":"color","label":"Background","default":"#161412"},
+  {"id":"color-ink","type":"color","label":"Text","default":"#F2EEE6"},
+  {"id":"color-accent","type":"color","label":"Accent","default":"#E8391F"},
+  {"id":"font-display","type":"string","label":"Display font","default":"Geist"}
+]'
+>
+  <head>
+    <meta charset="utf-8" />
+    <title>Orkestra: launch film v2</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/vo.js"></script>
+    <script src="assets/timing.js"></script>
+    <style>
+      @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+      @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+      @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Bold.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "Montserrat"; src: url("assets/fonts/Montserrat-SemiBold.woff2") format("woff2"); font-weight: 600; }
+      @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+      @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-SemiBold.woff2") format("woff2"); font-weight: 600; }
+
+      :root {
+        --color-ground: #161412;
+        --color-ink: #f2eee6;
+        --color-accent: #e8391f;
+        --color-ink-2: #9a948a;
+        --color-dim: #847e76;
+        --color-ok: #8fbf8a;
+        --font-display: "Geist";
+        --win: #1d1a17;
+        --win-line: rgba(242, 238, 230, 0.09);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { background: var(--color-ground); }
+      #main {
+        position: relative; width: 1920px; height: 1080px; overflow: hidden;
+        color: var(--color-ink); font-family: var(--font-display), "Geist", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* the ground: Orkestra ink, an 80 px hairline grid, one cream and one red light, grain, vignette */
+      #bg { position: absolute; inset: 0; background: var(--color-ground); }
+      #bg-light {
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(1100px 760px at 24% 30%, rgba(242, 238, 230, 0.07), rgba(242, 238, 230, 0) 70%),
+          radial-gradient(1300px 900px at 88% 96%, rgba(232, 57, 31, 0.16), rgba(232, 57, 31, 0) 70%);
+      }
+      #bg-grid {
+        position: absolute; inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(242, 238, 230, 0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(242, 238, 230, 0.05) 1px, transparent 1px);
+        background-size: 80px 80px; background-position: 0 0;
+      }
+      #bg-grain {
+        position: absolute; inset: 0; opacity: 0.07; mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='480'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      }
+      #bg-vignette {
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse 75% 75% at 50% 50%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.3) 100%);
+      }
+
+      /* shared parts, used by every scene */
+      .kicker {
+        position: absolute; font-family: "Montserrat", sans-serif; font-weight: 600; font-size: 24px;
+        letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent); white-space: nowrap;
+      }
+      .kicker .k-rest { color: var(--color-ink-2); margin-left: 0.5em; }
+      .hl {
+        position: absolute; font-weight: 600; letter-spacing: -0.055em; line-height: 0.96;
+        color: var(--color-ink); white-space: nowrap;
+      }
+      .hl .w { display: inline-block; }
+      .hl .acc { color: var(--color-accent); }
+      .list {
+        position: absolute; font-family: "Geist", sans-serif; font-weight: 500; font-size: 38px;
+        letter-spacing: -0.015em; color: var(--color-ink); white-space: nowrap;
+      }
+      .list .slash { color: var(--color-accent); margin-right: 0.6em; }
+      .caption { position: absolute; font-weight: 400; font-size: 34px; letter-spacing: -0.01em; color: var(--color-ink-2); white-space: nowrap; }
+      .win {
+        position: absolute; overflow: hidden; background: var(--win); border: 1px solid var(--win-line);
+        border-radius: 14px; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.5);
+      }
+      .win-bar {
+        height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 18px;
+        border-bottom: 1px solid var(--win-line); background: #191614;
+        font-family: "Geist Mono", monospace; font-size: 17px; color: var(--color-dim);
+      }
+      .win-bar i { width: 13px; height: 13px; border-radius: 50%; background: #4a443d; display: block; }
+      .win-bar .t { margin-left: 14px; letter-spacing: 0.04em; }
+      .mono { font-family: "Geist Mono", monospace; }
+      .chip {
+        position: absolute; font-family: "Montserrat", sans-serif; font-weight: 600; font-size: 18px; letter-spacing: 0.1em;
+        text-transform: uppercase; color: #161412; background: var(--color-accent); padding: 7px 14px; border-radius: 4px;
+      }
+      .ok { color: var(--color-ok); }
+      .dim { color: var(--color-dim); }
+      .ink2 { color: var(--color-ink-2); }
+      .acc { color: var(--color-accent); }
+    </style>
+  </head>
+  <body>
+    <div id="main" data-composition-id="main" data-start="0" data-duration="62.5" data-width="1920" data-height="1080">
+      <div id="bg">
+        <div id="bg-light"></div>
+        <div id="bg-grid"></div>
+        <div id="bg-grain"></div>
+        <div id="bg-vignette"></div>
+      </div>
+
+      <audio id="soundtrack" class="clip" src="assets/audio/mix.wav" data-start="0" data-duration="62.5" data-track-index="0" data-volume="1"></audio>
+
+      <div id="s1-problem" data-composition-id="s1-problem" data-composition-src="compositions/s1-problem.html" data-start="0" data-duration="11.4" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="s2-meet" data-composition-id="s2-meet" data-composition-src="compositions/s2-meet.html" data-start="11.4" data-duration="8.6" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="s3-how" data-composition-id="s3-how" data-composition-src="compositions/s3-how.html" data-start="20" data-duration="11.75" data-track-index="3" data-width="1920" data-height="1080"></div>
+      <div id="s4-repair" data-composition-id="s4-repair" data-composition-src="compositions/s4-repair.html" data-start="31.75" data-duration="8.25" data-track-index="4" data-width="1920" data-height="1080"></div>
+      <div id="s5-proof" data-composition-id="s5-proof" data-composition-src="compositions/s5-proof.html" data-start="40" data-duration="10" data-track-index="5" data-width="1920" data-height="1080"></div>
+      <div id="s6-try" data-composition-id="s6-try" data-composition-src="compositions/s6-try.html" data-start="50" data-duration="6" data-track-index="6" data-width="1920" data-height="1080"></div>
+      <div id="term-wrap" style="position: absolute; left: 192px; top: 470px; width: 1536px; height: 430px;">
+        <div id="code-terminal-run" data-composition-id="code-terminal-run" data-composition-src="compositions/code-terminal-run.html"
+          data-start="50.9" data-duration="5" data-track-index="7"
+          data-variable-values='{"prompt_glyph":"$","cadence":"human","cues":"1.55,2.0,2.45,2.9,3.35","accent":"violet","exit":"fade"}'
+          style="position: absolute; inset: 0; --fg: #F2EEE6; --bg: transparent; --surface: #1D1A17; --border: #4a443d; --muted: #9A948A; --brand: #8FBF8A; --accent-2: #E8391F; --font-mono: 'Geist Mono', monospace; --ctr-font-size: 26px; --radius: 14px;"></div>
+      </div>
+      <div id="s7-end" data-composition-id="s7-end" data-composition-src="compositions/s7-end.html" data-start="56" data-duration="6.5" data-track-index="8" data-width="1920" data-height="1080"></div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

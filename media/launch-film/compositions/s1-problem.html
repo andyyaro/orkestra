@@ -1,0 +1,98 @@
+<template>
+  <style>
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; }
+    @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; }
+    @font-face { font-family: "Geist Mono"; src: url("assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; }
+    #root { position: absolute; inset: 0; }
+    #s1-k { left: 192px; top: 300px; }
+    .s1-hl { left: 192px; top: 350px; font-size: 200px; }
+    .s1-roll { display: block; position: relative; height: 0.96em; }
+    .s1-roll-item { position: absolute; left: 0; top: 0; white-space: nowrap; }
+  </style>
+  <div id="root" data-composition-id="s1-problem" data-width="1920" data-height="1080">
+    <div id="s1-k" class="kicker">00 /<span class="k-rest">the problem</span></div>
+
+    <div id="s1-h1" class="hl s1-hl">
+      <span class="w" id="s1-w-you">you</span> <span class="w" id="s1-w-already">already</span> <span class="w" id="s1-w-use">use</span>
+      <span class="s1-roll">
+        <span class="s1-roll-item" id="s1-r0"><span class="w" id="s1-w-coding">coding</span> <span class="w" id="s1-w-agents">agents.</span></span>
+        <span class="s1-roll-item" id="s1-r1">claude code.</span>
+        <span class="s1-roll-item" id="s1-r2">codex.</span>
+        <span class="s1-roll-item" id="s1-r3">antigravity.</span>
+      </span>
+    </div>
+
+    <div id="s1-h2" class="hl s1-hl">
+      <span class="w" id="s1-w-one">one</span> <span class="w" id="s1-w-at">at</span> <span class="w" id="s1-w-a">a</span> <span class="w" id="s1-w-time">time</span><br />
+      <span class="w" id="s1-w-is">is</span> <span class="w ink2" id="s1-w-slow">slow.</span>
+    </div>
+
+    <div id="s1-h3" class="hl s1-hl">
+      <span class="w" id="s1-w-all">all</span> <span class="w" id="s1-w-at2">at</span> <span class="w" id="s1-w-once">once</span><br />
+      <span class="w" id="s1-w-is2">is</span> <span class="w acc" id="s1-w-chaos">chaos.</span>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const TM = window.TM, VO = window.VO;
+      const S0 = TM.s1[0], S1 = TM.s1[1];
+      const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      // a word's time in scene seconds, found by its text in the voice's word times ("a|b" for alternatives)
+      const W = (k, w, nth = 0) => {
+        const alts = w.split("|");
+        for (const exact of [true, false]) {
+          let c = 0;
+          for (const x of VO[k].words) {
+            const t = norm(x.w);
+            if (alts.some((a) => (exact ? t === a : t.startsWith(a)))) { if (c === nth) return x.t0 - S0; c++; }
+          }
+        }
+        return VO[k].start - S0;
+      };
+      const F = (t) => t - S0; // film seconds -> scene seconds
+      const q = (s) => document.querySelector(s);
+      const tl = gsap.timeline({ paused: true });
+
+      const wordIn = (el, t) =>
+        tl.fromTo(el, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, t - 0.03);
+      const blurOut = (els, t, d = 0.18) =>
+        tl.to(els, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power3.in" }, t);
+      const typeOn = (el, t, n, d) =>
+        tl.fromTo(el, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: d, ease: "power2.out" }, t);
+
+      // everything that arrives later starts hidden
+      gsap.set(["#s1-h1 .w", "#s1-h2 .w", "#s1-h3 .w", "#s1-r1", "#s1-r2", "#s1-r3"], { opacity: 0 });
+
+      typeOn("#s1-k", 0.45, 18, 0.5);
+
+      // "you already use coding agents." on the voice
+      [["#s1-w-you", "you"], ["#s1-w-already", "already"], ["#s1-w-use", "use"], ["#s1-w-coding", "coding"], ["#s1-w-agents", "agents"]].forEach(([s, w]) => wordIn(s, W("v01", w)));
+
+      // the last words roll like a slot machine: claude code. / codex. / antigravity.
+      const roll = (outSel, inSel, t) => {
+        tl.to(outSel, { y: -90, opacity: 0, filter: "blur(6px)", duration: 0.13, ease: "power3.in" }, t - 0.06);
+        tl.fromTo(inSel, { y: 90, opacity: 0, filter: "blur(6px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "expo.out" }, t + 0.04);
+      };
+      roll("#s1-r0", "#s1-r1", W("v02", "claude"));
+      roll("#s1-r1", "#s1-r2", W("v02", "codex"));
+      roll("#s1-r2", "#s1-r3", W("v02", "anti"));
+
+      blurOut(["#s1-w-you", "#s1-w-already", "#s1-w-use", "#s1-r3"], W("v03", "one") - 0.4);
+
+      // "one at a time is slow."
+      [["#s1-w-one", "one"], ["#s1-w-at", "at"], ["#s1-w-a", "a"], ["#s1-w-time", "time"], ["#s1-w-is", "is"], ["#s1-w-slow", "slow"]].forEach(([s, w]) => wordIn(s, W("v03", w)));
+      blurOut("#s1-h2 .w", W("v04", "all") - 0.3);
+
+      // "all at once is chaos."
+      [["#s1-w-all", "all"], ["#s1-w-at2", "at"], ["#s1-w-once", "once"], ["#s1-w-is2", "is"]].forEach(([s, w]) => wordIn(s, W("v04", w)));
+      tl.fromTo("#s1-w-chaos", { opacity: 0, x: -40, filter: "blur(12px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.22, ease: "expo.out" }, W("v04", "chaos") - 0.03);
+
+      // the build into the drop: the stage empties, the ground stays
+      blurOut(["#s1-h3 .w", "#s1-k"], S1 - 0.4, 0.22);
+
+      window.__timelines["s1-problem"] = tl;
+    })();
+  </script>
+</template>
